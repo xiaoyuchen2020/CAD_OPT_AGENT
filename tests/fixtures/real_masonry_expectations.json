@@ -1,0 +1,525 @@
+{
+  "provenance": "Agent-authored checks from native DXF text/coordinates. Development regression only; no independent business acceptance.",
+  "checks": [
+    {
+      "sample_id": "sample-59",
+      "contains": "200厚B06级蒸压加气混凝土砌块",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          200
+        ],
+        "mortar_grade": null,
+        "wall_role": "inner",
+        "density_grade": "B06"
+      },
+      "review_note": "隔声表：砌块200，两侧抹灰15；不混入同单元格的钢筋混凝土备选行。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "200厚B06级蒸压加气混凝土砌块",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          200
+        ],
+        "mortar_grade": null,
+        "wall_role": "inner",
+        "density_grade": "B06"
+      },
+      "review_note": "隔声表：砌块200，两侧抹灰15；不混入同单元格的钢筋混凝土备选行。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "MU20水泥实心砖。混凝土砖",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU20",
+        "mortar_grade": "M20",
+        "thickness_mm": null,
+        "elevation_scope": "below_ground",
+        "wall_role": "inner",
+        "scope_qualifiers": "（非地下室室内部分）"
+      },
+      "review_note": "两张相关样本的章节限定不同：59为非地下室室内部分，60为地下室室内部分，分别保留证据，不做同文覆盖。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "MU20水泥实心砖。混凝土砖",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU20",
+        "mortar_grade": "M20",
+        "thickness_mm": null,
+        "elevation_scope": "below_ground",
+        "wall_role": "inner",
+        "scope_qualifiers": "（地下室室内部分）"
+      },
+      "review_note": "两张相关样本的章节限定不同：59为非地下室室内部分，60为地下室室内部分，分别保留证据，不做同文覆盖。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "室外部分墙体采用",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU20",
+        "mortar_grade": "M20",
+        "thickness_mm": [
+          240
+        ],
+        "wall_role": null
+      },
+      "review_note": "室外部分不是可直接等同外墙的分类；保留未知。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "室外部分墙体采用",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU20",
+        "mortar_grade": "M20",
+        "thickness_mm": [
+          240
+        ],
+        "wall_role": null
+      },
+      "review_note": "室外部分不是可直接等同外墙的分类；保留未知。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "2、本施工图中",
+      "application_contains": null,
+      "expected": {
+        "role_parameters": {
+          "outer": {
+            "thickness_mm": [
+              240
+            ]
+          },
+          "inner": {
+            "thickness_mm": [
+              100,
+              200
+            ]
+          }
+        },
+        "elevation_scope": "above_ground"
+      },
+      "review_note": "跨行100厚归内墙，PC备选保留待核查。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "2、本施工图中",
+      "application_contains": null,
+      "expected": {
+        "role_parameters": {
+          "outer": {
+            "thickness_mm": [
+              240
+            ]
+          },
+          "inner": {
+            "thickness_mm": [
+              100,
+              200
+            ]
+          }
+        },
+        "elevation_scope": "above_ground"
+      },
+      "review_note": "跨行100厚归内墙，PC备选保留待核查。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "a、砌块的体积密度",
+      "application_contains": null,
+      "expected": {
+        "role_parameters": {
+          "outer": {
+            "density_grade": [
+              "B06"
+            ],
+            "strength_grade": [
+              "A5.0"
+            ]
+          },
+          "inner": {
+            "density_grade": [
+              "B06"
+            ],
+            "strength_grade": [
+              "A3.5"
+            ]
+          }
+        }
+      },
+      "review_note": "分号后的内墙等级不得丢弃；尚未自动关联上级材料选型。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "a、砌块的体积密度",
+      "application_contains": null,
+      "expected": {
+        "role_parameters": {
+          "outer": {
+            "density_grade": [
+              "B06"
+            ],
+            "strength_grade": [
+              "A5.0"
+            ]
+          },
+          "inner": {
+            "density_grade": [
+              "B06"
+            ],
+            "strength_grade": [
+              "A3.5"
+            ]
+          }
+        }
+      },
+      "review_note": "分号后的内墙等级不得丢弃；尚未自动关联上级材料选型。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "3、管道井隔墙",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          100,
+          200
+        ],
+        "strength_grade": "A5.0",
+        "density_grade": "B06",
+        "elevation_scope": null
+      },
+      "review_note": "第3项是第2项的同级条款，不能继承第2项地上范围。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "3、管道井隔墙",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          100,
+          200
+        ],
+        "strength_grade": "A5.0",
+        "density_grade": "B06",
+        "elevation_scope": null
+      },
+      "review_note": "第3项是第2项的同级条款，不能继承第2项地上范围。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "13J104第A58页",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": null,
+        "statement_kind": "reference"
+      },
+      "review_note": "A58/A60为图集页码，不是强度等级。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "13J104第A58页",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": null,
+        "statement_kind": "reference"
+      },
+      "review_note": "A58/A60为图集页码，不是强度等级。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "屋面砖砌女儿墙砌体采用",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU10",
+        "material": "混凝土多孔砖",
+        "thickness_mm": null
+      },
+      "review_note": "找回前一行的女儿墙主体，导墙高度和后续压顶厚度均不归块材。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "屋面砖砌女儿墙砌体采用",
+      "application_contains": null,
+      "expected": {
+        "strength_grade": "MU10",
+        "material": "混凝土多孔砖",
+        "thickness_mm": null
+      },
+      "review_note": "找回前一行的女儿墙主体，导墙高度和后续压顶厚度均不归块材。"
+    },
+    {
+      "sample_id": "sample-59",
+      "contains": "均不得有漏浆",
+      "application_contains": null,
+      "expected": {
+        "statement_kind": "reference"
+      },
+      "review_note": "不得漏浆不是材料禁用条款；保留装修做法引用。"
+    },
+    {
+      "sample_id": "sample-60",
+      "contains": "均不得有漏浆",
+      "application_contains": null,
+      "expected": {
+        "statement_kind": "reference"
+      },
+      "review_note": "不得漏浆不是材料禁用条款；保留装修做法引用。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "所有外墙砌筑墙采用",
+      "application_contains": "1.3、",
+      "expected": {
+        "density_grade": "B07",
+        "strength_grade": "A5.0",
+        "mortar_grade": "M5.0",
+        "thickness_mm": [
+          240
+        ],
+        "elevation_scope": null
+      },
+      "review_note": "住宅章节范围来自独立标题，不推出地上或保温要求。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "所有外墙砌筑墙采用",
+      "application_contains": "1.3、",
+      "expected": {
+        "density_grade": "B07",
+        "strength_grade": "A5.0",
+        "mortar_grade": "M5.0",
+        "thickness_mm": [
+          240
+        ],
+        "elevation_scope": null
+      },
+      "review_note": "住宅章节范围来自独立标题，不推出地上或保温要求。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "分户墙采用",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          200,
+          240
+        ],
+        "mortar_grade": "M5.0",
+        "density_grade": "B07"
+      },
+      "review_note": "分户墙200或240，保留备选厚度。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "分户墙采用",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": [
+          200,
+          240
+        ],
+        "mortar_grade": "M5.0",
+        "density_grade": "B07"
+      },
+      "review_note": "分户墙200或240，保留备选厚度。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "除以上注明外的其他内墙",
+      "application_contains": null,
+      "expected": {
+        "mortar_grade": "M5.0",
+        "density_grade": "B06",
+        "strength_grade": "A3.5",
+        "thickness_mm": [
+          100,
+          200
+        ]
+      },
+      "review_note": "下一行专用粘结剂属于该条款，除外限定保留。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "除以上注明外的其他内墙",
+      "application_contains": null,
+      "expected": {
+        "mortar_grade": "M5.0",
+        "density_grade": "B06",
+        "strength_grade": "A3.5",
+        "thickness_mm": [
+          100,
+          200
+        ]
+      },
+      "review_note": "下一行专用粘结剂属于该条款，除外限定保留。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "（2）除注明外，内墙采用",
+      "application_contains": null,
+      "expected": {
+        "application_scope": "1.4、除住宅外的其他配套公建和设备用房等建筑砌筑墙体材料：",
+        "thickness_mm": null
+      },
+      "review_note": "公建/设备用房标题不串回住宅，厚度详建施图继续未知。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "（2）除注明外，内墙采用",
+      "application_contains": null,
+      "expected": {
+        "application_scope": "1.4、除住宅外的其他配套公建和设备用房等建筑砌筑墙体材料：",
+        "thickness_mm": null
+      },
+      "review_note": "公建/设备用房标题不串回住宅，厚度详建施图继续未知。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "所有外墙砌筑墙采用",
+      "application_contains": "1.4、",
+      "expected": {
+        "material": "蒸压砂加气混凝土砌块",
+        "density_grade": "B07",
+        "strength_grade": "A5.0",
+        "mortar_grade": "M5.0"
+      },
+      "review_note": "样本61公建外墙仍是B07/A5.0加气砌块，保留样本差异。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "所有外墙砌筑墙采用",
+      "application_contains": "1.4、",
+      "expected": {
+        "material": "混凝土多孔砖",
+        "density_grade": null,
+        "strength_grade": "MU10",
+        "mortar_grade": "M5.0"
+      },
+      "review_note": "样本62公建外墙改为MU10多孔砖；空括号不能补写B07。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "室外地坪标高以下采用",
+      "application_contains": null,
+      "expected": {
+        "material": "机制实心水泥砖",
+        "strength_grade": "MU20",
+        "mortar_grade": "M7.5",
+        "elevation_scope": "below_ground",
+        "wall_role": null
+      },
+      "review_note": "新增漏提机制实心水泥砖；分号后钢筋混凝土外墙不串入该材料。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "室外地坪标高以下采用",
+      "application_contains": null,
+      "expected": {
+        "material": "机制实心水泥砖",
+        "strength_grade": "MU20",
+        "mortar_grade": "M7.5",
+        "elevation_scope": "below_ground",
+        "wall_role": null
+      },
+      "review_note": "新增漏提机制实心水泥砖；分号后钢筋混凝土外墙不串入该材料。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "屋顶女儿墙采用",
+      "application_contains": null,
+      "expected": {
+        "density_grade": "B07",
+        "strength_grade": "A5.0",
+        "mortar_grade": "M5.0",
+        "elevation_scope": null
+      },
+      "review_note": "跨行强度找回；钢筋混凝土/砌块备选待复核；不继承前一分号的地坪以下。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "屋顶女儿墙采用",
+      "application_contains": null,
+      "expected": {
+        "density_grade": "B07",
+        "strength_grade": "A5.0",
+        "mortar_grade": "M5.0",
+        "elevation_scope": null
+      },
+      "review_note": "跨行强度找回；钢筋混凝土/砌块备选待复核；不继承前一分号的地坪以下。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "地下室所有内分隔墙",
+      "application_contains": null,
+      "expected": {
+        "material": "混凝土多孔砖",
+        "strength_grade": "MU10",
+        "wall_role": "inner",
+        "elevation_scope": "below_ground"
+      },
+      "review_note": "原样本61为MU10多孔砖，不采用样本62的材料。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "地下室所有内分隔墙",
+      "application_contains": null,
+      "expected": {
+        "material": "水泥实心砖",
+        "strength_grade": "MU20",
+        "wall_role": "inner",
+        "elevation_scope": "below_ground"
+      },
+      "review_note": "原样本62为MU20水泥实心砖。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "消火栓洞后砌筑",
+      "application_contains": null,
+      "expected": {
+        "material": "加气混凝土砌块",
+        "thickness_mm": [
+          100
+        ]
+      },
+      "review_note": "拼回跨行材料名；240为主体墙，160为栓箱，100才是洞后砌筑厚度。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "消火栓洞后砌筑",
+      "application_contains": null,
+      "expected": {
+        "material": "加气混凝土砌块",
+        "thickness_mm": [
+          100
+        ]
+      },
+      "review_note": "拼回跨行材料名；240为主体墙，160为栓箱，100才是洞后砌筑厚度。"
+    },
+    {
+      "sample_id": "sample-61",
+      "contains": "填充墙砌块砌至梁底",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": null,
+        "statement_kind": "material_mention"
+      },
+      "review_note": "15~25为留缝，25mm为封缝砂浆，均非块材墙厚。"
+    },
+    {
+      "sample_id": "sample-62",
+      "contains": "填充墙砌块砌至梁底",
+      "application_contains": null,
+      "expected": {
+        "thickness_mm": null,
+        "statement_kind": "material_mention"
+      },
+      "review_note": "15~25为留缝，25mm为封缝砂浆，均非块材墙厚。"
+    }
+  ]
+}

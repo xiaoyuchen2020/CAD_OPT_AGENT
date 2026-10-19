@@ -1,0 +1,9 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG WORKER_SHA256
+LABEL cad.adaptation.runner-sha256=$WORKER_SHA256
+COPY runner.py fixed_worker.py /app/
+WORKDIR /work
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 65534:65534
+ENTRYPOINT ["python", "-I", "-B", "/app/runner.py"]

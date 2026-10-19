@@ -1,0 +1,21 @@
+{
+  "version": "synthetic-contract-v1",
+  "runtime_mode": "synthetic_contract",
+  "drawings": [
+    {"key": "alpha", "units": 4, "scale": 1000, "frame": [0, 0, 30, 20], "rectangle": [6, 4], "lines": ["ALPHA 防水等级：一级", "ALPHA 保温材料：岩棉", "ALPHA 门宽：900mm"], "paper_text": "ALPHA PAPER 独立布局"},
+    {"key": "beta", "units": 6, "scale": 1, "frame": [-5, -5, 40, 30], "rectangle": [7, 3], "lines": ["BETA 防水等级：二级", "BETA 保温材料：玻璃棉", "BETA 门宽：1200mm"], "paper_text": "BETA PAPER 独立布局"},
+    {"key": "gamma", "units": 0, "scale": 100, "frame": [-10, -10, 50, 40], "rectangle": [8, 5], "lines": ["GAMMA 防水等级：三级", "GAMMA 保温材料：泡沫玻璃", "GAMMA 门宽：1500mm"], "paper_text": "GAMMA PAPER 独立布局"}
+  ],
+  "tasks": [
+    {"id":"literal_alpha","drawing":"alpha","operation":"literal","query":"防水等级","expected":{"quote":"ALPHA 防水等级：一级","count":1}},
+    {"id":"literal_beta","drawing":"beta","operation":"literal","query":"保温材料","expected":{"quote":"BETA 保温材料：玻璃棉","count":1}},
+    {"id":"literal_gamma","drawing":"gamma","operation":"literal","query":"门宽","expected":{"quote":"GAMMA 门宽：1500mm","count":1}},
+    {"id":"area_alpha","drawing":"alpha","operation":"area","expected":{"status":"measured","value":24.0,"formula":"6 * 4 = 24 m2"}},
+    {"id":"area_beta","drawing":"beta","operation":"area","expected":{"status":"measured","value":21.0,"formula":"7 * 3 = 21 m2"}},
+    {"id":"unknown_unit_gamma","drawing":"gamma","operation":"area","expected":{"status":"unresolved","value":null,"diagnostic":"unknown_units"}},
+    {"id":"pagination_alpha","drawing":"alpha","operation":"pagination","query":"ALPHA","expected":{"total":3,"quotes":["ALPHA 防水等级：一级","ALPHA 保温材料：岩棉","ALPHA 门宽：900mm"]}},
+    {"id":"scope_beta","drawing":"beta","operation":"scope","query":"BETA","expected":{"total":1,"quote":"BETA PAPER 独立布局"}},
+    {"id":"isolation_gamma","drawing":"gamma","operation":"isolation","query":"ALPHA","expected":{"total":0}},
+    {"id":"lexical_alpha","drawing":"alpha","operation":"lexical","query":"岩棉","expected":{"quote":"ALPHA 保温材料：岩棉","minimum_hits":1}}
+  ]
+}

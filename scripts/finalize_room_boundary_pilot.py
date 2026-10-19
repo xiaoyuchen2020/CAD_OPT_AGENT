@@ -1,0 +1,42 @@
+"""Publish local review evidence; never adopts a candidate or registers a method."""
+import html,json,shutil
+from datetime import datetime,timezone
+from scripts.room_boundary_pilot import OUT,ROOT,read,dump,sha
+
+def main():
+    r=read('run.json');b=read('input.json');p=read('preservation.json');o=read('execution-2.json')['output']
+    summary=dict(case='孔浦地块人防地下室施工图20240911_t3.dwg / 公变 3552_01_1',status='unresolved',
+      source_sha256=b['source_sha256'],input_id=b['input_id'],model='GPT-6.1 Sol via ChatGPT direct subscription',model_requests=3,
+      complete_proposals=2,failed_model_requests=1,reported_tokens_for_complete_requests=93881,total_tokens='unknown: failed request usage was not persisted',
+      baseline_status='needs_review',baseline_candidate_area_m2=40.8792,dynamic_candidate_area_m2=o['area']/1e6,
+      dynamic_candidate_area_accepted=False,accepted_new_recoveries=0,assistant_full_extent_review=True,
+      final_rejection='BOUNDARY_NUMERICAL_BACKTRACK',source_segments=584,local_texts=len(b['texts']),native_visible_segments=584,excluded_crossing_count=len(o['excluded_crossing_ids']),
+      unit_evidence=b['unit_evidence'],sandbox_executions=4,metamorphic_replays=2,metamorphic_results='both rejected with same backtrack error',
+      negative_controls=12,tests_passed=69,baseline_output_unchanged=True,historical_evidence_files_unchanged=sum(v['files'] for v in p['sealed_prior_evidence']),
+      production_edits_by_this_pilot=False,concurrent_workspace_changed_files=p['production_changes'],
+      automatic_adoption=False,automatic_registration=False,human_signoff=False,
+      next_work=['Generate robust noding and zero-width-backtrack removal with a separately bounded new run; current 3-call run is closed.',
+        'Reduce model input repetition using lossless short-ID mapping/local coordinates while preserving all source and visibility bindings.',
+        'Keep independent precision/backtrack gates and visual door-boundary review; add cross-drawing validation only after this raw candidate passes.'])
+    dump(OUT/'summary.json',summary)
+    dump(OUT/'visual-review-pending.json',dict(status='superseded_by_completed_review',artifact='assistant-visual-review.json'))
+    for name in ['room_boundary_pilot.py','room_boundary_pilot_validation.py','repair_room_boundary_pilot.py','report_room_boundary_pilot.py','finalize_room_boundary_pilot.py']:
+        shutil.copy2(ROOT/'scripts'/name,OUT/'implementation'/name) if (OUT/'implementation').exists() else ((OUT/'implementation').mkdir(),shutil.copy2(ROOT/'scripts'/name,OUT/'implementation'/name))
+    shutil.copy2(ROOT/'tests/test_room_boundary_pilot.py',OUT/'implementation/test_room_boundary_pilot.py')
+    def link(p,label=None):return f'<a href="{p}">{html.escape(label or p)}</a>'
+    page='''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>孔浦公变 · 动态边界试点</title><style>
+body{font:16px/1.7 system-ui,sans-serif;color:#172a36;background:#f3f5f7;margin:0}main{max-width:1250px;margin:auto;padding:32px}h1{font-size:30px;margin-bottom:8px}h2{font-size:21px}section,.card{background:white;border:1px solid #dce3e7;border-radius:12px;padding:22px;margin:20px 0}a{color:#126184}code{overflow-wrap:anywhere}.warning{background:#fff1ee;border-left:5px solid #c0472e;padding:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{padding:16px;background:white;border-radius:8px}.stat strong{font-size:25px;display:block}.stat span,figcaption{color:#536572}img{width:100%;display:block;background:white}figure{margin:0}th,td{text-align:left;border-bottom:1px solid #dae2e7;padding:10px}table{border-collapse:collapse;width:100%}.small{font-size:13px;color:#596c76}li{margin:8px 0}@media(max-width:760px){.grid,.stats{grid-template-columns:1fr}main{padding:16px}}</style><main>
+<h1>孔浦公变房间：动态边界适配试点</h1><p>孔浦地块人防地下室施工图20240911_t3.dwg · 公变 3552_01_1 · 2026-10-16</p>
+<div class="warning"><strong>结果：未解决，合格新增恢复 0。</strong> GPT 第二版已覆盖完整房间，但独立验证发现门窗边缘的近零宽度折返；第三次模型请求未完成。未采用候选，未注册公共方法。绿色仅表示被审查的候选。</div>
+<div class="stats"><div class="stat"><strong>584 / 584</strong><span>局部原生线段可见</span></div><div class="stat"><strong>毫米</strong><span>DXF INSUNITS = 4</span></div><div class="stat"><strong>3 次</strong><span>GPT-6.1 Sol 请求，2 次完整返回</span></div><div class="stat"><strong>69 / 12</strong><span>相关测试通过 / 错误检查拒绝</span></div></div>
+<section><h2>旧组件与动态候选</h2><div class="grid"><figure><a href="baseline-overlay.svg"><img src="baseline-overlay.png"></a><figcaption>原组件：40.8792 m² 候选，needs_review；只围住中段，前后输出摘要一致。</figcaption></figure><figure><a href="candidate-overlay.svg"><img src="candidate-overlay.png"></a><figcaption>动态第二版：约 159.225 m² 的观测围合候选，已被拒绝。这不是可采用的房间净面积。</figcaption></figure></div></section>
+<section><h2>原图视觉复核</h2><p>助手复核确认公变身份和完整纵向范围；左侧体育设施、卫生间没有并入，柱位凹入保留。声明排除 13 条非围护层线段，其中含轴线、DOTE、楼梯等，不能笼统称为 13 条轴线。门洞位置仍沿原生门窗图元外伸，净面积口径未认可。</p><div class="grid"><figure><a href="candidate-detail.svg"><img src="candidate-detail.png"></a><figcaption>整体范围与公变原图一致；这只是视觉进展，不能覆盖数值验证的拒绝。</figcaption></figure><figure><a href="crossing-exclusions.svg"><img src="crossing-exclusions.png"></a><figcaption>洋红色为声明排除的线段；原图自身也有洋红色线，逐项来源见 execution-2.json。</figcaption></figure></div><p><a href="source.svg">无叠加原图</a> · <a href="assistant-visual-review.json">助手视觉复核记录与图片哈希</a></p></section>
+<section><h2>为何拒绝面积看似合理的候选</h2><p>原生门窗图元的近重合端点使环路出现近零宽度折返。候选和独立参考面的面积差只有约 0.000527 平方毫米，但边界距离达到约 60 mm。因此不能仅按面积接近接受结果。</p><div class="grid"><figure><a href="upper-door.svg"><img src="upper-door.png"></a><figcaption>上部门洞：原生门窗线和候选局部。</figcaption></figure><figure><a href="lower-door.svg"><img src="lower-door.png"></a><figcaption>下部门洞：门框折返及边界口径仍需处理。</figcaption></figure></div><p>验证器 v2 将独立参考拓扑的精度固定为 0.00001 mm，另加候选原始边界与规范化边界的偏差检查。第二版仍因 BOUNDARY_NUMERICAL_BACKTRACK 被拒绝，没有通过降低要求接受候选。</p><p><a href="validator-change-audit.json">验证器修改依据</a> · <a href="validator-v1.py">v1 快照</a> · <a href="validator-v2.py">v2 快照</a> · <a href="validation-2-v2.json">同一候选的 v2 拒绝</a></p></section>
+<section><h2>模型与隔离执行</h2><table><tr><th>轮次</th><th>结果</th><th>证据</th></tr><tr><td>1</td><td>生成代码并执行；遇斜向门窗几何，主动返回未解决。</td><td><a href="candidate-1.py">代码</a> · <a href="execution-1.json">执行</a></td></tr><tr><td>2</td><td>生成通用平面图寻面代码；整体选界改善，折返被拒绝。</td><td><a href="candidate-2.py">代码</a> · <a href="execution-2.json">执行</a></td></tr><tr><td>3</td><td>仅请求通用折返修正，没有新增图纸外发；SIWC_RESPONSE_FAILED，未获得完整代码，未执行部分结果。</td><td><a href="prompt-3.json">请求</a> · <a href="run.json">完整记录</a></td></tr></table><p>通过已连接的 ChatGPT 直接订阅调用 GPT-6.1 Sol。前两次发送同一选中局部的 584 条线段、24 段原文及可见性/单位证据；没有发送整份图纸。两次完整响应合计报告 93,881 tokens；失败请求的用量未持久化，总实际用量未知，不能写成零。失败记录路径已补充用量/诊断保存，但本轮没有重试。</p><p>已生成代码只在固定镜像 Docker 中执行：network=none、只读根目录、无主机挂载、非 root、cap-drop ALL、512 MiB、32 PID、20 秒限制。两次生成执行及两次稳定性重放的实际隔离配置均保存在 execution JSON。</p></section>
+<section><h2>单位、可见性和来源</h2><p>使用原 DXF 的 INSUNITS=4 → mm → 0.001 m；无用户单位覆盖。MEASUREMENT=0 是制式设置，不能据此改成英制。该证据证明转换后 DXF 的单位声明，不等于独立现场标定。</p><p>可见性逐级检查 INSERT 祖先、图层 0 继承、off/frozen、实体 invisible；本局部未发现 XCLIP。只覆盖 Model 空间；不声称覆盖图纸空间视口和打印可见性。每条原生线段端点均已从源 DXF 重新核对。</p><p>''' +link('input.json','冻结输入与完整来源')+' · '+link('source-audit.json','原生来源审计')+' · '+link('render-provenance.json','渲染来源')+'''</p></section>
+<section><h2>验证与行为保护</h2><ul><li>12 项错误控制按预期拒绝：9 项真实候选/证据变异，3 项以合格合成样本为阳性对照的错误结果；避免把原本就失败的样本当作全部拒绝测试的依据。</li><li>69 项试点、既有适配和房间几何测试通过。</li><li>同一代码进行坐标平移、线段逆序反向两次合成变换重放，均复现折返拒绝。它们不是新图纸验证，也不计新增恢复。</li><li>旧组件同一请求前后输出摘要一致；5 个历史证据目录共 1426 个文件哈希保持一致。</li><li>本试点只新增 scripts/tests/文档/证据。工作区另有其他任务的文件变动，逐项保留在 preservation.json，没有回滚或冒称整个工作区未变。</li></ul><p>''' + ' · '.join(link(x) for x in ['negative-controls.json','test-results.json','metamorphic-checks.json','preservation.json','summary.json'])+'''</p></section>
+<section><h2>下一步</h2><p>当前运行已达到 3 次请求上限并关闭。下一轮应先压缩无损短 ID 与局部坐标表示，给生成和修正保留足够预算；针对端点归并、重叠线段切分、零宽度折返清理生成完整新版本。原始候选通过当前独立验证后，再评审门洞净边界口径和跨图纸复用；不能把本轮视觉进展沉淀为公共方法。</p><p class="small">此页为本地旁路实验记录，非公共方法登记、非工程净面积签认。完整文件摘要见 evidence-sha256.json。</p></section></main></html>'''
+    (OUT/'review.html').write_text(page)
+    dump(OUT/'evidence-sha256.json',{str(f.relative_to(OUT)):sha(f) for f in sorted(OUT.rglob('*')) if f.is_file() and 'data' not in f.relative_to(OUT).parts and f.name!='evidence-sha256.json' and '__pycache__' not in f.parts})
+    manifest=read('evidence-sha256.json');assert all(sha(OUT/p)==h for p,h in manifest.items());print('sealed',len(manifest),'files',flush=True)
+if __name__=='__main__':main()

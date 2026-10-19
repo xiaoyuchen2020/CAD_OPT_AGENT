@@ -1,0 +1,312 @@
+{
+  "version": "real-geometry-pipeline-v1",
+  "runtime_mode": "geometry_pipeline_e2e",
+  "annotation_source": "artifacts/opening-types-final-20261015/manual-annotations.json",
+  "evidence_class": "agent_manual_review_of_native_DXF_linework_and_labels_not_independent_human_acceptance",
+  "sampling": "Curated challenge set; includes every typed physical output and six visible apertures absent from output. Not an exhaustive all-drawing census or blinded accuracy benchmark.",
+  "matching_distance_native": 180,
+  "cases": [
+    {
+      "case": "ligong-east",
+      "source": "artifacts/opening-types-build-20261015/data/drawings/snap_e316a1345c7a5db25e19458f/source.dxf",
+      "sha256": "3f50fd64493b25f6d73e3a132a6c64c1e7369479775a2fdbf30298f06972df77",
+      "bbox": [
+        112000,
+        -184000,
+        128000,
+        -170000
+      ],
+      "max_opening_m": 3,
+      "unit_override": "mm",
+      "annotation_samples": [
+        {
+          "id": "ligong-east-old-O1",
+          "case": "ligong-east",
+          "anchor": [
+            121053.0,
+            -177345.0
+          ],
+          "reference_bbox": [
+            120578.0,
+            -177395.0,
+            121528.0,
+            -177295.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O2",
+          "case": "ligong-east",
+          "anchor": [
+            119988.0,
+            -180915.0
+          ],
+          "reference_bbox": [
+            119188.0,
+            -181035.0,
+            120788.0,
+            -180795.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": "sliding",
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O3",
+          "case": "ligong-east",
+          "anchor": [
+            121328.0,
+            -173175.0
+          ],
+          "reference_bbox": [
+            120628.0,
+            -173295.0,
+            122028.0,
+            -173055.0
+          ],
+          "expected_identity": "window",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O4",
+          "case": "ligong-east",
+          "anchor": [
+            120653.0,
+            -176145.0
+          ],
+          "reference_bbox": [
+            120178.0,
+            -176195.0,
+            121128.0,
+            -176095.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O5",
+          "case": "ligong-east",
+          "anchor": [
+            119428.0,
+            -173175.0
+          ],
+          "reference_bbox": [
+            119078.0,
+            -173295.0,
+            119778.0,
+            -173055.0
+          ],
+          "expected_identity": "window",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O6",
+          "case": "ligong-east",
+          "anchor": [
+            119503.0,
+            -176095.0
+          ],
+          "reference_bbox": [
+            119078.0,
+            -176195.0,
+            119928.0,
+            -175995.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O7",
+          "case": "ligong-east",
+          "anchor": [
+            125248.0,
+            -177045.0
+          ],
+          "reference_bbox": [
+            125128.0,
+            -177395.0,
+            125368.0,
+            -176695.0
+          ],
+          "expected_identity": "window",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O8",
+          "case": "ligong-east",
+          "anchor": [
+            122853.0,
+            -177345.0
+          ],
+          "reference_bbox": [
+            122378.0,
+            -177395.0,
+            123328.0,
+            -177295.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O9",
+          "case": "ligong-east",
+          "anchor": [
+            118348.0,
+            -172435.0
+          ],
+          "reference_bbox": [
+            118228.0,
+            -172835.0,
+            118468.0,
+            -172035.0
+          ],
+          "expected_identity": "window",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O10",
+          "case": "ligong-east",
+          "anchor": [
+            123728.0,
+            -172225.0
+          ],
+          "reference_bbox": [
+            122828.0,
+            -172345.0,
+            124628.0,
+            -172105.0
+          ],
+          "expected_identity": "window",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O11",
+          "case": "ligong-east",
+          "anchor": [
+            113478.0,
+            -172195.0
+          ],
+          "reference_bbox": [
+            112928.0,
+            -172295.0,
+            114028.0,
+            -172095.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O12",
+          "case": "ligong-east",
+          "anchor": [
+            115578.0,
+            -172195.0
+          ],
+          "reference_bbox": [
+            115028.0,
+            -172295.0,
+            116128.0,
+            -172095.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O13",
+          "case": "ligong-east",
+          "anchor": [
+            122903.0,
+            -176145.0
+          ],
+          "reference_bbox": [
+            122428.0,
+            -176195.0,
+            123378.0,
+            -176095.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        },
+        {
+          "id": "ligong-east-old-O14",
+          "case": "ligong-east",
+          "anchor": [
+            123478.0,
+            -177770.0
+          ],
+          "reference_bbox": [
+            123428.0,
+            -178245.0,
+            123528.0,
+            -177295.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native M/C label and frame/swing evidence reviewed in source plan."
+        }
+      ]
+    },
+    {
+      "case": "property-bath",
+      "source": "artifacts/opening-types-build-20261015/data/drawings/snap_77b384ae399a2c5c69f5a23a/source.dxf",
+      "sha256": "fe6c8cd0a708601c3e66ead691ccdcd504997fcb465133b45b65e9de9dce0a69",
+      "bbox": [
+        14500,
+        -6500,
+        20500,
+        5000
+      ],
+      "max_opening_m": 3,
+      "unit_override": "mm",
+      "annotation_samples": [
+        {
+          "id": "property-bath-old-O1",
+          "case": "property-bath",
+          "anchor": [
+            16746.0,
+            2092.0
+          ],
+          "reference_bbox": [
+            16171.0,
+            2042.0,
+            17321.0,
+            2142.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": null,
+          "basis": "Native radial swing leaf plus local plan context; O2 has two complementary leaves."
+        },
+        {
+          "id": "property-bath-old-O2",
+          "case": "property-bath",
+          "anchor": [
+            17751.0,
+            -4778.0
+          ],
+          "reference_bbox": [
+            16731.0,
+            -4898.0,
+            18771.0,
+            -4658.0
+          ],
+          "expected_identity": "door",
+          "expected_operation": "double_swing",
+          "basis": "Native radial swing leaf plus local plan context; O2 has two complementary leaves."
+        }
+      ]
+    }
+  ]
+}
