@@ -59,6 +59,9 @@ def reindex_drawing(workspace, snapshot_id):
                 # Publish the metadata last. Old snapshots/evidence never move.
                 shutil.move(str(folder), str(destination))
                 try:
+                    references = workspace.store.share_artifacts(sid)
+                    if references:
+                        record["artifact_references"] = references
                     workspace.store.put('drawing', sid, record)
                 except Exception:
                     shutil.rmtree(destination)

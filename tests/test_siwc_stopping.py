@@ -26,6 +26,9 @@ def make_stopping_session(workspace,demo_bytes,monkeypatch):
 
 def test_plan_expansion_does_not_capture_preplan_round_limit(workspace,demo_bytes,monkeypatch):
     s,rid=make_stopping_session(workspace,demo_bytes,monkeypatch)
+    # Legacy dynamic limits remain supported; adaptive_v1 has explicit ceilings.
+    s.w.settings=replace(s.w.settings,subscription_budget_policy='legacy',
+                         stable_subscription_prefix=False,agent_max_rounds=8)
     s.policy.enabled=False
     s.task.auto_plan()
     initial_limit=s.round_limit;calls=[]
@@ -104,7 +107,7 @@ def test_existing_evidence_format_error_gets_one_tool_free_repair(workspace,demo
     def request(self,session,payload):
         payloads.append(payload)
         if len(payloads)==1:return answer('not JSON private-marker')
-        assert payload['tool_choice']=='none' and payload['tools']==[]
+        assert payload['tool_choice']=='none' and payload['tools']==payloads[0]['tools']
         assert json.loads(payload['input'][0]['content'])['evidence']
         return answer(final(next(iter(s.evidence))))
     monkeypatch.setattr(ResponsesTransport,'request',request)
@@ -129,7 +132,7 @@ def test_repeated_no_tool_answers_stop_without_inventing_evidence(workspace,demo
 @pytest.mark.parametrize('budget',['tokens','calls','rounds','stalled'])
 def test_budgets_do_not_reopen_tools_without_any_successful_read(workspace,demo_bytes,monkeypatch,budget):
     s,_=make_stopping_session(workspace,demo_bytes,monkeypatch)
-    if budget=='tokens':s.usage.append({'total_tokens':40000})
+    if budget=='tokens':s.usage.append({'total_tokens':850000})
     if budget=='calls':s.calls=s.w.settings.agent_max_tool_calls
     if budget=='rounds':monkeypatch.setattr(s.w,'settings',replace(s.w.settings,agent_max_rounds=1))
     if budget=='stalled':s.policy.stop_reason='no_new_information'
@@ -156,13 +159,13 @@ def test_budget_after_search_allows_unknown_but_no_more_tools(workspace,demo_byt
     def request(self,session,payload):
         payloads.append(payload)
         if len(payloads)==1:
-            session.usage.append({'total_tokens':40000})
+            session.usage.append({'total_tokens':850000})
             return tool('search_sources',{'query':'impossible-fixture-marker'},'search')
-        assert payload['tool_choice']=='none' and not payload['tools']
+        assert payload['tool_choice']=='none' and payload['tools']==payloads[0]['tools']
         return answer(json.dumps({'claims':[{'text':'已读取信息不足，无法确定。','state':'unknown','evidence_ids':[]}]}))
     monkeypatch.setattr(ResponsesTransport,'request',request)
     result=s.run();assert len(payloads)==2 and not result['citations']
-    assert result['efficiency']['stop_reason']=='subscription_exploration_budget'
+    assert result['efficiency']['stop_reason']=='finalization_token_reserve'
 
 
 def test_tool_observation_answer_needs_no_unrelated_source_search(workspace,demo_bytes,monkeypatch):
@@ -182,8 +185,8 @@ def test_time_reserve_stays_tool_free_with_evidence(workspace,demo_bytes,monkeyp
     monkeypatch.setattr(s,'_remaining',lambda:40);payloads=[]
     def request(self,session,payload):
         payloads.append(payload)
-        assert payload['tool_choice']=='none' and not payload['tools']
+        assert payload['tool_choice']=='none' and payload['tools']
         return answer(final(next(iter(s.evidence))))
     monkeypatch.setattr(ResponsesTransport,'request',request)
     result=s.run();assert len(payloads)==1 and result['citations']
-    assert result['efficiency']['stop_reason']=='subscription_answer_time_reserve'
+    assert result['efficiency']['stop_reason']=='finalization_time_reserve'

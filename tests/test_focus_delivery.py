@@ -34,7 +34,7 @@ def test_search_does_not_open_delivery_gate_or_stop_independent_work(workspace):
     assert not s.focus.review_ready() and 'search_sources' in names(s)
     assert not s.policy.stop_reason and s.task.data['subtasks'][1]['status']=='waiting_input'
     s.invoke_tool('read_source_context',{'region_id':rid,'neighbors':0,'task_ids':['q4']})
-    assert s.focus.review_ready() and names(s)=={'finish_analysis','request_toolset'}
+    assert s.focus.review_ready() and names(s)=={'finish_analysis','request_toolset','read_evidence_record'}
     assert not s.policy.stop_reason  # Reader coverage requests review, not automatic success.
 
 
@@ -80,7 +80,9 @@ def test_explicit_gap_reopens_whitelisted_capability_only(workspace):
     assert not {'exec','shell','python'}&names(s)
     assert json.loads(s.invoke_tool('request_toolset',args|{'family':'shell'}))['error']
     s.invoke_tool('request_toolset',args)
-    assert json.loads(s.invoke_tool('request_toolset',args))['error']
+    capped=json.loads(s.invoke_tool('request_toolset',args))
+    assert capped['enabled'] is False and capped['reason']=='optional_expansion_limit'
+    assert 'read_table_semantics' in capped['available_tools']
 
 
 def test_pruned_context_keeps_complete_scope_quotes_and_call_pair(workspace):
@@ -137,7 +139,9 @@ def test_complete_source_answer_ends_with_evidence_reason(workspace,monkeypatch)
     monkeypatch.setattr(ResponsesTransport,'request',invoke)
     result=s.run()
     assert result['task']['status']=='completed' and result['efficiency']['stop_reason']=='evidence_sufficient'
-    assert len(calls)==3 and result['model_requests'][-1]['tool_count']==2
+    assert len(calls)==3
+    assert len({r['tools_sha256'] for r in result['model_requests']}) == 1
+    assert 'finish_analysis' in names(s)
     assert not result['fallback_used']
 
 
@@ -201,8 +205,10 @@ def test_legacy_scope_blocker_is_rechecked_locally_before_delivery(workspace):
     content={'claims':[{'text':'范围未确认','state':'unknown','question_part_ids':['q1','q2','q3','q4']}]}
     rejected=json.loads(s.invoke_tool('finish_analysis',content))
     assert 'ROOM_SCOPE_RECHECKED' in rejected['error']['message']
-    assert rejected['recovered_batches'][0]['status']=='needs_unit_confirmation'
-    assert rejected['recovered_batches'][0]['total']==1
+    # Incremental errors keep full recovery details in the addressable record.
+    stored=json.loads(s.w.store.get('evidence_archive',rejected['error_record']['record_id'])['text'])
+    assert stored['feedback']['recovered_batches'][0]['status']=='needs_unit_confirmation'
+    assert stored['feedback']['recovered_batches'][0]['total']==1
     assert s.prepared_answer is None and not s.policy.stop_reason
     assert s.task.data['subtasks'][0]['status']=='completed'
     assert s.task.data['subtasks'][1]['status']=='pending'

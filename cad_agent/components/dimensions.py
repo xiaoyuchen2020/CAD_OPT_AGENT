@@ -8,6 +8,42 @@ from shapely.geometry import Point, LineString, box
 from cad_agent.geometry.source import native_parameters, UNIT_TO_M
 
 TYPES = {0:"linear", 1:"aligned", 2:"angular", 3:"diameter", 4:"radius", 5:"angular_3point", 6:"ordinate"}
+DIMENSION_VERSION = "dimensions-v2-provenance-conflicts"
+
+
+def finite_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def measurement_comparisons(actual, stored, recomputed, rendered, factor, decimals, linear):
+    """Compare like quantities, never replace one source with a winning value.
+
+    CAD display strings can round their underlying values. Only plain decimal
+    strings and decimal formatting have a supported display comparison here.
+    """
+    values = dict(ezdxf_get_measurement=actual, dxf_group_42=stored,
+                  definition_point_geometry=recomputed) if linear else {}
+    comparisons = []
+    keys = list(values)
+    for i, left in enumerate(keys):
+        for right in keys[i+1:]:
+            a, b = values[left], values[right]
+            if finite_number(a) and finite_number(b):
+                comparisons.append(dict(left=left, right=right, left_value=a, right_value=b,
+                    tolerance=max(1e-7, max(abs(a), abs(b))*1e-7),
+                    state='agree' if math.isclose(a,b,rel_tol=1e-7,abs_tol=1e-7) else 'conflict',
+                    unit='drawing_units' if linear else 'native_measurement_units'))
+    plain = [float(t.strip()) for t in rendered if re.fullmatch(r'[+-]?\d+(?:\.\d+)?', t.strip())]
+    if len(rendered)==1 and len(plain)==1 and linear and finite_number(factor) and factor>0 and decimals is not None:
+        tolerance = .5 * 10**(-max(0,min(12,int(decimals)))) + 1e-7
+        for key, value in values.items():
+            if finite_number(value):
+                expected=value*factor
+                comparisons.append(dict(left='native_rendered_text',right=key+'_times_dimlfac',
+                    left_value=plain[0],right_value=expected,tolerance=tolerance,
+                    state='agree' if abs(plain[0]-expected)<=tolerance else 'conflict',
+                    unit='style_scaled_drawing_units'))
+    return comparisons
 
 
 def read_dimensions(workspace, sid, layout_id, bounds, unit):
@@ -33,10 +69,12 @@ def read_dimensions_from_source(source, sid, layout_id, bounds, unit):
         if isinstance(actual, float) and not math.isfinite(actual):
             actual = None
         override = e.override()
-        lf = float(override.get("dimlfac", 1))
+        try:lf = float(override.get("dimlfac", 1))
+        except (ValueError,TypeError):lf = float('nan')
         text = e.dxf.get("text", "")
         issues = []
-        points = [list(e.dxf.get(k)) for k in ("defpoint2", "defpoint3") if e.dxf.hasattr(k)]
+        point_attributes = [k for k in ("defpoint2", "defpoint3") if e.dxf.hasattr(k)]
+        points = [list(e.dxf.get(k)) for k in point_attributes]
         recomputed = None
         if kind in (0,1) and len(points)==2:
             a,b=points
@@ -70,7 +108,13 @@ def read_dimensions_from_source(source, sid, layout_id, bounds, unit):
         except (ValueError,TypeError,AttributeError,ZeroDivisionError):
             issues.append("dimension_display_text_unavailable")
         stored=e.dxf.get("actual_measurement",None)
-        if stored is not None and not math.isfinite(stored):stored=None
+        if not finite_number(stored):stored=None
+        comparisons=measurement_comparisons(actual,stored,recomputed,rendered_texts,lf,
+            override.get('dimdec',2) if override.get('dimlunit',2)==2 else None,linear)
+        conflict=conflict or any(c['state']=='conflict' for c in comparisons)
+        if any(c['state']=='conflict' for c in comparisons):issues.append('measurement_channels_disagree')
+        if finite_number(actual) and abs(actual)<1e-7 and any(finite_number(v) and abs(v)>1e-6 for v in (stored,recomputed)):
+            issues.append('library_measurement_near_zero_with_nonzero_source_channels')
         if factor is None:
             issues.append("unknown_units")
         if ext is None:
@@ -94,12 +138,22 @@ def read_dimensions_from_source(source, sid, layout_id, bounds, unit):
                         near.append(target_id)
                 matches.append(dict(point=p,entity_ids=sorted(near)[:12],total=len(near),truncated=len(near)>12,
                                     state="candidate" if near else "unresolved"))
+        controls=[dict(control_point_id=f'{eid}:{attribute}',source_entity_id=eid,
+                       dxf_attribute=attribute,position=p,coordinate_space='dxf_wcs',
+                       binding='native_dimension_definition') for attribute,p in zip(point_attributes,points)]
         items.append(dict(object_id=eid,kind="dimension",dimension_type=TYPES.get(kind,"unsupported"),
             layout_id=layout_id,entity_ids=[eid],entity_path=path,layer=e.dxf.get("layer","0"),bbox=ext,
             status="conflict" if conflict else "needs_review", text_override=text,
             text_state="suppressed" if text==" " else "explicit_override" if explicit else "automatic",
             actual_measurement=actual,measurement_unit="degrees" if kind in (2,5) else "drawing_units",
             actual_measurement_basis="ezdxf_get_measurement",stored_measurement=stored,
+            stored_measurement_basis='dxf_group_42_not_authoritative_geometry',
+            measurement_comparisons=comparisons,
+            definition_control_points=controls,
+            target_binding=dict(state='candidate' if any(m['total'] for m in matches) else 'unresolved',
+                confirmed_entity_ids=[],control_point_ids=[p['control_point_id'] for p in controls],
+                basis='endpoint_proximity_only',engineering_role='unconfirmed',
+                diagnostics=['native_associative_target_not_resolved']),
             rendered_texts=rendered_texts,rendered_text_basis="native_dimension_block_text_not_reformatted",
             style=dict(name=e.dxf.get("dimstyle","Standard"),dimlfac=lf if math.isfinite(lf) else None,
                        dimpost=override.get("dimpost",""),dimdec=override.get("dimdec",2),dimlunit=override.get("dimlunit",2)),

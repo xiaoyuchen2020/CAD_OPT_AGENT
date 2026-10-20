@@ -7,13 +7,20 @@ GUIDANCE = """
 构造做法用read_assembly关联有序原文与表格入口；用户参考值通过user_inputs绑定问题原句，算术用calculate_facts区分source/user_input/measurement，不作优化或合规判断。楼层范围不明用resolve_drawing_scope，跨图只用read_project_sources访问用户选择的资料。
 本次采用精简探索：具体问题直接检索问题里的对象和属性，不必先浏览全图概览或抽取事实。
 首次检索建议 limit=5；按各分项读取对应原文、结构父标题及例外。复杂问题须完成所有可执行分项，单条引用不代表整题完成。
+按task.requirement_coverage逐项核查对象和字段；source_candidate只表示已读线索，仍需确认对应关系和完整性。pending_operations为空不等于问题完整，未核查对象优先补读，具体阻塞逐项说明。
 只为一个明确缺口补查（例如缺表头、缺对象、存在冲突或需要比较另一对象），不要为了“更全面”遍历相邻条款。
 read_source_context/read_table 已直接提供证据，无需再 get_evidence 重读；已读证据可从之前工具消息引用。
+多个已知来源独立读取用batch_read_sources一次提交各自read_source_context/read_assembly及task_ids；依赖前项结果的请求须等返回后再提交，不猜来源或操作数。批读会按返回大小缩小构造页；按实际 next_offset/next_actions 续读，不用请求 limit 推算已读范围；pending_reads 尚未计为执行。
 不要重复同样的工具参数。分页使用 next_start/offset；检索词改写但候选相同，也不应继续换词搜索。
 若语义候选不相关，可用对象的核心词做一次 match=all 字面核查；仍没有相关依据就回答 unknown。
 有限检索只能说明当前已读取证据不足，不能证明整图不存在该信息。预算收束不等于证据充分。
 简单问题通常1–2条；多分项问题逐项覆盖，保留条件和例外；不补充用户未问的相邻要求或其他部位。
 """
+
+
+def source_read_guidance(prompt, enabled):
+    """Batch advice is opt-in; all other exploration safeguards stay intact."""
+    return prompt if enabled else '\n'.join(line for line in prompt.split('\n') if 'batch_read_sources' not in line)
 
 
 def dumps(value):
@@ -87,7 +94,7 @@ class ExplorationPolicy:
         signatures = set()
         for item in result.get("items", []):
             identity = next((item[k] for k in (
-                "region_id", "source_region_id", "entity_id", "fact_id", "practice_id", "object_id"
+                "region_id", "source_region_id", "entity_id", "fact_id", "practice_id", "object_id", "candidate_id", "window_id"
             ) if item.get(k)), None)
             if identity:
                 signatures.add((name, identity, item.get("snippet_start", 0)))
@@ -103,7 +110,7 @@ class ExplorationPolicy:
         self.response_chars += chars
         if self.stalled >= 3:
             self.stop_reason = "no_new_information"
-        elif self.response_chars >= (100000 if getattr(self,'geometry_work',False) else getattr(self,'context_limit',28000)):
+        elif not getattr(self, 'addressable_context', False) and self.response_chars >= (100000 if getattr(self,'geometry_work',False) else getattr(self,'context_limit',28000)):
             self.stop_reason = "tool_context_budget"
         # A search limit is guidance only: leave tools open to read the candidates
         # just retrieved. The normal runtime round cap bounds exploration.
@@ -113,4 +120,4 @@ class ExplorationPolicy:
             return "探索收束：" + self.stop_reason + "。仅依据已读证据回答；不足标 unknown，不能声称已穷尽图纸。"
         if self.searches >= 3:
             return "已多次检索，请读取已有候选或回答；只有明确缺口才继续检索。"
-        return "核对对象、属性值与必要范围后立即回答；仅为明确缺口补查。"
+        return "逐项核对所问对象、字段与范围；先补齐未读项，完成或记录具体阻塞后交付。"

@@ -195,10 +195,16 @@ class CodexSubscriptionRuntime:
         self.source_contexts = []
 
     def exploration_budget(self, session):
+        from cad_agent.runtimes.budget_policy import for_session
+        policy = for_session(session)
+        if policy:return policy.exploration_soft_tokens
         operations={op for s in session.task.data['subtasks'] for op in s.get('operations',[])}
         return min(120000,self.EXPLORATION_STOP_TOKENS+10000*len(operations)+8000*max(0,len(session.task.data["subtasks"])-1))
 
     def total_budget(self, session):
+        from cad_agent.runtimes.budget_policy import for_session
+        policy = for_session(session)
+        if policy:return policy.total_ceiling_tokens
         # Stateless final synthesis replays a bounded evidence packet. Reserve
         # BOTH final delivery and its one allowed correction before exploration
         # starts; a large last tool request must not silently erase correction.
@@ -206,9 +212,13 @@ class CodexSubscriptionRuntime:
         return self.exploration_budget(session)+2*(self.FINAL_CONTEXT_CHARS+len(session.system_prompt))
 
     def stop_reason(self, session):
-        tokens = sum(u.get("total_tokens", 0) for u in session.usage)
+        from cad_agent.runtimes.token_budget import charged_tokens
+        tokens = charged_tokens(session)
         if session.policy.stop_reason:
             return session.policy.stop_reason
+        from cad_agent.runtimes.budget_policy import for_session, stop_reason
+        if for_session(session):
+            return stop_reason(session)
         pending=session.task.pending_work()
         exploration_limit=self.exploration_budget(session)
         pending_images=set(getattr(session,'visual_images',{}))-set(getattr(session,'reviewed_image_ids',set()))
@@ -227,7 +237,12 @@ class CodexSubscriptionRuntime:
         if tokens >= exploration_limit:
             return "subscription_exploration_budget"
         has_evidence = session.evidence or any(o['tool'] in ('measure_geometry', 'measure_room', 'get_measurement_evidence') for o in getattr(session, 'observations', {}).values())
-        if has_evidence and tokens >= self.EVIDENCE_STOP_TOKENS and not pending and (not session.task.complex or not session.focused_enabled or session.focus.review_ready()):
+        # An empty operation queue often means an unplanned lookup, not a
+        # complete answer. Preserve independent/object-field work until actual
+        # delivery or a concrete block, without increasing any budget.
+        if (has_evidence and tokens >= self.EVIDENCE_STOP_TOKENS and not pending
+                and session.task.coverage_ready() and not session.coverage.pending()
+                and (not session.focused_enabled or session.focus.review_ready())):
             return "subscription_answer_reserve"
         if session.calls >= session.w.settings.agent_max_tool_calls:
             return "tool_call_budget"
@@ -236,6 +251,10 @@ class CodexSubscriptionRuntime:
         return None
 
     def remember_context(self, tool, value):
+        if tool == 'batch_read_sources':
+            for item in value.get('items', []):
+                self.remember_context(item['tool'], item['result'])
+            return
         if tool != "read_source_context" or not value.get("target_region_id"):
             return
         self.source_contexts.append({

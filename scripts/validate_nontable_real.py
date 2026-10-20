@@ -4,6 +4,7 @@ from pathlib import Path
 from dataclasses import replace
 from collections import defaultdict,Counter
 from shapely.geometry import LineString,Polygon,box
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT,Settings
 from cad_agent.service import Workspace
 from cad_agent.analysis.general import DrawingIndex
@@ -21,13 +22,13 @@ def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def forbidden(*a,**k):raise AssertionError('MODEL_CALL_FORBIDDEN')
 def workspace():
     OUT.mkdir(exist_ok=True);w=Workspace(replace(Settings.load(),data_dir=OUT/'data'))
-    for name in ['adaptation-runtime.json','table-recovery-runtime.json']:shutil.copy2(PRIOR/'data'/name,OUT/'data'/name)
+    for name in ['adaptation-runtime.json','table-recovery-runtime.json']:copy_artifact(PRIOR/'data'/name,OUT/'data'/name)
     c=sqlite3.connect(f'file:{PRIOR}/data/index.sqlite3?mode=ro',uri=True)
     for k,i,d in c.execute("select kind,id,data from records where kind like 'adaptation_%' or kind='drawing'"):
         v=json.loads(d)
         try:w.store.get(k,i)
         except KeyError:w.store.put(k,i,v)
-        if k=='drawing' and not (OUT/'data/drawings'/i).exists():shutil.copytree(PRIOR/'data/drawings'/i,OUT/'data/drawings'/i)
+        if k=='drawing' and not (OUT/'data/drawings'/i).exists():copy_artifact_tree(PRIOR/'data/drawings'/i,OUT/'data/drawings'/i)
     c.close();adaptation.propose=forbidden;return w
 
 def seed(w,src):
@@ -39,7 +40,7 @@ def seed(w,src):
         for sid,d in rows:
             d=json.loads(d)
             if d['sha256']!=src['sha256']:continue
-            if not (OUT/'data/drawings'/sid).exists():shutil.copytree(root/'drawings'/sid,OUT/'data/drawings'/sid)
+            if not (OUT/'data/drawings'/sid).exists():copy_artifact_tree(root/'drawings'/sid,OUT/'data/drawings'/sid)
             w.store.put('drawing',sid,d);return d
     return w.ingest(src['name']+'.dxf',Path(src['path']).read_bytes())
 

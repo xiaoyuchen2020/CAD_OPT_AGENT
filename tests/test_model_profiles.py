@@ -30,7 +30,10 @@ def test_model_catalog_is_allowlisted_and_secrets_stay_server_side(
         response = client.get("/api/models")
         assert response.status_code == 200
         data = response.json()
-        assert data["default"] == "default" and len(data["items"]) == 8
+        assert data["default"] == "siwc_sol" and len(data["items"]) == 10
+        profiles = {x['id']: x for x in data['items']}
+        assert profiles['siwc_sol_high']['reasoning_effort'] == 'high'
+        assert profiles['siwc_luna_high']['model'] == 'gpt-6-luna'
         large = next(x for x in data["items"] if x["id"] == "qwen_large")
         assert large["model"] == "Qwen-test" and large["configured"]
         assert "qwen-private-key" not in response.text

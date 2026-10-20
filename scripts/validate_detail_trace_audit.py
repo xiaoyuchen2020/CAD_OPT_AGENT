@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 import shutil
 
+from cad_agent.artifact_storage import copy_artifact_tree
 from cad_agent.config import Settings
 from cad_agent.service import Workspace
 from cad_agent.semantics.service import SemanticService
@@ -38,7 +39,7 @@ def main():
     hashes={str(p.relative_to(root)):sha256(p.read_bytes()).hexdigest() for p in paths}
     dump(out/'implementation-sha256.json',hashes)
     inputs=json.loads((base/'input-manifest.json').read_text());dump(out/'input-manifest.json',inputs)
-    shutil.copytree(base/'data',out/'data')
+    copy_artifact_tree(base/'data',out/'data')
     w=Workspace(Settings(data_dir=out/'data',max_upload_bytes=256*1024*1024))
     summaries=[];triage=[];inventory=[]
     try:

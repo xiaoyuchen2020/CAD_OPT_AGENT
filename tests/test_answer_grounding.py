@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 import os
 
 import pytest
@@ -100,13 +101,17 @@ def seed_candidate(s):
 @pytest.mark.parametrize("runtime", ["custom", "codex"])
 def test_soft_stop_reads_pending_source_once_in_shared_final_context(workspace, demo_bytes, monkeypatch, runtime):
     s = make_session(workspace, demo_bytes); connected_lease(workspace, monkeypatch)
-    rid = seed_candidate(s); s.usage.append({"total_tokens": 31000})
-    # Trigger answer reserve using some already read source, as in the real failure.
+    if runtime == "codex": s.request.runtime = "codex"
+    rid = seed_candidate(s)
+    # Unread candidates must not trigger the early evidence reserve. Exercise
+    # the shared bounded source-read obligation at the exploration ceiling.
+    s.usage.append({"total_tokens": CodexSubscriptionRuntime().exploration_budget(s)})
     s.evidence["old"] = {"evidence_id": "old", "region_id": "old", "quote": "旧证据", "text_span": [0, 3]}
     calls = []
     def request(self, session, payload):
         calls.append(payload)
-        assert payload["tool_choice"] == "none" and not payload["tools"]
+        assert payload["tool_choice"] == "none"
+        assert bool(payload["tools"]) is (runtime == "custom")
         context = json.loads(payload["input"][0]["content"])
         assert not context["evidence_coverage"]["pending_source_reads"]
         assert any(x["region_id"] == rid for x in context["evidence"])
@@ -122,7 +127,7 @@ def test_soft_stop_reads_pending_source_once_in_shared_final_context(workspace, 
     assert len([x for x in s.trace if x["tool"] == "read_source_context"]) == 1
 
 
-@pytest.mark.parametrize("reason", ["subscription_answer_time_reserve", "tool_call_budget", "no_new_information", "answer_repair"])
+@pytest.mark.parametrize("reason", ["subscription_answer_time_reserve", "tool_call_budget", "no_new_information", "answer_repair", "finalization_token_reserve", "finalization_time_reserve", "finalization_request_reserve"])
 def test_coverage_read_does_not_override_hard_stops(workspace, demo_bytes, reason):
     s = make_session(workspace, demo_bytes); seed_candidate(s)
     before = len(s.trace)
@@ -134,10 +139,12 @@ def test_coverage_read_does_not_override_hard_stops(workspace, demo_bytes, reaso
 def test_forced_final_retains_validation_feedback_and_allows_only_one_repair(workspace, demo_bytes, monkeypatch, runtime):
     s = make_session(workspace, demo_bytes); connected_lease(workspace, monkeypatch)
     s.invoke_tool("read_source_context", {"region_id": s.w.regions(s.request.snapshot_id)[0].region_id})
-    s.usage.append({"total_tokens": 40000}); calls = []
+    if runtime == "codex": s.request.runtime = "codex"
+    s.usage.append({"total_tokens": CodexSubscriptionRuntime().exploration_budget(s)}); calls = []
     def request(self, session, payload):
         calls.append(payload)
-        assert payload["tool_choice"] == "none" and not payload["tools"]
+        assert payload["tool_choice"] == "none"
+        assert bool(payload["tools"]) is (runtime == "custom")
         if len(calls) == 1: return answer("invalid JSON private-marker")
         ctx = json.loads(payload["input"][0]["content"])
         assert ctx["validation_issue"] and "private-marker" not in ctx["validation_issue"]
@@ -168,7 +175,10 @@ def test_failed_second_answer_does_not_retry_forever(workspace, demo_bytes, monk
     assert len(calls) == 2
 
 
-def test_total_budget_blocks_validation_repair(workspace, demo_bytes, monkeypatch):
+@pytest.mark.parametrize("policy", ["adaptive_v1", "legacy"])
+def test_total_budget_blocks_validation_repair(workspace, demo_bytes, monkeypatch, policy):
+    workspace.model_catalog["siwc_sol"] = replace(
+        workspace.model_catalog["siwc_sol"], subscription_budget_policy=policy)
     s = make_session(workspace, demo_bytes); connected_lease(workspace, monkeypatch)
     s.invoke_tool("read_source_context", {"region_id": s.w.regions(s.request.snapshot_id)[0].region_id})
     s.usage.append({"total_tokens": CodexSubscriptionRuntime().total_budget(s)-10000}); calls = []
@@ -177,15 +187,15 @@ def test_total_budget_blocks_validation_repair(workspace, demo_bytes, monkeypatc
         return answer("bad JSON")
     monkeypatch.setattr(ResponsesTransport, "request", request)
     with pytest.raises(ModelError): s.run()
-    assert len(calls) == 1 and not s.answer_repairs
+    assert len(calls) == (0 if policy == "adaptive_v1" else 1) and not s.answer_repairs
 
 
 def test_large_final_packet_keeps_one_reserved_correction(workspace,demo_bytes,monkeypatch):
     s=make_session(workspace,demo_bytes);connected_lease(workspace,monkeypatch)
     s.invoke_tool('read_source_context',{'region_id':s.w.regions(s.request.snapshot_id)[0].region_id})
-    s.usage.append({'total_tokens':40000});calls=[]
+    s.usage.append({'total_tokens':CodexSubscriptionRuntime().exploration_budget(s)});calls=[]
     def request(self,session,payload):
-        calls.append(payload);assert payload['tool_choice']=='none' and not payload['tools']
+        calls.append(payload);assert payload['tool_choice']=='none' and payload['tools']
         session.usage.append({'total_tokens':18000})
         return answer('invalid JSON') if len(calls)==1 else answer(final(next(iter(s.evidence))))
     monkeypatch.setattr(ResponsesTransport,'request',request)

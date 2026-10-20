@@ -6,6 +6,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from uuid import uuid4
+from cad_agent.artifact_storage import artifact_root, eligible, reference_file
 
 
 def now():
@@ -134,5 +135,22 @@ class Store:
 
     def write_json(self, path: Path, value):
         temporary = path.with_suffix("." + uuid4().hex + ".tmp")
-        temporary.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(path)
+        try:
+            temporary.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            # Use the final extension for content-addressed derived inputs.
+            root = artifact_root(path)
+            if root is not None and eligible(path) and path.parent.parent.name == "drawings":
+                reference_file(temporary, path, root)
+            else:
+                temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def share_artifacts(self, snapshot_id):
+        """Share published test inputs and return inspectable path/hash records."""
+        folder = self.artifact_dir(snapshot_id)
+        root = artifact_root(folder)
+        if root is None:
+            return {}
+        return {p.name: reference_file(p, p, root) for p in sorted(folder.iterdir())
+                if p.is_file() and eligible(p)}

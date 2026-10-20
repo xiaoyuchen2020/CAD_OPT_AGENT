@@ -30,6 +30,26 @@ def tokens(text):
     return result
 
 
+def source_context_path(index, region, limit=12):
+    """Parser ancestry pointers only; never select the nearest visible heading."""
+    seen = {region.region_id}
+    pending = [(rid, region.region_id, 1) for rid in region.context_region_ids]
+    parents = []
+    while pending and len(parents) < limit:
+        rid, child, depth = pending.pop(0)
+        parent = index.by_id.get(rid)
+        if rid in seen or parent is None:
+            continue
+        seen.add(rid)
+        if (parent.layout_id, parent.frame_id) != (region.layout_id, region.frame_id):
+            continue
+        parents.append(dict(region_id=rid, child_region_id=child, depth=depth,
+            text_preview=parent.text[:180], text_span=[0, len(parent.text)],
+            relationship='parser_parent', attribution_state='unverified'))
+        pending.extend((ancestor, rid, depth + 1) for ancestor in parent.context_region_ids)
+    return parents
+
+
 def _build_chunks(index):
     out = []
     for r in index.regions:
@@ -229,7 +249,9 @@ def search(
         "effective_mode": mode,
         "chunk_version": VERSION,
         "scope_chunk_count": len(items),
-        "candidate_limit": 60,
+        "candidate_limit": 60 if mode == 'semantic' else None,
+        "lexical_candidate_limit": None,
+        "semantic_candidate_limit": 60 if mode != 'lexical' else None,
         "score_is_confidence": False,
     }
     dense = []
@@ -283,7 +305,9 @@ def search(
         ("lexical", lexical if mode != "semantic" else []),
         ("semantic", dense),
     ):
-        for rank, (i, raw_score) in enumerate(ranking[:60], 1):
+        # Lexical hits are pageable in full; the old top-60 cutoff made later
+        # literal object names impossible to recover with any offset.
+        for rank, (i, raw_score) in enumerate(ranking if name == 'lexical' else ranking[:60], 1):
             scores[i] = scores.get(i, 0.0) + 1 / (60 + rank)
             ranks.setdefault(i, {})[name] = {"rank": rank, "score": round(raw_score, 6)}
     ordered = sorted(scores, key=lambda i: (-scores[i], items[i]["chunk_id"]))
@@ -314,11 +338,13 @@ def search(
             }
         )
     meta["seconds"] = round(time.monotonic() - started, 4)
-    return {
+    from cad_agent.analysis.recall import page
+    return page(index, {
         "items": hits[offset : offset + limit],
         "total": len(hits),
         "offset": offset,
         "has_more": offset + limit < len(hits),
         "retrieval": meta,
         "note": "相关候选不证明答案存在；分数不是置信度。请用 read_source_context 按 snippet_start 读取原文并核对适用范围。total 是有限候选数，不是全图匹配数量。",
-    }
+    }, 'search_sources', dict(query=query,keywords=keywords or [],match=match,layout_id=layout_id,
+        frame_id=frame_id,section_id=section_id,offset=offset,limit=limit,mode=mode),pool_complete=mode=='lexical')

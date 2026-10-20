@@ -72,7 +72,8 @@ def main():
   s,a,d=helper(with_workspace,['卧室','客厅','教室','办公室','卫生间','档案室','走廊','X-203',None],gap=True)
   a=a.model_copy(update={'bbox':[-1.,-1.,23.,17.]})
   r=s.discover(a);dump(ROOT/'synthetic.json',r)
-  (ROOT/'synthetic.dxf').write_bytes(with_workspace.store.artifact(d['id'],'source.dxf').read_bytes())
+  from cad_agent.artifact_storage import copy_artifact
+  copy_artifact(with_workspace.store.artifact(d['id'],'source.dxf'), ROOT/'synthetic.dxf')
   image=render(with_workspace,d['id'],r,ROOT/'synthetic.png')
   summary.append(dict(case='synthetic',snapshot_id=d['id'],candidates=len(r['candidates']),supported=sum(c['candidate_role']=='room_candidate' for c in r['candidates']),diagnostics=r['diagnostics'],**image))
  finally:with_workspace.close()

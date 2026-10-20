@@ -24,6 +24,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from fastapi.testclient import TestClient
 from shapely.geometry import Point, Polygon
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.app import create_app
 from cad_agent.config import Settings
 from cad_agent.analysis.session import CadAgentSession
@@ -251,7 +252,7 @@ def reuse_imports(source_root, target_store, cases):
             raise ValueError('Reused source hash mismatch')
         for name in ('source.dxf','scene.json','regions.json','entities.json','render.json'):
             path=origin/name
-            if path.exists():shutil.copy2(path,target_store.artifact(drawing['id'],name))
+            if path.exists():copy_artifact(path,target_store.artifact(drawing['id'],name))
         target_store.put('drawing',drawing['id'],drawing)
 
 

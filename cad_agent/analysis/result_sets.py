@@ -71,6 +71,8 @@ def restore_previous(session):
 
 def analyze(session,args):
     batch=collection(session,args)
+    from cad_agent.analysis.scope_workflow import validate_measurement_collection
+    validate_measurement_collection(session, batch)
     if batch.get('source_sha256',session.drawing['sha256'])!=session.drawing['sha256']:raise ValueError('批次来源已变化。')
     policy=getattr(session.task,'data',{}).get('unit_policy')
     if policy and policy['condition']=='explicit' and policy['unit']!=batch['unit']:
@@ -106,7 +108,7 @@ def analyze(session,args):
                   operand_refs=[v['measurement_ref'] for v in values])
     receipts=[dict(operation=args.metric,fulfilled=not missing)]
     if args.operation in ('rank','range') or args.limit:receipts.append(dict(operation='ranking',fulfilled=not missing))
-    if calc:receipts.append(dict(operation='arithmetic',fulfilled=True))
+    if calc:receipts.append(dict(operation='arithmetic',fulfilled=True,calculation_operation='subtract' if args.operation=='range' else args.operation))
     action=None
     if args.replace_highlights:
         # Subset replaces current display, immutable source batch stays complete.

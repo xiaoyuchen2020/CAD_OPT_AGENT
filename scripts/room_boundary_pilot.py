@@ -4,6 +4,7 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 import ezdxf
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT,Settings
 from cad_agent.service import Workspace
 from cad_agent.analysis.general import DrawingIndex
@@ -22,9 +23,9 @@ def read(name):return json.loads((OUT/name).read_text())
 def workspace():
     data=OUT/'data';data.mkdir(parents=True,exist_ok=True)
     for name in ['adaptation-runtime.json','table-recovery-runtime.json']:
-        if not (data/name).exists():shutil.copy2(PRIOR/'data'/name,data/name)
+        if not (data/name).exists():copy_artifact(PRIOR/'data'/name,data/name)
     w=Workspace(replace(Settings.load(),data_dir=data));r=json.loads(RECORD.read_text());sid=r['case']['snapshot_id']
-    if not (data/'drawings'/sid).exists():shutil.copytree(PRIOR/'data/drawings'/sid,data/'drawings'/sid)
+    if not (data/'drawings'/sid).exists():copy_artifact_tree(PRIOR/'data/drawings'/sid,data/'drawings'/sid)
     c=sqlite3.connect(f'file:{PRIOR}/data/index.sqlite3?mode=ro',uri=True)
     d=json.loads(c.execute("select data from records where kind='drawing' and id=?",(sid,)).fetchone()[0]);c.close()
     w.store.put('drawing',sid,d);return w,r

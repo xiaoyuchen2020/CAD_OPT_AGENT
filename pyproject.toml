@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
   "ezdxf==1.4.3", "fastapi==0.136.0", "uvicorn==0.44.0",
   "pydantic==2.13.1", "httpx==0.28.1", "python-multipart==0.0.30", "python-dotenv==1.2.2",
-  "PyJWT[crypto]==2.13.0", "shapely==2.1.2", "resvg-py==0.5.0"
+  "PyJWT[crypto]==2.13.0", "shapely==2.1.2", "resvg-py==0.5.0", "tiktoken>=0.12,<1"
 ]
 
 [project.optional-dependencies]

@@ -7,7 +7,8 @@ from cad_agent.adapters.siwc import fail
 
 def attach_images(session, payload, entry):
     # Applied to a fresh payload: never mutate/persist base64 in histories/logs.
-    if len(dumps(payload)) > 100000:
+    from cad_agent.runtimes.budget_policy import text_limit
+    if len(dumps(payload)) > text_limit(session):
         raise fail('CONTEXT_BUDGET', '单轮文字上下文超过本地上限。')
     images = {k:v for k,v in getattr(session, 'visual_images', {}).items()
               if k not in getattr(session,'reviewed_image_ids',set())}

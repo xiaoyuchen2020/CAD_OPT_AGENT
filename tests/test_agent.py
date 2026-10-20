@@ -98,7 +98,7 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         with pytest.raises(ValueError):
             runner.execute(name, args)
     assert {t["function"]["name"] for t in tool_definitions()} == {
-        "read_assembly", "calculate_facts", "resolve_drawing_scope", "read_project_sources",
+        "read_assembly", "calculate_facts", "resolve_drawing_scope", "inspect_scope_objects", "read_project_sources",
         "plan_task", "analyze_measurements", "get_analysis_results", "check_dimension_chain", "inspect_enclosure",
         "locate_space_labels", "prepare_space_connections", "review_space_connections", "prepare_discovery_review", "review_discovered_spaces",
         "analyze_room_batch", "resolve_room_units",
@@ -113,6 +113,11 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         "render_region", "bind_visual_objects", "prepare_room_boundaries", "select_room_boundaries",
         "read_dimensions", "query_building_relations", "get_drawing_context", "get_component_evidence",
         "locate_by_axes", "query_annotations", "read_table_semantics", "trace_detail",
+        "bind_spatial_object", "get_spatial_object", "inspect_spatial_boundary",
+        "measure_spatial_area", "measure_spatial_relation", "inspect_door_sweep",
+        "measure_door_sweep_relation", "measure_spatial_sections", "measure_elevation_relation",
+        "read_evidence_record", "query_property_evidence",
+        "read_door_schedule_table", "trace_door_schedule", "search_similar_objects",
     }
 
 

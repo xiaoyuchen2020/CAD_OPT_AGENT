@@ -163,7 +163,8 @@ def test_direct_loop_preserves_function_pairing_citations_and_usage(workspace,de
         body=json.loads(req.content);requests.append(body)
         assert body['store'] is False and body['stream'] is True
         assert body['tools'][0]['type']=='namespace'
-        assert not {'previous_response_id','max_output_tokens','max_tool_calls','temperature'} & body.keys()
+        assert not {'previous_response_id','max_tool_calls','temperature'} & body.keys()
+        assert body['max_output_tokens'] == 8192
         if len(requests)==1:
             result=response([{'type':'function_call','namespace':'cad','name':'read_source_context','arguments':json.dumps({'region_id':rid}),'call_id':'c1'}])
         else:
@@ -201,10 +202,10 @@ def test_final_reserve_has_only_one_tool_free_validation_repair(workspace,demo_b
     s=make_session(workspace,demo_bytes);connected_lease(workspace,monkeypatch)
     rid=workspace.regions(s.request.snapshot_id)[0].region_id
     s.invoke_tool('read_source_context',{'region_id':rid})
-    s.usage.append({'total_tokens':40000});bodies=[]
+    s.usage.append({'total_tokens':600000});bodies=[]
     def request(self,session,payload):
         bodies.append(payload)
-        assert payload['tools']==[] and payload['tool_choice']=='none'
+        assert payload['tools'] and payload['tool_choice']=='none'
         assert json.loads(payload['input'][0]['content'])['evidence']
         return response([{'type':'message','content':[{'type':'output_text','text':'invalid'}]}])
     monkeypatch.setattr(ResponsesTransport,'request',request)
@@ -258,6 +259,7 @@ def test_http_errors_have_no_retry_or_sensitive_body(workspace,demo_bytes,monkey
 
 def test_final_answer_kept_when_final_usage_crosses_soft_budget(workspace,demo_bytes,monkeypatch):
     s=make_session(workspace,demo_bytes);connected_lease(workspace,monkeypatch)
+    s.w.settings=replace(s.w.settings,subscription_budget_policy='legacy',stable_subscription_prefix=False)
     s.invoke_tool('read_source_context',{'region_id':workspace.regions(s.request.snapshot_id)[0].region_id})
     s.usage.append({'total_tokens':40000});calls=[]
     def request(self,session,payload):

@@ -178,6 +178,12 @@ a {
 .button.dark:hover {
   background: #45644b;
 }
+.button.dark.drag-over {
+  background: #45644b;
+  outline: 2px dashed #344f3f;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px #e4eddf;
+}
 .button.quiet {
   border-color: transparent;
   background: transparent;

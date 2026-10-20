@@ -17,7 +17,7 @@ def infer_operations(text):
     if re.match(r'^(不要|不得|不能|不应|勿)',text.strip()):return []
     rules = {
         'perimeter': r'周长|周界|perimeter',
-        'arithmetic': r'差值|面积差|之差|求和|计算.{0,8}(和|差)|算出.{0,15}差|平均|合计|总和|相差',
+        'arithmetic': r'差值|厚度差|面积差|之差|求和|计算.{0,8}(和|差)|算出.{0,15}差|平均|合计|总和|总厚度|相差|比值|占比|比例|加权指标|面积\s*[/／]\s*(车位|停车)|除以|乘以|ceil\s*\(|floor\s*\(|数量.{0,5}差异',
         'ranking': r'排序|从大到小|从小到大|最大.{0,6}[三四五六七八九十两二一123456789]|最小.{0,6}[三四五六七八九十两二一123456789]|前[三四五六七八九十两二一123456789]',
         'selection': r'只保留|取消高亮|筛选|只显示',
         'discovery': r'不依赖.{0,8}名称|未命名|无名称|几何围合查找|发现空间',
@@ -41,6 +41,9 @@ def planned_operations(text, proposed):
     annotation=re.search(r'尺寸|标注|标高|注记|原文|对照|分段|总长',text)
     if 'dimensions' in operations and measuring and not annotation:
         operations.remove('dimensions');operations.add('geometry')
+    annotation_read=re.search(r'(?:读取|提取|对照|查看).{0,8}(?:尺寸|标注)|(?:尺寸|标注).{0,8}(?:读取|提取|对照|宽度|净宽)',text)
+    if 'geometry' in operations and annotation_read and not re.search(r'测量|测距|量出|量.{0,4}出来|几何', text):
+        operations.remove('geometry');operations.add('dimensions')
     return sorted(operations)
 
 
@@ -48,12 +51,16 @@ def receipts(name, result):
     """Tool-owned successful results only; planning prose cannot grant receipts."""
     if result.get('error'): return []
     declared=result.get('operation_receipts',[])
+    from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
+    if name in SPATIAL_METHODS:
+        return declared
     if name in ('get_analysis_results','analyze_measurements','calculate_measurements','calculate_facts','check_dimension_chain','inspect_enclosure','review_space_connections','review_discovered_spaces'):
         return declared
     out=[]
     def add(op, fulfilled=True):
         out.append(dict(operation=op,fulfilled=fulfilled,tool=name,
                         reference=result.get('record_id') or result.get('measurement_id') or result.get('batch_id')))
+    if name=='inspect_scope_objects':add('geometry',False)
     if name=='prepare_space_connections':
         for op in ('relations','geometry','dimensions','vision'):add(op,False)
     if name=='prepare_discovery_review':
@@ -74,7 +81,7 @@ def receipts(name, result):
         add('perimeter',result.get('perimeter_m') is not None)
         if result.get('measurement_basis')=='selected_exclusions':add('exclusions',bool(result.get('selected_contour_ids')))
     if name=='query_building_relations':add('relations',False) # candidate relations need explicit interpretation
-    if name=='read_dimensions':add('dimensions',bool(result.get('items')));add('geometry',bool(result.get('items')))
+    if name=='read_dimensions':add('dimensions',bool(result.get('items'))) # annotations do not measure a requested object's clear width
     if name=='measure_geometry':add('geometry',result.get('status')=='measured')
     if name=='render_region':add('vision');add('highlight',bool(result.get('highlight_entity_ids')))
     return out

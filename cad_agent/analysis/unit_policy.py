@@ -30,6 +30,38 @@ def user_unit_policy(question):
     return found[0] if found and len({(p['unit'],p['condition']) for p in found})==1 else None
 
 
+def geometry_unit_resolution(source_unit, policy=None, override=None):
+    """Apply the same literal-user policy to entity measurements as room work.
+
+    Conditional absence of dimensions is never inferred from selecting two
+    entities. Existing explicit API overrides remain supported without policy.
+    """
+    result = dict(unit=source_unit if source_unit in UNIT_TO_M else 'unknown',
+        source_unit=source_unit, basis='dxf_header',
+        unit_status='source_declared' if source_unit in UNIT_TO_M else 'unknown',
+        policy=deepcopy(policy), diagnostics=[])
+    if not policy:
+        if override:
+            result.update(unit=override, basis='request_override', unit_status='assumption')
+        return result
+    unit = policy.get('unit'); condition = policy.get('condition')
+    if unit not in UNIT_TO_M or condition not in ('explicit','unknown_units','no_dimensions'):
+        result['diagnostics'].append('unit_policy_not_applicable')
+        return result
+    if override and (override != unit or condition == 'no_dimensions'):
+        raise ValueError('本次单位覆盖未由用户约定授权，或尚未核实其适用条件。')
+    if source_unit in UNIT_TO_M:
+        if condition == 'explicit' and unit != source_unit:
+            result.update(unit='unknown', basis='unresolved', unit_status='conflict')
+            result['diagnostics'].append('unit_policy_conflicts_with_source')
+        return result
+    if condition in ('explicit','unknown_units'):
+        result.update(unit=unit, basis='user_instruction', unit_status='assumption')
+    else:
+        result['diagnostics'].append('unit_policy_condition_not_verified')
+    return result
+
+
 class ResolveRoomUnits(Record):
     batch_id: str = Field(min_length=1)
 
@@ -39,14 +71,16 @@ def resolve_units(workspace, sid, batch, policy):
     from cad_agent.geometry.room_batch import RoomBatchService
     service=RoomBatchService(workspace,sid)
     result=dict(status='needs_input',unit='unknown',basis=None,policy=policy,
+                unit_status='unknown',source_unit=None,
                 dimension_check=None,reason='图纸未声明单位，且没有可应用的用户单位约定。')
     source_unit=service.drawing['unit']
+    result['source_unit']=source_unit
     if source_unit in UNIT_TO_M:
-        result.update(status='resolved',unit=source_unit,basis='dxf_header',reason='使用图纸声明单位。')
+        result.update(status='resolved',unit=source_unit,basis='dxf_header',unit_status='source_declared',reason='使用图纸声明单位。')
         if policy and policy['condition']=='explicit' and policy['unit']!=source_unit:
-            result.update(status='needs_input',unit='unknown',basis=None,reason='用户指定单位与图纸声明冲突，请选择本次测量单位。')
+            result.update(status='needs_input',unit='unknown',basis=None,unit_status='conflict',reason='用户指定单位与图纸声明冲突，请选择本次测量单位。')
     elif policy and policy['condition'] in ('explicit','unknown_units'):
-        result.update(status='resolved',unit=policy['unit'],basis='user_instruction',reason='已采用用户明确授权的本次测量单位。')
+        result.update(status='resolved',unit=policy['unit'],basis='user_instruction',unit_status='assumption',reason='按用户明确授权换算；单位属于本次测量假设，不是图纸声明。')
     elif policy and batch['scope']:
         scope=batch['scope']
         dimensions=read_dimensions(workspace,sid,scope['layout_id'],scope['bbox'],'unknown')
@@ -67,6 +101,7 @@ def resolve_units(workspace, sid, batch, policy):
             result['reason']='已检查原生尺寸和文字；仍有可能的炸开标注或读取缺口，不能确认无尺寸标注。可明确指定本次单位。'
         else:
             result.update(status='resolved',unit=policy['unit'],basis='user_conditional_assumption',
+                          unit_status='assumption',
                           reason='目标范围内未检出原生尺寸或数字标注文字，按用户约定换算；单位属于本次假设。')
     elif not batch['scope']:
         result.update(status='pending',reason='先确定目标视图范围，再检查单位约定。')
@@ -74,9 +109,9 @@ def resolve_units(workspace, sid, batch, policy):
     new.update(parent_batch_id=batch['batch_id'],unit_resolution=result,
                batch_id=stable_id('rooms',batch['batch_id'],'unit-policy-v1',str(result)))
     if result['status']=='resolved':
-        new.update(unit=result['unit'],unit_basis=result['basis'],status='needs_review')
+        new.update(unit=result['unit'],unit_basis=result['basis'],unit_status=result['unit_status'],status='needs_review')
     elif result['status']=='needs_input':
-        new.update(unit='unknown',unit_basis='unresolved',status='needs_unit_confirmation')
+        new.update(unit='unknown',unit_basis='unresolved',unit_status=result['unit_status'],status='needs_unit_confirmation')
         for item in new['items']:
             item.update(status='needs_unit_confirmation',area_m2=None,candidate_area_m2=None,
                         measurement_id=None,measurement_evidence_url=None)

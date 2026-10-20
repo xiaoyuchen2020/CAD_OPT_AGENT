@@ -157,14 +157,22 @@ def test_entity_observation_keeps_text_source_bridge_and_pagination(workspace,ge
     assert observation['has_more']==result['has_more'] and observation['offset']==0
 
 
-def test_relation_tools_open_after_input_artifacts_exist(workspace,general_drawing):
+def test_required_relation_routes_keep_prerequisites_and_source_guards(workspace,general_drawing):
     s=session(workspace,general_drawing);s.task.auto_plan()
     s.task.data['subtasks'][0]['operations']=['relations','vision','geometry']
     assert 'query_entities' in s.focus.names()
-    assert not {'query_building_relations','measure_geometry'}&s.focus.names()
+    # Mandatory operations now share the final-gate schedule: optional stage
+    # pruning cannot hide an executable prerequisite or required capability.
+    from cad_agent.analysis.scheduling import schedule
+    for work in schedule(s):
+        if work['executable']:
+            assert set(work['next_action']['tools']) <= s.focus.names()
+    assert {'query_building_relations','measure_geometry'} <= s.focus.names()
+    with pytest.raises(ValueError):
+        s.execute('measure_geometry', {'operation': 'length', 'entity_ids': ['invented']})
     s.invoke_tool('query_entities',{'kind':'TEXT','limit':1})
     assert {'query_building_relations','render_region'}<=s.focus.names()
-    assert 'measure_geometry' not in s.focus.names()
+    assert 'measure_geometry' in s.focus.names()
 
 
 def test_preview_is_escaped_and_does_not_claim_model_vision(workspace, general_drawing):

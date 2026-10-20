@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 
 from shapely.geometry import Point, Polygon, LineString
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.config import Settings
 from cad_agent.service import Workspace
 from cad_agent.components.contracts import RelationQuery
@@ -102,7 +103,7 @@ def main():
         before=sha256((source_dir/'source.dxf').read_bytes()).hexdigest();assert before==d['sha256']
         w=Workspace(Settings(data_dir=out/'data'))
         try:
-            for fn in ('source.dxf','scene.json','entities.json','regions.json'):shutil.copy2(source_dir/fn,w.store.artifact(sid,fn))
+            for fn in ('source.dxf','scene.json','entities.json','regions.json'):copy_artifact(source_dir/fn,w.store.artifact(sid,fn))
             w.store.put('drawing',sid,d);lid=next(l['layout_id'] for l in d['layouts'] if l['name']=='Model')
             options=RelationQuery(layout_id=lid,bbox=case['bbox'],view_kind='floor_plan')
             print(case['name'],'build',flush=True)

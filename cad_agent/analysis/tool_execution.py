@@ -41,10 +41,33 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
     args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    if name == 'read_evidence_record':
+        from cad_agent.analysis.evidence_store import read
+        return read(self, args)
+    if name == 'query_property_evidence':
+        from cad_agent.analysis.property_evidence import query_property_evidence
+        return query_property_evidence(self, **args.model_dump())
+    if name == 'batch_read_sources':
+        raise ValueError('批量读取须通过有界调用入口，检查批量参数大小。')
+    from cad_agent.analysis.scope_workflow import bind_scope_call
+    args = bind_scope_call(self, name, args)
     snapshot = self.request.snapshot_id
+    if name == 'search_similar_objects':
+        from cad_agent.analysis.similarity_search import search_similar_objects
+        return search_similar_objects(self.w, snapshot, args)
+    if name in ('bind_spatial_object', 'get_spatial_object'):
+        from cad_agent.analysis.spatial_evidence import bind_spatial_object, get_spatial_object
+        return (bind_spatial_object if name == 'bind_spatial_object' else get_spatial_object)(self, args)
+    from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
+    if name in SPATIAL_METHODS:
+        from cad_agent.analysis.spatial_workflow import execute_spatial_method
+        return execute_spatial_method(self, name, args)
     if name=='read_assembly':return self._register_tree(read_assembly(self,args))
     if name=='calculate_facts':return calculate_facts(self,args)
     if name=='resolve_drawing_scope':return self._register_tree(resolve_scope(self,args))
+    if name=='inspect_scope_objects':
+        from cad_agent.analysis.scope_objects import inspect
+        return inspect(self,args)
     if name=='read_project_sources':return self._register_tree(project_read(self,args))
     if name=='locate_space_labels':return locate_space_labels(self.w,snapshot,args)
     if name in ('prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces'):
@@ -123,7 +146,7 @@ def execute(self, name, raw_args, *, bounded=False):
             if args.batch_id not in self.room_batches:raise ValueError('先读取当前会话的房间批次。')
             pending_images={k:v for k,v in self.visual_images.items() if k not in getattr(self,'reviewed_image_ids',set()) and v.get('kind') in ('geometry_review_sheet','boundary_contact_sheet')}
             if pending_images:raise ValueError('先完成已准备的局部图像审查。')
-            record=service.prepare(args)
+            record=service.prepare(args,remaining=self._remaining)
             self.boundary_reviews=getattr(self,'boundary_reviews',{})|{record['review_id']:record}
             self.visual_images.update({i['image_id']:i for i in record['images']})
             return service.summary(record)
@@ -136,6 +159,10 @@ def execute(self, name, raw_args, *, bounded=False):
         self.room_batch=batch
         return self._register_tree(service.summary(record)|{'batch_id':batch['batch_id'],'boundary_review_complete':True,
                                         'measurement':RoomBatchService.summary(batch)})
+    if name in ('read_door_schedule_table', 'trace_door_schedule'):
+        from cad_agent.analysis.door_schedule import read_door_schedule_table, trace_door_schedule
+        method = read_door_schedule_table if name == 'read_door_schedule_table' else trace_door_schedule
+        return self._register_tree(method(self, args))
     if name=='trace_detail' and not set(args.target_snapshot_ids)<=self.allowed_snapshots:
         raise ValueError('跨图目标未加入本轮关联图纸清单。')
     if name in ('query_annotations', 'locate_by_axes', 'trace_detail', 'read_table_semantics'):
@@ -179,12 +206,18 @@ def execute(self, name, raw_args, *, bounded=False):
             from cad_agent.geometry.tiled_discovery import discover_with_subdivision
             return geometry.discovery_summary(discover_with_subdivision(geometry,args), args.offset, args.limit)
         if name == "read_geometry":
-            return geometry.read(args)
+            result = geometry.read(args)
+            from cad_agent.analysis.evidence_store import save_session
+            result["full_geometry_record"] = save_session(self, "full_geometry",
+                dict(snapshot_id=snapshot, source_sha256=self.drawing['sha256'],
+                     items=geometry.records(args.entity_ids), unit=self.drawing["unit"],
+                     note="完整源几何记录；曲线仍按解析器细分，单位及对象身份规则不变。"))
+            return result
         if name == "query_spatial":
             return geometry.query(args)
         if getattr(args, 'binding_id', '') and args.binding_id not in self.visual_bindings:
             raise ValueError('绑定尚未在本次会话中读取。')
-        record = (geometry.room(args) if name == "measure_room" else geometry.measure(args)
+        record = (geometry.room(args) if name == "measure_room" else geometry.measure(args, unit_policy=self.task.data.get('unit_policy'))
                   if name == "measure_geometry" else geometry.get(args.measurement_id))
         if record["kind"] == "room_discovery":
             return geometry.discovery_summary(record)
@@ -237,6 +270,9 @@ def execute(self, name, raw_args, *, bounded=False):
         return self._register_tree(self.index.inspect(**args.model_dump()))
     if name == "read_source_context":
         result = source_context(self.w, snapshot, **args.model_dump(), bounded=bounded)
+        from cad_agent.analysis.evidence_store import save_session
+        result["original_source_record"] = save_session(self, "original_source",
+            self.index.by_id[args.region_id].model_dump())
         for item in result["items"]:
             item["evidence"] = self._register(item["evidence"])
         return result
@@ -337,11 +373,36 @@ def invoke_tool(self, name, raw_args):
             },
             ensure_ascii=False,
         )
+    if name == 'batch_read_sources' and self.request.source_read_batching:
+        from cad_agent.analysis.batch_reads import BatchReadSources, invoke_batch
+        try:
+            if len(dumps(raw_args)) > 16000:
+                raise ValueError('批量参数过长')
+            batch = BatchReadSources.model_validate(json.loads(raw_args) if isinstance(raw_args, str) else raw_args, strict=True)
+        except (ValueError, TypeError):
+            pass  # Invalid envelopes use the normal counted error path below.
+        else:
+            return invoke_batch(self, batch)
     self.calls += 1
+    from cad_agent.analysis.failure_guard import blocked
+    if blocked(self, name, raw_args):
+        error = dict(code="REPEATED_TOOL_FAILURE", message="相同参数已连续两次触发同一校验错误且无新证据。已阻止再次执行；改查缺口或按已知事实部分交付。")
+        self.trace.append(dict(tool=name, status="failed", error=error, repeated_execution_blocked=True))
+        packet = deepcopy(getattr(self, '_blocked_failure_feedback', {}))
+        packet['error'] = error
+        owners = set(packet.get('affected_task_ids', []))
+        # A stalled branch must not terminate unrelated executable work.
+        independent = [sid for sid in self.task.runnable() if sid not in owners]
+        if not independent:
+            self.policy.stop_reason = "repeated_tool_failure"
+        packet['repair_context'] = dict(state_unchanged=True)
+        encoded = dumps(packet)
+        self.policy.response_chars += len(encoded)
+        return encoded
     tick = time.monotonic()
     previous_evidence = dict(self.evidence)
     previous_observations = dict(self.observations)
-    registry_fields = ('object_registry', 'object_workflows')
+    registry_fields = ('object_registry', 'object_workflows', 'source_recall', 'spatial_objects', 'spatial_results')
     registry_before = {k: deepcopy(self.task.data[k]) for k in registry_fields if k in self.task.data}
     def rollback_registry():
         for key in registry_fields:
@@ -353,16 +414,28 @@ def invoke_tool(self, name, raw_args):
     new_evidence = set()
     full_result = {}
     args = {}
+    result_view = "auto"
     task_ids=[]
+    tool_supported = False
+    batch_allowed = getattr(self, '_batch_read_allowed_tools', None)
     self.trace.append(entry)
     self.progress(stage=f"正在执行 {name}", trace=self.trace, usage=self.usage)
     try:
         from cad_agent.analysis.tool_registry import require_supported
+        if name == 'batch_read_sources' and not self.request.source_read_batching:
+            raise ValueError('SOURCE_READ_BATCHING_DISABLED')
         require_supported(name, self.request.runtime, self.w.settings.provider)
+        tool_supported = True
         args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
         args = dict(args)
+        from cad_agent.analysis.payload_projection import VIEWS, PROJECTABLE_TOOLS, selected_view
+        result_view = args.pop('result_view', 'auto')
+        if result_view not in VIEWS:
+            raise ValueError('result_view 必须为 auto、summary 或 full。')
         task_ids = args.pop('task_ids',None)
-        entry.update(arguments=args,task_ids=task_ids or [])
+        entry.update(arguments=args,task_ids=task_ids or [], result_view=result_view)
+        from cad_agent.analysis.batch_reads import validate_batch_owner
+        validate_batch_owner(self)
         if task_ids and name not in CONTROL:
             # Already delivered owners can be cited alongside active owners;
             # do not reject the whole operation because of that redundant tag.
@@ -373,6 +446,16 @@ def invoke_tool(self, name, raw_args):
             task_ids = task_ids or ([self.task.parts[0]['id']] if not self.task.complex else [])
             self.task.start(task_ids)
         entry["task_ids"] = task_ids or []
+        batch_allowed = getattr(self, '_batch_read_allowed_tools', None)
+        if batch_allowed is not None and name not in batch_allowed:
+            raise ValueError('此批次开始时该读取工具尚未开放。')
+        from cad_agent.analysis.scope_workflow import bind_scope_call, record_scope_call, selected_for_call
+        call_scope = selected_for_call(self, name)
+        if call_scope is not None:
+            original = TOOL_SPECS[name][0].model_validate(args, strict=True)
+            bound = bind_scope_call(self, name, original)
+            # Preserve omitted defaults until the existing budget policy applies.
+            args.update({k:v for k,v in bound.model_dump().items() if v != getattr(original,k)})
         if self.policy.enabled:
             if name not in TOOL_SPECS:
                 raise ValueError("Unknown tool")
@@ -382,7 +465,17 @@ def invoke_tool(self, name, raw_args):
                 args.setdefault("limit", 12 if name=="analyze_room_batch" else 5)
             args = TOOL_SPECS[name][0].model_validate(args, strict=True).model_dump()
             cache_key = self.policy.key(name, args)
-        if name not in CONTROL and cache_key in self.policy.cache:
+            if result_view != 'auto' or name in PROJECTABLE_TOOLS:
+                cache_key += ':result_view=' + result_view + ':' + selected_view(self, name, task_ids or [], result_view)
+            if call_scope is not None:
+                # A cached observation belongs to its requirement owners.
+                cache_key += ':' + call_scope['scope_id'] + ':' + ','.join(sorted(task_ids or []))
+        from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
+        revalidates_source = SPATIAL_METHODS | {
+            'bind_spatial_object', 'get_spatial_object', 'resolve_drawing_scope',
+            'query_property_evidence', 'trace_door_schedule',
+        }
+        if name not in CONTROL and name not in revalidates_source and cache_key in self.policy.cache:
             duplicate = True
             full_result = self.policy.cache[cache_key]
             result = {
@@ -411,15 +504,33 @@ def invoke_tool(self, name, raw_args):
                     self.policy.stop_reason=previous_stop
                     raise
             else:
-                result = self.execute(name, args, bounded=self.policy.enabled)
+                if batch_allowed is not None and name in ('read_source_context', 'read_assembly'):
+                    from cad_agent.analysis.batch_reads import execute_sized
+                    result = execute_sized(self, name, args)
+                    # Adaptive pagination changes the executed cursor's page size.
+                    # Cache only that exact page, never the original larger one.
+                    if self.policy.enabled:
+                        cache_key = self.policy.key(name, args)
+                        if result_view != 'auto' or name in PROJECTABLE_TOOLS:
+                            cache_key += ':result_view=' + result_view + ':' + selected_view(self, name, task_ids or [], result_view)
+                        if call_scope is not None:
+                            cache_key += ':' + call_scope['scope_id'] + ':' + ','.join(sorted(task_ids or []))
+                else:
+                    result = self.execute(name, args, bounded=self.policy.enabled)
             if name=='plan_task' and self.focused_enabled:result=self.focus.state()
+            from cad_agent.analysis.payload_projection import project_result
+            result = project_result(self, name, args, result, task_ids or [], result_view)
             from cad_agent.analysis.object_registry import record_tool_result
             registry_update = record_tool_result(self, name, args, result)
             if registry_update:
                 result.update(registry_update)
+            record_scope_call(self, name, args, result)
             self.register_observation(name, result)
             full_result = result
             new_evidence = evidence_ids(result) - self.policy.seen_evidence
+        if duplicate and name in ('search_sources','query_entities'):
+            from cad_agent.analysis.recall import record as record_recall
+            result.update(record_recall(self,name,args,full_result))
         entry.update(
             status="completed",
             arguments=args,
@@ -455,23 +566,63 @@ def invoke_tool(self, name, raw_args):
                 "message": "工具参数、来源或范围无效；仅允许当前图纸的 CAD 工具。",
             }
         }
-        if str(error).startswith('COMPONENT_ITEM_TOO_LARGE'):
+        if str(error) == 'SOURCE_READ_BATCHING_DISABLED':
+            result['error']={'code':'SOURCE_READ_BATCHING_DISABLED','message':'批量读取已关闭，请逐项调用 read_source_context/read_assembly；仅用户可在问答设置中开启。'}
+        elif str(error).startswith('COMPONENT_ITEM_TOO_LARGE'):
             result['error']={'code':'COMPONENT_ITEM_TOO_LARGE','message':str(error)[:400]}
         elif name=='finish_analysis':
             self.record_validation_issue(error)
             result['error']['message']=self.validation_issue
             if getattr(self,'scope_recovery_feedback',None):
                 result['recovered_batches']=self.scope_recovery_feedback
-        elif name in ('read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','request_toolset','prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces','prepare_room_boundaries','select_room_boundaries','analyze_measurements','get_analysis_results','check_dimension_chain','inspect_enclosure','render_region','bind_visual_objects','get_drawing_context','query_building_relations','discover_rooms','read_dimensions','measure_geometry','get_room_contours','measure_room_area'):
+        elif name in ('inspect_scope_objects','read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','request_toolset','prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces','prepare_room_boundaries','select_room_boundaries','analyze_measurements','get_analysis_results','check_dimension_chain','inspect_enclosure','render_region','bind_visual_objects','get_drawing_context','query_building_relations','discover_rooms','read_dimensions','measure_geometry','get_room_contours','measure_room_area'):
             result['error']['message']=str(error)[:400]
-        elif name=='plan_task' or (self.task.complex and not task_ids):
+        elif name=='plan_task':
+            from cad_agent.analysis.planning import plan_error_feedback
+            result['error']=plan_error_feedback(error)
+        elif self.task.complex and not task_ids:
             result['error']['message']='先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。'
-        if self.task.complex:result['task']=self.task.context()
+        from cad_agent.analysis.batch_reads import batch_error_feedback
+        result['error'] = batch_error_feedback(self, error, result['error'])
+        if name == 'render_region':
+            from cad_agent.analysis.scope_workflow import record_scope_failure
+            record_scope_failure(self, name, args, result)
+        from cad_agent.analysis.failure_guard import register_failure
+        from cad_agent.analysis.error_feedback import field_issues, build_feedback
+        result['repair_context'] = dict(field_issues=field_issues(error, self, name))
+        if not result['repair_context']['field_issues']:
+            result['error']['detail'] = str(error)[:600]
+        register_failure(self, name, args, result)
+        if self.policy.enabled and tool_supported:
+            result = build_feedback(self, name, args, result, error, task_ids or [])
+            self._last_error_feedback = result
+            self._failed_calls[self._last_failure_call_key]['feedback'] = deepcopy(result)
+        elif result.get('recovered_batches'):
+            from cad_agent.analysis.evidence_store import save_session
+            result['recovered_batches'] = save_session(self, 'scope_recovery', result['recovered_batches'])
         entry.update(status="failed", error=result["error"])
+        if result.get('error_record'):
+            entry.update(error_record=result['error_record'],
+                         affected_task_ids=result['affected_task_ids'], retry=result.get('retry'))
+    archive_ref = None
+    if entry["status"] == "completed" and not duplicate and name not in CONTROL:
+        from cad_agent.analysis.evidence_store import save_session, working_result
+        if result.get('payload_projection'):
+            # This archive contains the pre-projection tool return. Never replace
+            # it with the smaller observation, or excerpt away candidate rows.
+            archive_ref = result['evidence_record']
+        else:
+            archive_ref = save_session(self, name, result)
+            result = working_result(result, archive_ref) if self.stable_prefix_enabled and result_view != 'full' else result | {"evidence_record": archive_ref}
     before_chars = len(json.dumps(result, ensure_ascii=False))
     visible = set(self.policy.seen_evidence)
     encoded = dumps(compact(result, visible)) if self.policy.enabled else json.dumps(result, ensure_ascii=False)
-    if len(encoded) > 50000:
+    if entry["status"] == "failed" and result.get('error_record') and len(encoded) > getattr(self, '_tool_response_limit', 50000):
+        ref = result['error_record']
+        encoded = dumps(dict(error={k: str(result['error'][k])[:300] for k in ('code','message')},
+                             error_record=ref, affected_task_ids=result['affected_task_ids'],
+                             next_read=dict(tool='read_evidence_record',arguments=dict(record_id=ref['record_id']))))
+    if len(encoded) > getattr(self, '_tool_response_limit', 50000):
         rollback_registry()
         self.evidence = previous_evidence
         self.observations = previous_observations
@@ -479,9 +630,23 @@ def invoke_tool(self, name, raw_args):
             "code": "RESULT_TOO_LARGE",
             "message": "结果过大，请缩小范围或减小 limit。",
         }
-        encoded = json.dumps({"error": error}, ensure_ascii=False)
+        encoded = json.dumps({"error": error, **({"evidence_record":archive_ref,
+            "next_read":{"tool":"read_evidence_record","arguments":{"record_id":archive_ref["record_id"]}}}
+            if archive_ref else {})}, ensure_ascii=False)
+        if batch_allowed is not None:
+            fallback = dict(error=error, retry_via='original_tool',
+                next_actions=[dict(tool=name, arguments=args, task_ids=task_ids or [])])
+            if len(dumps(fallback)) <= getattr(self, '_tool_response_limit', 50000):
+                encoded = dumps(fallback)
         entry.update(status="failed", error=error)
     core_encoded = encoded
+    if entry["status"] == "failed":
+        # Failed calls consume model context too; never disguise them as progress.
+        self.policy.response_chars += len(encoded)
+        if task_ids:
+            from cad_agent.analysis.gap_routing import record_result
+            record_result(self, name, task_ids, result | {"error": entry["error"]})
+            self.task.save()
     if entry["status"] == "completed":
         self.coverage.record(name, full_result, task_ids=task_ids or [])
         self.task.data['source_read_queue']=[dict(a,task_ids=self.coverage.owners(a)) for a in self.coverage.pending()]
@@ -489,7 +654,7 @@ def invoke_tool(self, name, raw_args):
             self.policy.seen_evidence = visible
             if not duplicate and name not in CONTROL and name != "extract_facts":
                 self.policy.cache[cache_key] = full_result
-        if full_result.get("kind") == "relations":
+        if full_result.get("kind") in ("relations", "scope_object_candidates", "spatial_object", "spatial_method"):
             self.policy.geometry_work = True
         if name not in CONTROL:self.policy.record(name, full_result, new_evidence, duplicate, len(encoded))
         else:self.policy.response_chars += len(encoded)
@@ -504,17 +669,17 @@ def invoke_tool(self, name, raw_args):
                 self.policy.stop_reason=None
             if name=='analyze_room_batch' and not self.task.runnable() and not (self.focused_enabled and self.focus.pending_pages()):
                 self.policy.stop_reason='room_batch_'+full_result['status']
-            if self.task.complex:
+            if self.task.complex and batch_allowed is None:
                 result['task']=self.focus.state() if self.focused_enabled else self.task.context()
                 encoded=dumps(compact(result))
-        if self.policy.enabled:
+        if self.policy.enabled and batch_allowed is None:
             wire = json.loads(encoded)
             wire["next_action"] = self.policy.hint()
             wire["evidence_coverage"] = self.coverage.summary()
             updated = dumps(wire)
             self.policy.response_chars += len(updated) - len(encoded)
             encoded = updated
-    if len(encoded) > 50000:
+    if len(encoded) > getattr(self, '_tool_response_limit', 50000):
         # The primary packet was checked above; state is already durably recorded.
         # Omit only extra task/hint metadata, never source/measurement content.
         encoded = core_encoded

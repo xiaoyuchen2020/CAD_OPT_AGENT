@@ -1,4 +1,6 @@
 import {spatialRows,spatialHighlightBounds} from './spatial-results.mjs';
+import {propertyRows} from './property-evidence.mjs';
+import {selectionBox, similarityScope, similarityPath} from './similarity-selection.mjs';
 import {PanBuffer} from "./pan-buffer.mjs";
 import {renderHighlight} from "./highlight.mjs";
 import {roomBatchPresentation,roomAreaText,combinedBatchHighlights,displayedBatches} from "./room-batch.mjs";
@@ -29,6 +31,8 @@ const S = {
   parentRun: null,
   retrievalSupported: false,
   roomPick: false,
+  similarityPick: false,
+  similarityRequest: 0,
   measurement: null,
   adaptationPolicy: null,
 };
@@ -126,6 +130,7 @@ async function refreshDrawings() {
 async function selectDrawing(id) {
   if (!id) return;
   const gen = ++S.generation;
+  cancelSimilaritySelection();
   S.roomPick = false;
   S.measurement = null;
   $("room-measure-button").setAttribute("aria-pressed", "false");
@@ -762,6 +767,7 @@ async function ask(question, resumeTask=null) {
       runtime: $("agent-runtime").value,
       model_profile: $("model-profile").value,
       allow_fallback: $("runtime-fallback").checked,
+      source_read_batching: $("source-read-batching").checked,
       parent_run_id: mode === "agent" ? S.parentRun : null,
     };
     if (mode==='agent' && S.adaptationPolicy?.snapshot_id===S.drawing.id) payload.adaptation_policy_id=S.adaptationPolicy.policy_id;
@@ -817,6 +823,14 @@ async function ask(question, resumeTask=null) {
       node("div", "message-label", mode === "agent" ? "✳ 模型 · 工具问答" : "✳ 本地事实查询"),
       node("p", null, result.claims?.length ? result.claims.map(c=>c.text).join("\n\n") : result.answer),
     );
+    if (result.source_excerpts?.length) {
+      const excerpts = node("section", "answer-note");
+      excerpts.append(node("p", null, "已读原文摘录：仅保留来源文字；对象归属、适用范围及所问统计或几何关系尚待核查，不计为完成。"));
+      for (const excerpt of result.source_excerpts) {
+        excerpts.append(node("p", null, `“${excerpt.quote}” [${excerpt.citation_number}]`));
+      }
+      answer.append(excerpts);
+    }
     if(result.task) {
       const taskPanel=node('section','task-panel');answer.append(taskPanel);
       renderTask(taskPanel,result.task);
@@ -896,6 +910,16 @@ async function ask(question, resumeTask=null) {
     }
     if (result.model) audit.append(node("p", "answer-note", `实际模型：${result.model} · ${result.model_profile}`));
     if (["codex_subscription", "siwc_subscription"].includes(result.billing)) audit.append(node("p", "answer-note", result.usage_note));
+    if (result.cache_usage) {
+      const c=result.cache_usage;
+      const ratio=c.cached_input_ratio == null ? "未知" : `${(100*c.cached_input_ratio).toFixed(1)}%`;
+      const cached=c.reported_requests ? `${c.cached_input_tokens} tokens` : "未知";
+      audit.append(node("p", "answer-note", `实际缓存输入：${cached} · 已报告请求中的命中占比 ${ratio} · ${c.missing_cache_usage_requests} 次请求未报告缓存用量`));
+    }
+    if (result.budget_policy?.version === "adaptive_v1") {
+      const b=result.budget_policy;
+      audit.append(node("p", "answer-note", `${b.name === "deep" ? "深度" : "标准"}预算 · 累计 ${b.total_ceiling_tokens.toLocaleString()} tokens · ${b.elapsed_ceiling_seconds / 60} 分钟 · 成稿预留 ${b.reserved_finalization_tokens.toLocaleString()} tokens`));
+    }
     if (result.retrieval_mode) {
       const records = result.retrieval_usage || [];
       const fallback = records.some(x => x.fallback_reason === "embedding_unavailable");
@@ -1244,6 +1268,19 @@ function renderTask(panel,task,note='') {
   const failed=task.publication_status==='failed' || task.last_error;
   panel.replaceChildren(node('p','task-summary',failed ? '分析结果已保留 · 回答未发布' : `任务 · ${labels[task.status] || task.status}`));
   if(note)panel.append(node('p','answer-note',note));
+  const fields = node('button', 'text-button', '查看字段、口径与来源');
+  fields.onclick = attempt(() => showPropertyEvidence(task));
+  panel.append(fields);
+  if (task.door_schedule_relation_count) {
+    const relations = node('button', 'text-button', `查看门实例与门表候选 · ${task.door_schedule_relation_count}`);
+    relations.onclick = attempt(() => showDoorScheduleRelations(task));
+    panel.append(relations);
+  }
+  if (Object.keys(task.gap_recovery || {}).length) {
+    const recovery = node('button', 'text-button', '查看待补项与恢复状态');
+    recovery.onclick = attempt(() => showGapRecovery(task));
+    panel.append(recovery);
+  }
   if (task.object_registry) {
     const objects = node('details');
     objects.append(node('summary', null, `对象与覆盖 · ${task.object_registry.candidate_object_count} 条候选记录`));
@@ -1275,6 +1312,114 @@ function renderTask(panel,task,note='') {
     const next=node('button','button',failed ? '恢复结果交付' : '继续未完成分析');
     next.onclick=attempt(()=>task.snapshot_id===S.drawing?.id && ask(task.question,task));panel.append(next);
   }
+}
+
+async function showPropertyEvidence(task, offset = 0) {
+  const gen = S.generation;
+  const packet = await api(`/api/tasks/${encodeURIComponent(task.task_id)}/property-evidence?offset=${offset}&limit=30`);
+  if (gen !== S.generation) return;
+  const cards = [node('p', 'answer-note', packet.note || '分别展示已读来源的属性值；来源绑定不等于对象身份确认。')];
+  for (const row of propertyRows(packet)) {
+    const card = node('div', 'room-batch-row');
+    card.append(node('strong', null, `${row.subject} · ${row.property}`));
+    card.append(node('p', null, `${row.value} ${row.unit}`));
+    card.append(node('p', 'answer-note', `${row.basis} · ${row.state}`));
+    for (const id of new Set(row.evidenceIds)) {
+      const evidence = packet.evidence?.find(e => e.evidence_id === id);
+      if (!evidence) continue;
+      const button = node('button', 'text-button', `定位：${evidence.quote?.slice(0, 55) || '原图依据'}`);
+      button.onclick = attempt(async () => {
+        if (gen !== S.generation) return;
+        if (evidence.snapshot_id !== S.drawing?.id) await selectDrawing(evidence.snapshot_id);
+        $('details-dialog').close();
+        showSource(evidence);
+      });
+      card.append(button);
+    }
+    if (row.observationIds.length) {
+      const link = node('a', 'export-link', '查看完整工具记录 ↗');
+      link.href = `/api/tasks/${encodeURIComponent(task.task_id)}/evidence-records`;
+      link.target = '_blank'; link.rel = 'noopener'; card.append(link);
+    }
+    if (row.diagnostics.length) card.append(node('small', null, row.diagnostics.join('；')));
+    cards.push(card);
+  }
+  if (!packet.items?.length) cards.push(node('p', null, '当前任务尚无可展示的字段证据。'));
+  if (offset > 0) {
+    const previous = node('button', 'button', '上一页');
+    previous.onclick = attempt(() => showPropertyEvidence(task, Math.max(0, offset - 30)));
+    cards.push(previous);
+  }
+  if (packet.has_more) {
+    const next = node('button', 'button', '下一页');
+    next.onclick = attempt(() => showPropertyEvidence(task, packet.next_offset));
+    cards.push(next);
+  }
+  $('dialog-title').textContent = `字段与来源 · ${packet.total} 条记录`;
+  $('dialog-content').replaceChildren(...cards);
+  if (!$('details-dialog').open) $('details-dialog').showModal();
+}
+
+async function showDoorScheduleRelations(task, offset = 0) {
+  const gen = S.generation;
+  const packet = await api(`/api/tasks/${encodeURIComponent(task.task_id)}/door-schedule-relations?offset=${offset}&limit=10`);
+  if (gen !== S.generation) return;
+  const cards = [node('p', 'answer-note', '实例、型号标注和表行分别保留来源。同型号仅建立候选关系；楼层、版本与实际适用性仍需核对。')];
+  const locate = evidence => {
+    const button = node('button', 'text-button', `定位：${evidence.quote?.slice(0, 55) || '原文'}`);
+    button.onclick = attempt(async () => {
+      if (gen !== S.generation) return;
+      if (evidence.snapshot_id !== S.drawing?.id) await selectDrawing(evidence.snapshot_id);
+      $('details-dialog').close(); showSource(evidence);
+    });
+    return button;
+  };
+  for (const relation of packet.items || []) {
+    const card = node('div', 'room-batch-row');
+    card.append(node('strong', null, `${relation.models.join(' / ')} · ${relation.candidate_count} 条表行候选`));
+    card.append(node('p', 'answer-note', relation.note));
+    for (const ann of relation.annotations || []) card.append(locate(ann.evidence));
+    for (const candidate of relation.candidates || []) {
+      const row = node('details');
+      row.append(node('summary', null, `门表第 ${candidate.row_index + 1} 行 · 待确认适用性`));
+      for (const field of candidate.record?.fields || []) {
+        row.append(node('p', null, `${field.header_path?.join(' / ') || field.field_roles?.join(' / ') || '字段'}：${field.text || '空白'}`));
+        for (const evidence of field.evidence || []) row.append(locate(evidence));
+      }
+      card.append(row);
+    }
+    if (!relation.candidate_count) card.append(node('p', null, '已读范围中尚无匹配表行；不能据此判断整张门表不存在该型号。'));
+    cards.push(card);
+  }
+  for (const [label, page] of [['上一页', offset > 0 ? Math.max(0, offset - 10) : null],
+      ['下一页', packet.has_more ? packet.next_offset : null]]) {
+    if (page === null) continue;
+    const button = node('button', 'button', label);
+    button.onclick = attempt(() => showDoorScheduleRelations(task, page)); cards.push(button);
+  }
+  showDialog(`门实例与门表候选 · ${packet.total} 组`, cards);
+}
+
+async function showGapRecovery(task) {
+  const gen = S.generation;
+  const gaps = await api(`/api/tasks/${encodeURIComponent(task.task_id)}/gap-recovery`);
+  if (gen !== S.generation) return;
+  const names = {
+    header_unread: '表头尚未核对', unit_missing: '单位依据不足',
+    visual_identity: '对象身份待核对', single_side_connection: '另一侧连接待核对',
+    calculation_inputs: '计算输入不完整', no_new_evidence: '尚未找到新增依据',
+  };
+  const states = {open:'待补充',resolved:'已补充',stopped:'已停止重试'};
+  const cards = gaps.map(gap => {
+    const card = node('div', 'room-batch-row');
+    card.append(node('strong', null, names[gap.kind] || '待核对项'));
+    card.append(node('p', null, `${states[gap.status] || '待核对'} · 已尝试 ${gap.attempts} / ${gap.attempt_limit} 次`));
+    if (gap.recommendation?.reason) card.append(node('p', null, gap.recommendation.reason));
+    if (gap.stop_reason) card.append(node('p', 'answer-note', '当前恢复条件不满足，保留缺口；可在补充资料或确认范围后继续分析。'));
+    return card;
+  });
+  if (!cards.length) cards.push(node('p', null, '当前没有登记的恢复项。'));
+  showDialog('待补项与恢复状态', cards);
 }
 
 function renderRoomBatch(panel,batch,taskContext=null) {
@@ -1559,8 +1704,73 @@ async function discoverVisibleRooms(unitOverride=null){
   if(sid===S.drawing?.id)showRoomDiscovery(record);
 }
 $("room-discover-button").onclick=attempt(()=>discoverVisibleRooms());
+function cancelSimilaritySelection() {
+  S.similarityPick=false;
+  S.similarityRequest++;
+  $("similarity-button").setAttribute("aria-pressed","false");
+  $("similarity-button").disabled=false;
+  $("drawing-selection").replaceChildren();
+  if (!S.roomPick) $("cad-canvas").classList.remove("room-pick");
+  if (drag?.similarity) drag=null;
+}
+$("similarity-button").onclick=()=>{
+  if (!S.drawing || !S.view) {toast('请先打开图纸。');return;}
+  const enable=!S.similarityPick;
+  cancelSimilaritySelection();
+  S.roomPick=false;$("room-measure-button").setAttribute("aria-pressed","false");
+  S.similarityPick=enable;
+  $("similarity-button").setAttribute("aria-pressed",String(enable));
+  $("cad-canvas").classList.toggle("room-pick",enable);
+  toast(enable ? '拖动框选一个完整样本。将在所选图框内搜索；未选图框时搜索当前视野。' : '已取消框选。');
+};
+async function runSimilaritySearch(sampleBox, start) {
+  const sid=S.drawing.id, lid=S.layout, frame=$("frame-select").value, gen=S.generation;
+  const request=++S.similarityRequest;
+  $("similarity-button").disabled=true;
+  toast('正在比较当前范围内的形状候选…');
+  try {
+    const result=await post(`/api/drawings/${sid}/similarity-search`,{
+      ...similarityScope(start.view,start.rect,lid,frame),sample_bbox:sampleBox,limit:12,
+    });
+    if (gen!==S.generation || request!==S.similarityRequest || sid!==S.drawing?.id ||
+        lid!==S.layout || frame!==$("frame-select").value) return;
+    const candidates=result.candidates || [];
+    const cards=[node('p','answer-note',result.sample_issue || result.note || '形状相似仅用于定位候选，不确认门窗类型、功能或整图数量。')];
+    if (result.coverage) cards.push(node('p','answer-note',
+      `已扫描 ${result.coverage.entities_visited} 个图元${result.coverage.truncated ? '，处理范围或返回结果有截断' : ''}；本次结果不作为整图数量。`));
+    for (const [index,item] of candidates.entries()) {
+      const card=node('div','room-batch-row');
+      card.append(node('strong',null,`候选 ${index+1} · 形状相似度 ${(Number(item.similarity)*100).toFixed(1)}%`));
+      const locateButton=node('button','button','定位候选');
+      locateButton.onclick=()=>{
+        if (gen!==S.generation || sid!==S.drawing?.id || lid!==S.layout) return;
+        $("details-dialog").close();
+        locate({layout_id:lid,bbox:item.bbox});
+        const path=similarityPath(item);
+        if (path) {
+          $("drawing-highlight").replaceChildren(svg('path',{
+            d:path,fill:'none',stroke:'#087d65','stroke-width':3,
+            'vector-effect':'non-scaling-stroke','pointer-events':'none',
+          }));
+          $("drawing-highlight").dataset.highlightMode='native-shape-paths';
+          $("drawing-highlight").dataset.highlightFallback='';
+        } else renderHighlight($("drawing-highlight"),{bbox:item.bbox});
+        $("source-note").textContent='相似形状候选 · 工程身份尚未确认';
+      };
+      card.append(locateButton);
+      if (item.bbox) card.append(node('small',null,
+        `轴向包络 ${(item.bbox[2]-item.bbox[0]).toFixed(2)} × ${(item.bbox[3]-item.bbox[1]).toFixed(2)}（图纸单位，不代表规格）`));
+      cards.push(card);
+    }
+    if (!candidates.length) cards.push(node('p',null,'本次已扫描范围未找到符合阈值的候选；可缩小样本、调整视野后重试。'));
+    showDialog(`相似对象 · ${candidates.length} 条候选`,cards);
+  } finally {
+    if (request===S.similarityRequest) $("similarity-button").disabled=false;
+  }
+}
 $("room-measure-button").onclick=()=>{
   if(!S.drawing){toast("请先导入图纸。");return;}
+  cancelSimilaritySelection();
   S.roomPick=!S.roomPick;
   $("room-measure-button").setAttribute("aria-pressed",String(S.roomPick));
   $("cad-canvas").classList.toggle("room-pick",S.roomPick);
@@ -1631,10 +1841,16 @@ function diagnostics() {
 }
 $("demo-button").onclick = attempt(demo);
 $("empty-demo").onclick = attempt(demo);
-$("upload-button").onclick = () => $("file-input").click();
-$("file-input").onchange = attempt(async () => {
-  const file = $("file-input").files[0];
+async function importDrawingFile(file) {
   if (!file) return;
+  if (S.busy) {
+    toast("正在处理图纸，请完成后再导入。");
+    return;
+  }
+  if (!/\.(dwg|dxf)$/i.test(file.name)) {
+    toast("仅支持导入 DWG 或 DXF 文件。");
+    return;
+  }
   const isDwg = /\.dwg$/i.test(file.name);
   const status = $("import-status");
   status.hidden = false;
@@ -1662,14 +1878,68 @@ $("file-input").onchange = attempt(async () => {
     busy(false);
     $("file-input").value = "";
   }
+}
+$("upload-button").onclick = () => $("file-input").click();
+$("file-input").onchange = attempt(async () => {
+  try {
+    await importDrawingFile($("file-input").files[0]);
+  } finally {
+    $("file-input").value = "";
+  }
 });
+const uploadButton = $("upload-button");
+const uploadLabel = uploadButton.textContent;
+const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+function resetImportDrop() {
+  uploadButton.classList.remove("drag-over");
+  uploadButton.textContent = uploadLabel;
+}
+for (const eventName of ["dragenter", "dragover"]) {
+  uploadButton.addEventListener(eventName, (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = S.busy ? "none" : "copy";
+    if (S.busy) {
+      resetImportDrop();
+      return;
+    }
+    uploadButton.classList.add("drag-over");
+    uploadButton.textContent = "松开导入图纸";
+  });
+}
+uploadButton.addEventListener("dragleave", resetImportDrop);
+uploadButton.addEventListener("drop", attempt(async (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  resetImportDrop();
+  const files = Array.from(event.dataTransfer?.files || []);
+  if (!files.length) return;
+  if (files.length !== 1) {
+    toast("请每次拖入一张 DWG 或 DXF 图纸。");
+    return;
+  }
+  await importDrawingFile(files[0]);
+}));
+// Prevent a missed drop from replacing the workspace with the local file.
+for (const eventName of ["dragover", "drop"]) {
+  document.addEventListener(eventName, (event) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "none";
+    resetImportDrop();
+  });
+}
+document.addEventListener("dragend", resetImportDrop);
 $("drawing-select").onchange = attempt((e) => selectDrawing(e.target.value));
 $("layout-select").onchange = (e) => {
+  cancelSimilaritySelection();
   S.layout = e.target.value;
   clearSelection();
   renderScene();
 };
 $("frame-select").onchange = attempt(async () => {
+  cancelSimilaritySelection();
   S.limit = 100;
   await loadFacts();
   const f = S.drawing.frames.find(
@@ -1715,6 +1985,7 @@ $("extract-button").onclick = attempt(extractCurrent);
 $("close-evidence").onclick = clearSelection;
 $("clear-selection").onclick = clearSelection;
 $("clear-chat").onclick = clearChat;
+$("source-read-batching").checked = false;
 $("chat-settings-button").onclick = () => {
   const box=$("related-drawings");box.replaceChildren();
   const sid=S.drawing?.id,selected=S.relatedDrawings.get(sid)||[];
@@ -1735,7 +2006,7 @@ for (const id of ["close-chat-settings", "done-chat-settings"])
   $(id).onclick = () => $("chat-settings-dialog").close();
 function syncComposerSettings() {
   const local = $("chat-mode").value === "local";
-  const subscription = $("model-profile").value.startsWith("codex_") || $("model-profile").value === "siwc_sol";
+  const subscription = $("model-profile").value.startsWith("codex_") || $("model-profile").value.startsWith("siwc_");
   $("agent-runtime").disabled = local;
   $("model-profile").disabled = local;
   $("model-profile").hidden = local;
@@ -1754,7 +2025,7 @@ function subscriptionSelection(fromRuntime = false) {
   if (fromRuntime && $("agent-runtime").value === "codex_subscription" && !$("model-profile").value.startsWith("codex_")) {
     $("model-profile").value = "codex_sol_56";
   }
-  const direct = $("model-profile").value === "siwc_sol";
+  const direct = $("model-profile").value.startsWith("siwc_");
   const selected = direct || $("model-profile").value.startsWith("codex_");
   if (selected) $("agent-runtime").value = direct ? "responses_subscription" : "codex_subscription";
   else if (["codex_subscription", "responses_subscription"].includes($("agent-runtime").value)) $("agent-runtime").value = "native";
@@ -1915,6 +2186,7 @@ canvas.addEventListener(
   (e) => {
     if (!S.view || !e.deltaY) return;
     e.preventDefault();
+    if (drag?.similarity) return;
     const p = clientToView(S.view, $("canvas-wrap").getBoundingClientRect(), e.clientX, e.clientY);
     zoom(wheelFactor(e.deltaY, e.deltaMode, $("canvas-wrap").clientHeight), p);
   },
@@ -1924,21 +2196,38 @@ let drag = null;
 canvas.onpointerdown = (e) => {
   if (!S.view || e.button !== 0) return;
   drag = {x: e.clientX, y: e.clientY, view: [...S.view], pointerId: e.pointerId,
-    scale: Math.min($("canvas-wrap").clientWidth/S.view[2],$("canvas-wrap").clientHeight/S.view[3])};
+    scale: Math.min($("canvas-wrap").clientWidth/S.view[2],$("canvas-wrap").clientHeight/S.view[3]),
+    similarity:S.similarityPick, rect:$("canvas-wrap").getBoundingClientRect()};
   canvas.setPointerCapture(e.pointerId);
 };
 canvas.onpointermove = (e) => {
   if (!drag || drag.pointerId !== e.pointerId) return;
+  if (drag.similarity) {
+    const box = selectionBox(drag.view, drag.rect, [drag.x,drag.y], [e.clientX,e.clientY]);
+    $("drawing-selection").replaceChildren(...(box ? [svg('rect',{
+      x:box[0],y:-box[3],width:box[2]-box[0],height:box[3]-box[1],
+      fill:'#2563eb18',stroke:'#2563eb','stroke-width':2,'vector-effect':'non-scaling-stroke',
+    })] : []));
+    return;
+  }
   setView(panView(drag.view, drag.scale, e.clientX-drag.x, e.clientY-drag.y));
 };
 canvas.onpointerup = (e) => {
   const start=drag;drag=null;
+  if (start?.similarity && start.pointerId === e.pointerId) {
+    const box = selectionBox(start.view, start.rect, [start.x,start.y], [e.clientX,e.clientY]);
+    S.similarityPick=false;$("similarity-button").setAttribute("aria-pressed","false");canvas.classList.remove("room-pick");
+    $("drawing-selection").replaceChildren();
+    if (box) attempt(() => runSimilaritySearch(box, start))();
+    else toast('请拖动框选有面积的样本范围。');
+    return;
+  }
   if(!start || !S.roomPick || start.pointerId!==e.pointerId || Math.hypot(e.clientX-start.x,e.clientY-start.y)>4)return;
   const p=clientToView(start.view,$("canvas-wrap").getBoundingClientRect(),e.clientX,e.clientY);
   S.roomPick=false;$("room-measure-button").setAttribute("aria-pressed","false");canvas.classList.remove("room-pick");
   attempt(()=>runRoomMeasurement({layout_id:S.layout,seed:[p[0],-p[1]],frame_id:$("frame-select").value}))();
 };
-canvas.onpointercancel = canvas.onlostpointercapture = () => { drag = null; };
+canvas.onpointercancel = canvas.onlostpointercapture = () => { drag = null; $("drawing-selection").replaceChildren(); };
 new ResizeObserver(() => {
   if (S.view && !viewFrame) viewFrame = requestAnimationFrame(commitView);
 }).observe($("canvas-wrap"));
@@ -1956,7 +2245,7 @@ await attempt(async () => {
   $("model-profile").replaceChildren(...models.items.map(model => {
     const label = model.label === "默认" ? `默认 · ${model.model || "未配置"}`
       : model.label.replace("ChatGPT 直接订阅 · ", "").replace("Codex 订阅 · ", "")
-        + (model.id === "siwc_sol" ? " · ChatGPT" : model.id.startsWith("codex_") ? " · Codex" : "");
+        + (model.id.startsWith("siwc_") ? " · ChatGPT" : model.id.startsWith("codex_") ? " · Codex" : "");
     const option = node("option", null, label);
     option.title = `${model.label} · ${model.model || "未配置"}${model.context_length ? ` · ${model.context_length / 1024}K` : ""}`;
     option.value = model.id;

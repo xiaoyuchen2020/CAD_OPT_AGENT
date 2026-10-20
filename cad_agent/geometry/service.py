@@ -65,7 +65,7 @@ class GeometryService:
                     geometry_complete=index.data["complete"],
                     approximation_note="曲线空间关系按 1 mm 弦差细分；单位未知时为 1 图纸单位，物理精度未知。近容差关系须复核。")
 
-    def save(self, args, result, algorithm):
+    def save(self, args, result, algorithm, identity_context=None):
         request = args.model_dump()
         if getattr(args, 'binding_id', ''):
             from .vision import VisionService
@@ -79,7 +79,10 @@ class GeometryService:
                 if not (a <= x <= c and b <= y <= d):
                     raise ValueError('室内点不在视觉绑定范围。')
             result = result | {'visual_binding': binding}
-        mid = stable_id("measure", self.sid, self.drawing["sha256"], GEOMETRY_VERSION, algorithm, json.dumps(request, sort_keys=True))
+        identity = ["measure", self.sid, self.drawing["sha256"], GEOMETRY_VERSION, algorithm, json.dumps(request, sort_keys=True)]
+        if identity_context is not None:
+            identity.append(json.dumps(identity_context, sort_keys=True))
+        mid = stable_id(*identity)
         # Identical inputs produce the same immutable observation and timestamp.
         try:
             return self.get(mid)
@@ -99,26 +102,36 @@ class GeometryService:
             raise KeyError(mid)
         return result
 
-    def measure(self, args):
-        records = self.records(args.entity_ids, args.unit_override or self.drawing["unit"])
+    def measure(self, args, unit_policy=None):
+        from cad_agent.analysis.unit_policy import geometry_unit_resolution
+        resolution = geometry_unit_resolution(self.drawing['unit'], unit_policy, args.unit_override)
+        effective_unit = resolution['unit']
+        records = self.records(args.entity_ids, effective_unit)
         if len({r["layout_id"] for r in records}) != 1:
             raise ValueError("不能跨布局测量距离或面积。")
         if len(records) != (2 if args.operation == "distance" else 1):
             raise ValueError("距离需要两个图元，长度/面积需要一个图元。")
         if any(not r["paths"] or r["status"] != "ready" for r in records):
             raise ValueError("所选图元没有可用的二维几何。")
-        factor = UNIT_TO_M.get(args.unit_override or self.drawing["unit"])
+        factor = UNIT_TO_M.get(effective_unit)
         result = dict(kind="geometry", operation=args.operation, layout_id=records[0]["layout_id"],
                       status="unresolved", value=None, value_unit="m2" if args.operation=="area" else "m",
-                      entity_ids=args.entity_ids, diagnostics=[], applied_unit=args.unit_override or self.drawing["unit"],
-                      unit_basis="request_override" if args.unit_override else "dxf_header",
+                      entity_ids=args.entity_ids, diagnostics=list(resolution['diagnostics']), applied_unit=effective_unit,
+                      unit_basis=resolution['basis'], unit_status=resolution['unit_status'],
+                      source_unit=self.drawing['unit'], unit_resolution=resolution,
+                      identity_status='source_geometry_only',
                       approximate=any(not r["linear"] for r in records))
         if factor is None:
-            result["diagnostics"].append("unknown_units")
+            if 'unknown_units' not in result['diagnostics']:
+                result["diagnostics"].append("unknown_units")
+            raw = compute(self.w,'geometry_measure',dict(records=records,factor=1.,operation=args.operation))
+            result.update({k:v for k,v in raw.items() if k not in ('status', 'value')})
+            result['raw_value'] = raw['value']
+            result['raw_value_unit'] = 'drawing_units_squared' if args.operation == 'area' else 'drawing_units'
         else:
             result.update(compute(self.w,'geometry_measure',dict(records=records,factor=factor,operation=args.operation)))
         result["note"] = "几何计算，不代表墙体/房间身份或净面积。曲线结果为细分近似，不以此验证工程语义。"
-        return self.save(args, result, "geometry-measure-v2")
+        return self.save(args, result, "geometry-measure-v4-user-policy", identity_context=resolution)
 
     def room(self, args):
         reading = DrawingIndex(self.w, self.sid)
@@ -363,9 +376,9 @@ class GeometryService:
     @staticmethod
     def summary(record):
         keys = ("measurement_id", "snapshot_id", "source_sha256", "algorithm_version", "kind", "operation",
-                "status", "area_m2", "candidate_area_m2", "value", "value_unit", "approximate", "label", "layout_id", "frame_id",
+                "status", "area_m2", "candidate_area_m2", "value", "value_unit", "raw_value", "raw_value_unit", "approximate", "label", "layout_id", "frame_id",
                 "seed", "measurement_basis", "identity_status", "diagnostics", "coverage", "tolerance_m",
-                "numerical_area_envelope_m2", "applied_unit", "unit_basis", "note", "evidence_url", "preview_url", "visual_binding")
+                "numerical_area_envelope_m2", "applied_unit", "unit_basis", "unit_status", "source_unit", "unit_resolution", "note", "evidence_url", "preview_url", "visual_binding")
         out = {k:record[k] for k in keys if k in record}
         if record["kind"] == "room_area_basis":
             out.update({k:record[k] for k in ("discovery_id","candidate_id","shell_area_m2","excluded_union_area_m2",
@@ -373,6 +386,8 @@ class GeometryService:
         out['claim_contract'] = {'measurement_result': 'derived/unknown' if record['status']=='measured' else 'unknown',
                                  'measurement_diagnostic': 'observed; only status/diagnostics/units/links, no measurement values',
                                  'identity': 'candidate, not confirmed by calculation'}
+        if 'raw_value' in record:
+            out['claim_contract']['raw_measurement'] = 'drawing-coordinate candidate only; no physical unit or object identity confirmed'
         if record["kind"] == "room_area_basis":
             out['claim_contract']['measurement_result'] = 'unknown; basis_area_m2 is candidate geometry under an explicit basis, not confirmed net area'
         selected = record.get("selected")

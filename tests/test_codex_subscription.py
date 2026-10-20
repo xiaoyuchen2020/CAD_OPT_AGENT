@@ -298,7 +298,8 @@ def test_account_routes_and_models_do_not_expose_credentials(tmp_path, monkeypat
         assert client.post("/api/codex-account/login").status_code == 200
         assert client.post("/api/codex-account/logout").status_code == 200
         profiles = [m for m in client.get("/api/models").json()["items"] if m["billing"] == "subscription"]
-        assert len(profiles) == 4 and all(m["required_runtime"] in ("codex_subscription", "responses_subscription") for m in profiles)
+        assert len(profiles) == 6 and all(m["required_runtime"] in ("codex_subscription", "responses_subscription") for m in profiles)
+        assert {'siwc_sol', 'siwc_sol_high', 'siwc_luna_high'} <= {m['id'] for m in profiles}
         assert client.post("/api/codex-account/login", headers={"origin": "https://attacker.test"}).status_code == 403
 
 

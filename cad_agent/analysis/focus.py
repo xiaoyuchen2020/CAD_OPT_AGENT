@@ -11,6 +11,7 @@ from cad_agent.analysis.efficiency import compact, dumps, evidence_ids
 from cad_agent.analysis.boundary_context import delivery_observations, synthesis_observations, compact_geometry
 from cad_agent.analysis.operations import TOOLS
 from cad_agent.analysis.tool_metadata import GROUPS, READS, CONTROL
+from cad_agent.analysis.scheduling import execution_state, schedule
 
 
 class ToolsetRequest(Record):
@@ -22,7 +23,9 @@ class ToolsetRequest(Record):
 # existing instructions so pruning never removes measurement/visual safeguards.
 PROMPT = '''
 复杂事实任务按每个分项的对象、属性、适用条件、来源与未完成动作逐项完成。不能只找到标题、读到一条来源就结束。先处理已命中未读条文；缺一份资料不阻塞其他独立分项。
+plan_task.coverage按用户明确对象×必需字段列出缺口，特殊部位与一般部位分别保留；数值字段须逐对象配对。pending_operations的coverage_gaps和priority提供下一步依据：先读已返回的相关原文，再查缺口词，最后翻相关候选页。not_matched_in_checked_scope仅代表显式查询未命中，not_found_in_read_scope仅代表已读范围缺字段，attribution_unknown表示对象与字段未绑定，missing_input须确实缺所需资料；均不等于完成。pending_source_reads为空也不证明字段完整，不为消除unknown遍历全图或重复已耗尽查询。
 构造层次/材料表/做法比较：search_sources找到标题或做法编号后read_assembly读取有序原文及表格入口，表格候选优先read_table/read_table_semantics，分页直到所需对象与层次已读；不把附近条款自动归入目标，不把替代层叠加。表头、单位、做法编号、适用部位分别引用。
+多个已知来源需要独立读取时，优先batch_read_sources一次提交各项read_source_context/read_assembly及各自task_ids；有依赖的后续分页等收到结果再请求，不能猜来源或操作数。
 数值来源：题目里的参考数值不是图纸实测。引用用户数值时在每条claim中或答案顶层用user_inputs=[{quote:问题原句,value:数值字符串}]，对应结论标derived并明确写用户给定条件。事实差值/汇总/比值使用calculate_facts绑定各操作数来源，或已有测量集合使用analyze_measurements；允许算术但不作优化/合规判断。不要因不能提供优化策略而跳过事实读取和算术。
 楼层或重复标题范围不明先resolve_drawing_scope；按图框返回名称线索并说明冲突，待用户选择后再测量。名称线索不是空间身份。跨图先read_project_sources(catalog)，仅使用用户选择清单；项目、楼层、版本和轴网关系须分别核对。清单缺资料时仍完成本图部分。
 最终requirement_outcomes逐项填写gap_kind：unread_source未读、not_found_in_read_scope已读范围未找到、ambiguous_scope范围冲突、missing_input缺资料、unsupported_capability能力不足、budget_exhausted预算耗尽、out_of_scope超出事实定位；完成才用none。缺口不等于完成。
@@ -36,12 +39,15 @@ PROMPT = '''
 原文上下文保留parser_context_region_ids、前后顺序和截断标记。普通邻近不证明适用关系；跨条款、表头继承、比较和范围推导必须引用双方并标derived，保留条件、例外、冲突。标题之前条款不能按邻近归入标题。未读分页不要声称穷尽图纸；表格空值不自动继承，首行只是表头候选。
 已有事实的证据ID先get_evidence读取才能引用。所有引用来自已读原文；不得编造实体、坐标、材料或数量。B是密度、A/MU是块材强度、M是砂浆等级，不混称。概览标题只支持内容候选，不能确认整套图纸张数。
 仅按名称枚举房间并求面积/轮廓时：analyze_room_batch → prepare_room_boundaries → 收到图像后 select_room_boundaries；继续完成周长、算术、关系、筛选等独立操作后再finish_analysis。单位未知不阻塞边界审查。不要仅高亮名称就结束；选择是带条件的围合候选，不是确认净边界；墙线吻合且不跨房间时可select并保留门洞/完成面缺口，不能仅因净面积口径未定而拒绝所有候选。几何错配、家具、表格或图像不可用时uncertain。选择后的工具观测引用用 derived/unknown，observation_kind=visual_interpretation，图片必须已实际发送。候选高亮不是确认净边界，红虚线是开口假设。面积仅引用工具已计算值并注明口径。排序、差值、平均、总和、周长用analyze_measurements（名称批次batch_id或空间发现discovery_id+已读candidate_ids二选一；range同时返回排序和极差），返回值是候选围合口径。跨轮先get_analysis_results恢复原编号与轮廓，再analyze_measurements筛选；无名称空间审查的追问必须传review_id，仅复用已筛选集合，不把原始发现中被排除的对象带回来；替换高亮必须replace_highlights=true。
-房间名称批量问题用analyze_room_batch。面积与高亮必须准备和选择边界；analyze_room_batch已自动检查单位和用户约定；仅未检查的批次需要resolve_room_units。连通/门洞问题先get_drawing_context和query_entities定位双方目标名称，核对返回text及source_region_ids；再围绕实际目标局部范围query_building_relations(view=rooms/openings)，需要时get_component_evidence翻页或读取另一视图，再render_region→bind_visual_objects→measure_geometry。不要一开始查询整个大图框；bounded_by候选不等于双侧连通，不用房间面积批次替代关系；尺寸问题get_drawing_context→read_dimensions，必须实际读取尺寸和几何值。通用未知名称空间先get_drawing_context获取范围，再discover_rooms，随后get_room_contours和measure_room_area；无有效边界时可request_toolset rooms继续几何检查。返回的表和高亮由程序逐项展示；无需复述所有ID。名称候选不等于确认房间数，文字框不是房间边界，不能加总候选面积。同框重复同名标题已在本地合并；范围未解决时按 scope_diagnostics 说明具体原因，不将未枚举说成零候选。图框和标题范围仍待复核；单位未知先 resolve_room_units 核查用户约定；不能跳过几何检查。仅有房间词不证明平面图。
+房间名称批量问题用analyze_room_batch。面积与高亮必须准备和选择边界；analyze_room_batch已自动检查单位和用户约定；仅未检查的批次需要resolve_room_units。连通/门洞问题先get_drawing_context和query_entities定位双方目标名称，核对返回text及source_region_ids；再围绕实际目标局部范围query_building_relations(view=rooms/openings)，需要时get_component_evidence翻页或读取另一视图，再render_region→bind_visual_objects→measure_geometry。不要一开始查询整个大图框；bounded_by候选不等于双侧连通，不用房间面积批次替代关系；尺寸/外轮廓问题先resolve_drawing_scope→inspect_scope_objects，按局部窗口读取真实源路径与边界，再read_dimensions或render_region核验对象后measure_geometry；不要先读全图框前几条尺寸替代对象测量。未知单位仍可审查raw候选，不能确认米制值。通用未知名称空间先get_drawing_context获取范围，再discover_rooms，随后get_room_contours和measure_room_area；无有效边界时可request_toolset rooms继续几何检查。返回的表和高亮由程序逐项展示；无需复述所有ID。名称候选不等于确认房间数，文字框不是房间边界，不能加总候选面积。同框重复同名标题已在本地合并；范围未解决时按 scope_diagnostics 说明具体原因，不将未枚举说成零候选。图框和标题范围仍待复核；单位未知先 resolve_room_units 核查用户约定；不能跳过几何检查。仅有房间词不证明平面图。
 当分项有来源可核对时进入交付检查，此时finish_analysis提交完整答案；若仍缺另一对象、适用范围、表头、分页或冲突依据，request_toolset说明缺口继续。已读数量不证明证据充分；不要为更全面反复检索。finish_analysis通过校验即返回用户，不需另一次模型总结。批次已交付分项可以简述；每个其他分项必须回答或明确unknown。工具/时间/Token预算收束不是证据充分。
 复杂计划最终必须给requirement_outcomes数组逐一列出requirement_id/status(fulfilled|partial|unresolved)/reason。有数值但目标范围、对应关系或某项操作未完成时标partial；不能用已调用工具代替满足要求。正文只给简短结论和具体缺口，逐项表由界面展示；不重复工具日志、内部编号或通用免责声明。答案claims最多12条，逐条question_part_ids对应原始要求。text为中文结论，state=observed/derived/unknown/conflict；非unknown需已读evidence_ids。比较引用双方，章节归属同时引用标题。没有依据明确unknown，不用常识补齐。引用编号由服务器生成，正文不展示内部ID。只回答所问，保留原文数值、限定条件和例外。
 工具观测使用evidence_basis=tool_observation、observation_ids，不能混入source引用；工具统计不能证明设计材料、等级、规范或适用范围。房间批次观测必须derived/unknown。原文事实使用evidence_basis=source、evidence_ids。候选不升级为确认事实。缺失单位时不得报告平方米数值。area_annotation_checks非空时说明原图标注与围合计算的核对结果；unit_text_incomplete不得擅自补平方单位，different须明确数值不同且口径未确认。
 数值须来自引用原文；算术用state=derived和calculations声明operation=add/subtract/multiply/divide、两个operands各含value字符串及evidence_id、result字符串、decimal_places(0到6)。操作数也须原文支持；计算校验不证明适用关系。evidence_roles可标subject/property/value/scope/relation，角色ID必须包含在evidence_ids。
 几何操作：get_drawing_context提供图框和子图范围，已知楼层标题时传title筛选，layout_id使用输入提供的布局ID；bbox是WCS，不用标题文字框当房间范围。若子图含model_geometry_scope，说明标题位于纸空间视口，实际建筑线形在该模型空间；后续render_region/discover_rooms必须使用model_geometry_scope的layout_id和bbox，可在该范围内看图选择局部，不得沿用纸空间坐标。query_building_relations查询rooms/walls/openings/relations，get_component_evidence读取其他视图。门洞width_m为墙面开口候选，不等于通行净宽；只有passage_status=supported_door_between_two_spaces支持双侧候选门连接。render_region读取实际图像；bind_visual_objects绑定已发送图像实体再measure_geometry，不能以像素猜尺寸。尺寸链优先check_dimension_chain（范围、方向、侧边），它在本地按界点连续复算并返回原文和高亮实体。read_dimensions区分rendered_texts、text_override、geometry_recomputed、definition_points。已选房间内部扣除调查先inspect_enclosure查看闭合对象、原文候选和缺口，不把设备自动扣除。measure_room_area显式选择outer_shell/topological_face/selected_exclusions，内部闭合轮廓不自动视为洞口。
+已读原生实体需反复核查边界或对象关系时，bind_spatial_object绑定来源、范围、标签与扣除项，后续复用object_id；绑定只确认来源，角色仍待核。inspect_spatial_boundary给出真实闭合面或开放缺口，再选择contour_id和口径调用measure_spatial_area；measure_spatial_relation比较两个源对象的区域或源线，inspect_door_sweep/measure_door_sweep_relation核查原生弧支持的旋转区域。不要用包络框、文字邻近或图例代替实际对象，不自行补缝。方法返回的measurements可作为derived工具观测交付，并说明选定源几何、条件单位、工程身份或范围的具体缺口。
+measure_spatial_sections核对原生对边和轴的局部断面，明确采样范围、扣除对象和未枚举障碍；最近两线距离不是全路径净宽。measure_elevation_relation核对已绑定两个标高的原文、视图和基准后计算差值；不同结构/完成面角色和未证实基准保留缺口，不能只因标签相邻就认作层高。
+剖面与详图先resolve_drawing_scope(view=section或detail,floor_title=已读原图标题)，核对来源标题、图框及混合视图冲突；该范围不是同基准或同位置证明。不能把剖面/详图交给房间平面发现或房间面积工具。
 也可直接输出最终JSON {"claims":[{"text":"结论","state":"observed","question_part_ids":["q1"],"evidence_ids":["ev_..."]}],"missing_information":[]}；不输出执行计划当答案。
 '''
 
@@ -77,11 +83,14 @@ class TaskFocus:
 
     def active(self):
         paged={p['task_id'] for p in self.pending_pages()}
-        return [s for s in self.s.task.data['subtasks'] if (not s['delivered'] or s['id'] in paged) and s['status'] not in ('waiting_input','blocked_capability')]
+        return [s for s in self.s.task.data['subtasks'] if (not s['delivered'] or s['id'] in paged) and execution_state(self.s.task.data,s['id'])['executable']]
 
     def families(self):
         active=self.active()
         families={'sources'}
+        from cad_agent.analysis.scope_workflow import pending_scope_calls
+        for call in pending_scope_calls(self.s.task.data):
+            families.add('components' if call['tool']=='read_dimensions' else 'geometry')
         for step in active:
             text=step['requirement']
             families.update(self.expanded.get(step['id'],()))
@@ -107,6 +116,20 @@ class TaskFocus:
         return all(s['delivered'] or s['id'] in self.read_ids for s in steps)
 
     def names(self):
+        names=self._names()
+        if self.s.task.needs_plan:return names
+        # Required work does not spend the optional expansion allowance. The
+        # same schedule is used when rejecting final delivery.
+        for item in schedule(self.s):
+            if item['executable']:names.update(item['next_action']['tools'])
+        from cad_agent.analysis.gap_routing import pending_calls
+        names.update(call['tool'] for call in pending_calls(self.s.task.data))
+        if not self.active():names={'finish_analysis','request_toolset'}
+        if self.s.task.data.get('plan_revisions',0)>=2:names.discard('plan_task')
+        elif any('plan_task' in tools for tools in self.explicit_tools.values()):names.add('plan_task')
+        return names
+
+    def _names(self):
         if self.s.task.needs_plan:return {'plan_task'}
         pending=[r for r in getattr(self.s,'geometry_reviews',{}).values() if not {i['image_id'] for i in r['images']}<=getattr(self.s,'reviewed_image_ids',set())]
         if pending:return {'review_space_connections' if pending[-1]['kind']=='connection_review' else 'review_discovered_spaces','request_toolset'}
@@ -175,14 +198,32 @@ class TaskFocus:
         names|=explicit
         if not getattr(self.s.request,'parent_run_id',None):names.discard('get_analysis_results')
         names|={'calculate_facts','read_assembly','resolve_drawing_scope'}
-        if self.s.request.related_drawings:names.add('read_project_sources')
+        from cad_agent.analysis.project_sources_workflow import relevant as project_sources_relevant
+        if project_sources_relevant(self.s):names.add('read_project_sources')
+        from cad_agent.analysis.recall import pending_calls
+        names.update(call['tool'] for call in pending_calls(self.s.task.data))
+        if names & {'read_source_context', 'read_assembly'}:names.add('batch_read_sources')
+        if not self.s.request.source_read_batching:names.discard('batch_read_sources')
         return names
 
     def expand(self, args, ids):
         # Expansion is explicit and bounded; it cannot enable shell or new code.
+        if args.tool_name == 'batch_read_sources' and not self.s.request.source_read_batching:
+            raise ValueError('批量读取已关闭，请逐项调用 read_source_context/read_assembly；仅用户可在问答设置中开启。')
         valid={s['id'] for s in self.s.task.data['subtasks']}
         if not ids or not set(ids)<=valid:raise ValueError('工具扩展必须关联当前要求。')
-        if any(self.expansions.get(i,0)>=2 for i in ids):raise ValueError('该分项补查次数已用完，请回答已有依据与缺口。')
+        # plan_task is a registered control tool, not a capability family.
+        if args.tool_name=='plan_task':
+            if self.s.task.data.get('plan_revisions',0)>=2:
+                return {'enabled':False,'reason':'plan_revision_limit','next_actions':schedule(self.s)}
+            for i in ids:self.explicit_tools.setdefault(i,set()).add('plan_task')
+            self.suppressed=True
+            return {'enabled':True,'tool':'plan_task','task_ids':ids,'note':'修订全部原始要求的依赖与动作；保留已读证据、操作回执和调用预算。'}
+        if args.tool_name and not any(args.tool_name in names for names in GROUPS.values()):raise ValueError('没有该注册工具。')
+        if any(self.expansions.get(i,0)>=2 for i in ids):
+            return {'enabled':False,'reason':'optional_expansion_limit','task_ids':ids,
+                    'next_actions':schedule(self.s), 'available_tools':sorted(self.names()),
+                    'note':'可选扩展额度已用完；必要检查的 next_action 已直接开放。仍可执行时继续；仅真实阻塞项按具体缺口部分交付。'}
         for i in ids:
             if args.tool_name:
                 if not any(args.tool_name in names for names in GROUPS.values()):raise ValueError('没有该注册工具。')
@@ -194,6 +235,9 @@ class TaskFocus:
         return {'enabled_family':args.family,'gap':args.gap,'task_ids':ids,'note':'仅开放注册工具。为明确缺口补查后交付；不足标unknown。'}
 
     def record(self,name,ids,result):
+        from cad_agent.analysis.gap_routing import record_result
+        record_result(self.s,name,ids,result)
+        if self.s.task.data.get('gap_recovery'):self.s.task.save()
         if name in READS and evidence_ids(result):
             # A truncated target needs a subsequent read; incidental neighbors
             # do not prove complete coverage of the target source.
@@ -205,9 +249,13 @@ class TaskFocus:
 
     def state(self):
         d=self.s.task.data
+        from cad_agent.analysis.gap_routing import context as gap_context
         return {'subtasks':[dict({k:s[k] for k in ('id','requirement','kind','depends_on','status','reason','delivered','operations')},
                                 missing_operations=self.s.task.missing_operations(s)) for s in d['subtasks']],
-                'unit_policy':d.get('unit_policy'),'pending_operations':self.s.task.pending_work(),
+                'unit_policy':d.get('unit_policy'),'pending_operations':schedule(self.s),
+                'gap_recovery':gap_context(d),
+                'runnable':self.s.task.runnable(),
+                'requirement_coverage':self.s.task.coverage_summary(),
                 'active_ids':[s['id'] for s in self.active()], 'review_ready':self.review_ready(), 'pending_pages':self.pending_pages(),
                 'note':'已读覆盖只触发核对，不证明语义充分；提交有引用的答案或明确缺口。'}
 
@@ -233,6 +281,9 @@ class TaskFocus:
             'pending_visual_objects':[{k:v[k] for k in ('image_id','image_sha256','layout_id','bbox','candidates','candidates_truncated','geometry_complete','cells') if k in v}
                                       for i,v in self.s.visual_images.items() if i not in getattr(self.s,'reviewed_image_ids',set())],
             'accepted_dependencies':[{k:s[k] for k in ('id','claims','status')} for i,s in nodes.items() if i in ids and s['delivered'] and not s['batch_ids']]}
+        from cad_agent.analysis.project_sources_workflow import early_context as project_sources_context
+        project_sources = project_sources_context(self.s)
+        if project_sources:context['project_sources'] = project_sources
         seen=set(eids)
         for name,owners,result in self.results:
             if not owners&ids:continue
@@ -242,6 +293,25 @@ class TaskFocus:
         return bounded_packet(context,40000,self.s.task.data['subtasks'])
 
     def messages(self,messages):
+        from cad_agent.analysis.project_sources_workflow import early_context as project_sources_context
+        from cad_agent.analysis.gap_routing import context as gap_context, refresh
+        refresh(self.s)
+        gaps=gap_context(self.s.task.data)
+        # Simple/history-preserving runtimes also see recovery advice. Replace
+        # the previous packet to avoid unbounded repeated context.
+        if gaps and (not self.has_history or any(g.get('recommendation') for g in gaps)):
+            messages=[m for m in messages if not (m.get('role')=='user' and
+                      str(m.get('content','')).startswith('{"gap_recovery":'))]
+            # Keep the final tool-call/output exchange exactly paired and last;
+            # compressed contexts already include the same recovery state.
+            pos=next((i for i,m in enumerate(messages) if m.get('role')!='system'),len(messages))
+            messages=[*messages[:pos],{'role':'user','content':dumps({'gap_recovery':gaps})},*messages[pos:]]
+        # The first request precedes compressed focus.context. Supply an explicit,
+        # metadata-only route without consuming a tool call or granting read credit.
+        if not self.results and not self.has_history:
+            project_sources = project_sources_context(self.s)
+            if project_sources and not any('"project_sources"' in str(m.get('content', '')) for m in messages):
+                messages = [*messages, {'role':'user','content':dumps({'project_sources':project_sources})}]
         # Preserve full history for multi-turn/visual work; those paths need
         # referents and image bindings beyond this text-only compression MVP.
         # Images are reattached from the source-checked session registry on every

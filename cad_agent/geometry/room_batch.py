@@ -18,7 +18,7 @@ from .rooms import ROOM_VERSION
 from shapely.geometry import Polygon, box, Point
 from copy import deepcopy
 
-VERSION = "room-batch-v3.3-title-equivalence"
+VERSION = "room-batch-v3.5-unit-provenance"
 
 
 def normalized(text):
@@ -109,14 +109,15 @@ class RoomBatchService:
         anchors, not separate floor identities. Different plan titles remain a
         conflict; a user selection cannot override missing/mixed boundaries.
         """
+        from cad_agent.cad.titles import same_plan_title
         rows = self.index.scope(frame['layout_id'], frame['frame_id'])
-        titles = [r for r in rows if normalized(r.text) == normalized(frame['name'])]
+        titles = [r for r in rows if normalized(r.text).endswith('平面图') and same_plan_title(r.text, frame['name'])]
         others = [r for r in rows if len(normalized(r.text)) <= 32
                   and normalized(r.text).endswith('平面图')
-                  and normalized(r.text) != normalized(frame['name'])]
+                  and not same_plan_title(r.text, frame['name'])]
         reasons = []
         if frame.get('method') != 'closed_border_and_title_candidate': reasons.append('missing_closed_border')
-        if '平面图' not in frame['name']: reasons.append('not_plan_title')
+        if not normalized(frame['name']).endswith('平面图') or any(x in frame['name'] for x in ('详图', '剖面', '立面')): reasons.append('not_plan_title')
         if not titles: reasons.append('missing_matching_title')
         if others: reasons.append('conflicting_plan_titles')
         return dict(frame_id=frame['frame_id'], eligible=not reasons, reasons=reasons,
@@ -134,6 +135,7 @@ class RoomBatchService:
         record = dict(batch_id=bid, snapshot_id=self.sid, source_sha256=self.drawing["sha256"],
                       version=VERSION, request=args.model_dump(), status="needs_scope_confirmation",
                       unit=unit, unit_basis="user_confirmed" if confirmation else "dxf_header",
+                      unit_status='assumption' if confirmation else 'source_declared' if unit in UNIT_TO_M else 'unknown',
                       unit_confirmation=confirmation.model_dump() if confirmation else None,
                       parent_batch_id=parent_id, items=[], total=0, has_more=False, scope=None,
                       scope_confirmation=scope_confirmation,
@@ -228,7 +230,8 @@ class RoomBatchService:
             new=deepcopy(old)
             new.update(batch_id=stable_id('rooms',batch_id,confirmation.unit),parent_batch_id=batch_id,
                        unit=confirmation.unit,unit_basis='user_confirmed',unit_confirmation=confirmation.model_dump(),
-                       unit_resolution=dict(status='resolved',unit=confirmation.unit,basis='user_confirmed',reason='用户确认本次单位。'))
+                       unit_status='assumption',
+                       unit_resolution=dict(status='resolved',unit=confirmation.unit,basis='user_confirmed',unit_status='assumption',reason='用户确认本次测量假设单位。'))
             new['evidence_url']=f'/api/drawings/{self.sid}/room-batches/{new["batch_id"]}'
             self.measure_selected(new)
             self.w.store.put('room_batch',new['batch_id'],new)
@@ -267,7 +270,8 @@ class RoomBatchService:
         for item,p in accepted:
             if item['geometry_check']['valid_polygon'] and factor:
                 item.update(status='candidate_measured',area_m2=None,candidate_area_m2=round(p.area*factor**2,6),
-                            area_basis='selected_wall_enclosure',area_unit_basis=batch['unit_basis'])
+                            area_basis='selected_wall_enclosure',area_unit_basis=batch['unit_basis'],
+                            area_unit_status=batch.get('unit_status','assumption' if batch['unit_basis'].startswith('user_') else 'source_declared'))
                 item['diagnostics']=[d for d in item['diagnostics'] if d!='unknown_units']
             elif not factor:item.update(status='needs_unit_confirmation',area_m2=None,candidate_area_m2=None)
             else:item.update(status='unresolved',area_m2=None,candidate_area_m2=None)
@@ -277,6 +281,7 @@ class RoomBatchService:
 
     def check_area_annotations(self,batch,item,polygon):
         """Spatial association is explicit, and incomplete unit text stays unknown."""
+        from cad_agent.analysis.text_units import read_unit_candidates
         checks=[]
         for r in self.index.scope(batch['scope']['layout_id'],batch['scope']['frame_id']):
             match=re.fullmatch(r'(?:面积|[ASas])\s*[:：=]?\s*(\d+(?:\.\d+)?)\s*(平方米|㎡|m[²2]|m)?',r.text.strip())
@@ -284,7 +289,19 @@ class RoomBatchService:
             value=float(match[1]);known=match[2] in ('平方米','㎡','m²','m2')
             computed=item.get('candidate_area_m2')
             state='unit_text_incomplete' if not known else 'measurement_pending' if computed is None else 'different' if abs(computed-value)>max(.01,value*.005) else 'numerically_close'
+            units=read_unit_candidates(self.index,r) if not known else []
+            if units:state='compound_unit_candidate'
+            recovered=[u for u in units if u.get('unit_resolution')=='source_supported_reading' and u['normalized_unit_candidate']=='m2']
+            if len(recovered)==1:
+                known=True
+                state='source_supported_compound_unit'
             checks.append(dict(value=value,unit='m2' if known else 'unknown',status=state,
+                               unit_candidates=units,annotation_basis='independent_source_annotation',
+                               unit_basis='native_text_relation' if recovered else 'literal_annotation' if known else 'unresolved',
+                               numeric_difference=round(computed-value,6) if known and computed is not None else None,
+                               numeric_difference_basis='selected_enclosure_minus_independent_annotation_only' if known and computed is not None else None,
+                               measurement_basis=item.get('area_basis','selected_wall_enclosure'),
+                               basis_comparability='unconfirmed',semantic_difference=None,
                                quote=r.text,association='inside_selected_outline_not_semantically_confirmed',evidence=self.index.evidence(r)))
         item['area_annotation_checks']=checks[:4]
         if checks:
@@ -317,7 +334,7 @@ class RoomBatchService:
     @staticmethod
     def summary(record):
         # Full polygons and per-edge evidence stay outside model context.
-        result = {k:record[k] for k in ("batch_id", "status", "total", "has_more", "next_offset", "unit", "unit_basis", "unit_resolution", "boundary_review_id", "coverage", "note") if k in record}
+        result = {k:record[k] for k in ("batch_id", "status", "total", "has_more", "next_offset", "unit", "unit_basis", "unit_status", "unit_resolution", "boundary_review_id", "coverage", "note") if k in record}
         if result.get('unit_resolution'):
             result['unit_resolution']=deepcopy(result['unit_resolution'])
             check=result['unit_resolution'].get('dimension_check')
@@ -329,7 +346,7 @@ class RoomBatchService:
         if not record['scope']:
             result['total'] = None  # Not enumerated is not a zero-result search.
         result["scope_choices"] = [{k:f[k] for k in ("frame_id", "name", "layout_id")} for f in record["scope_choices"][:12]]
-        result["items"] = [{k:i[k] for k in ("number", "region_id", "label", "label_evidence", "status", "area_m2", "candidate_area_m2", "area_basis", "area_annotation_checks", "area_annotation_note", "geometry_check", "measurement_id", "diagnostics", "identity_status", "source_classification", "identity_note") if k in i} for i in record["items"]]
+        result["items"] = [{k:i[k] for k in ("number", "region_id", "label", "label_evidence", "status", "area_m2", "candidate_area_m2", "area_basis", "area_unit_basis", "area_unit_status", "area_annotation_checks", "area_annotation_note", "geometry_check", "measurement_id", "diagnostics", "identity_status", "source_classification", "identity_note") if k in i} for i in record["items"]]
         for row,item in zip(result['items'],record['items']):row['highlight_kind']=item.get('highlight',{}).get('kind')
         result["instruction"] = "范围已在本地核查闭合边界、同名重复标题和异名标题冲突；未解决时按 scope_diagnostics 说明具体原因，不把未枚举说成零候选。逐项表格和高亮由界面展示。名称是候选；单位未知只暂停相关测量，继续独立要求；不重复此批次，分页未完成不能称全部房间。"
         return result

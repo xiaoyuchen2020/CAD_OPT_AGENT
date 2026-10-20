@@ -7,7 +7,7 @@ from copy import deepcopy
 import json
 from cad_agent.contracts import stable_id
 
-VERSION = 'object-registry-v1'
+VERSION = 'object-registry-v2-source-scope'
 ROOM_TOOLS = {'analyze_room_batch', 'measure_room', 'get_room_contours', 'discover_rooms', 'prepare_room_boundaries',
               'select_room_boundaries', 'resolve_room_units', 'prepare_discovery_review',
               'review_discovered_spaces', 'analyze_measurements', 'measure_room_area',
@@ -36,6 +36,14 @@ def context(session):
 
 
 def restore_registry(session, parent_task_data):
+    # Source-bound method inputs persist independently of room discovery pages.
+    spatial = parent_task_data.get('spatial_objects', {})
+    compatible = {oid: deepcopy(obj) for oid, obj in spatial.items()
+                  if obj.get('snapshot_id') == session.request.snapshot_id and
+                  obj.get('source_sha256') == session.drawing['sha256'] and
+                  obj.get('unit', {}).get('policy') == session.task.data.get('unit_policy')}
+    if compatible:
+        session.task.data['spatial_objects'] = compatible
     registry = parent_task_data.get('object_registry')
     if not registry or registry.get('context') != context(session):
         return False
@@ -59,8 +67,10 @@ def record_tool_result(session, tool_name, arguments, result):
     Return additive public fields. Replays are idempotent and interrupted work
     resumes from persisted page receipts, never from a last-page boolean.
     """
-    if tool_name not in ROOM_TOOLS or not isinstance(result, dict): return {}
     args = arguments.model_dump() if hasattr(arguments, 'model_dump') else dict(arguments or {})
+    from cad_agent.analysis.recall import record as record_recall
+    recall_update = record_recall(session, tool_name, args, result)
+    if tool_name not in ROOM_TOOLS or not isinstance(result, dict): return recall_update
     ctx = context(session)
     if result.get('snapshot_id', ctx['snapshot_id']) != ctx['snapshot_id'] or result.get('source_sha256', ctx['source_sha256']) != ctx['source_sha256']:
         raise ValueError('Object evidence belongs to another snapshot or source.')
@@ -134,13 +144,17 @@ def record_tool_result(session, tool_name, arguments, result):
         if not anchor: continue
         if row.get('snapshot_id', ctx['snapshot_id']) != ctx['snapshot_id']: raise ValueError('Foreign object.')
         alias_key = _key([scope_key, anchor])
-        oid = reg['aliases'].get(alias_key) or stable_id('object', ctx['snapshot_id'], ctx['source_sha256'], str(anchor))
+        oid = reg['aliases'].get(alias_key) or stable_id('object', ctx['snapshot_id'], ctx['source_sha256'], scope_key, str(anchor))
         reg['aliases'][alias_key] = oid
         obj = reg['objects'].setdefault(oid, dict(object_id=oid, source_anchor=anchor, identity={'status':'candidate', 'engineering_confirmed':False}, scope={'status':'candidate', 'value':scope}, boundary={'status':'unknown'}, measurement_basis={'status':'unknown'}, names=[], dimensions=[], visual_reviews=[], provenance=[]))
         if obj['measurement_basis'].get('unit', unit) != unit:
             obj['measurement_basis'] = {'status':'unknown', 'invalidated_by':'unit_change'}
         scopes = obj.setdefault('scope_assertions', [])
         if scope not in scopes: scopes.append(deepcopy(scope))
+        obj['source_context'] = dict(snapshot_id=ctx['snapshot_id'], source_sha256=ctx['source_sha256'],
+            layout_id=scope.get('layout_id'), frame_id=scope.get('frame_id'),
+            floor=scope.get('floor', scope.get('name')), unit=unit)
+        obj['identity'].setdefault('source_relationship', 'record_anchor_bound')
         obj['object_kind'] = 'connection_candidate' if row.get('source_region_id') else 'space_candidate'
         if row.get('source_region_id'):
             obj['endpoints'] = dict(source_region_id=row['source_region_id'], target_region_id=row.get('target_region_id'))
@@ -209,6 +223,9 @@ def registry_summary(task_data):
     collections = list(reg.get('collections', {}).values())
     return dict(version=VERSION, candidate_object_count=len(reg.get('objects', {})),
                 engineering_confirmed_count=0, collection_count=len(collections),
+                spatial_source_bound_count=len(task_data.get('spatial_objects', {})),
+                spatial_label_containment_verified_count=sum(o.get('identity', {}).get('status') == 'label_containment_verified'
+                    for o in task_data.get('spatial_objects', {}).values()),
                 collections=[dict(collection_id=c['collection_id'], kind=c['kind'], lifecycle_status=c.get('lifecycle_status','active'),
                                   coverage=deepcopy(c['coverage'])) for c in collections[:20]],
                 collections_truncated=len(collections)>20,

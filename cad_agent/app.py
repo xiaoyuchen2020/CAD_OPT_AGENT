@@ -12,6 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from cad_agent.config import Settings, ROOT
+from cad_agent.runtimes.budget_policy import policy_for
 from cad_agent.contracts import ExtractionRequest, ChatRequest
 from cad_agent.service import Workspace
 from cad_agent.demo import create_demo
@@ -50,6 +51,8 @@ def create_app(settings=None):
     app.include_router(recovery_router(workspace))
     from cad_agent.extensions.adaptation.api import router as adaptation_router
     app.include_router(adaptation_router(workspace))
+    from cad_agent.analysis.review_api import router as review_router
+    app.include_router(review_router(workspace))
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=3)
     app.add_middleware(
         TrustedHostMiddleware,
@@ -166,22 +169,27 @@ def create_app(settings=None):
             "qwen_small": "Qwen 小 · 短上下文",
             "codex_sol_56": "Codex 订阅 · GPT-5.6 Sol",
             "codex_sol": "Codex 订阅 · GPT-6.1 Sol",
-            "siwc_sol": "ChatGPT 直接订阅 · GPT-6.1 Sol",
+            "siwc_sol": "标准 · GPT-6.1 Sol · Low",
+            "siwc_sol_high": "深度 · GPT-6.1 Sol · High",
+            "siwc_luna_high": "ChatGPT 直接订阅 · GPT-6 Luna · High",
             "codex_astra": "Codex 订阅 · GPT-6 Astra",
         }
         return {
-            "default": "siwc_sol" if workspace.siwc_account.status()["connected"] else "default",
+            # Login state must not silently select a paid API model instead.
+            "default": "siwc_sol",
             "items": [
                 {
                     "id": key,
                     "label": labels[key],
                     "model": value.model,
+                    "reasoning_effort": value.reasoning_effort if value.provider == "responses_subscription" else None,
                     "context_length": value.context_length,
                     "configured": value.provider in ("codex_subscription", "responses_subscription") or bool(
                         value.api_base and value.api_key and value.model
                     ),
                     "billing": "subscription" if value.provider in ("codex_subscription", "responses_subscription") else "api",
                     "required_runtime": value.provider if value.provider in ("codex_subscription", "responses_subscription") else None,
+                    "budget_policy": policy_for(value).public() if policy_for(value) else None,
                 }
                 for key, value in workspace.model_catalog.items()
             ],
@@ -438,6 +446,15 @@ def create_app(settings=None):
     @app.get('/api/tasks/{task_id}/evidence/{evidence_id}')
     def task_evidence(task_id: str, evidence_id: str):
         return TaskLedger.read(workspace,task_id)['evidence'][evidence_id]
+
+    @app.get('/api/tasks/{task_id}/evidence-records')
+    def task_evidence_records(task_id: str, record_id: str = "", start: int = Query(0, ge=0),
+                              length: int = Query(6000, ge=1, le=12000)):
+        from cad_agent.analysis.evidence_store import EvidenceRecordRead, read_task_record
+        data = TaskLedger.read(workspace, task_id)
+        allowed = {data["snapshot_id"], *(d["snapshot_id"] for d in data.get("related_drawings", []))}
+        return read_task_record(workspace, data, allowed, EvidenceRecordRead(
+            view="read" if record_id else "catalog", record_id=record_id, start=start, length=length))
 
     @app.post('/api/jobs/{job_id}/cancel')
     def cancel_job(job_id: str):

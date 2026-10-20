@@ -5,8 +5,8 @@ from statistics import median
 
 from cad_agent.contracts import stable_id
 
-TABLE_VERSION = 'table-semantics-v1.3'
-HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目')
+TABLE_VERSION = 'table-semantics-v1.5'
+HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目|性能|耐火|适用|部位|类型')
 UNITS = re.compile(r'(?<![A-Za-z])(?:mm[²2]?|cm[²2]?|m[²2]?|MPa|kN|kPa|kg/m[³3]|毫米|厘米|平方米|㎡|米|个|樘|扇)(?![A-Za-z])')
 
 
@@ -20,7 +20,99 @@ def explicit_units(text):
     numeric = re.fullmatch(r'\s*[+\-]?\d+(?:\.\d+)?\s*(\S+)\s*', text)
     if numeric and UNITS.fullmatch(numeric[1]):parts.append(numeric[1])
     aliases = {'毫米':'mm','厘米':'cm','平方米':'m2','㎡':'m2','米':'m','m²':'m2','mm²':'mm2','cm²':'cm2','kg/m³':'kg/m3'}
-    return sorted({aliases.get(m,m) for part in parts for m in UNITS.findall(part)})
+    # A parenthetical material instruction containing g/平方米 is not a unit
+    # declaration for a layer thickness or the whole cell.
+    declarations = [re.sub(r'^\s*单位\s*[:：]?\s*', '', part).strip() for part in parts]
+    return sorted({aliases.get(part,part) for part in declarations if UNITS.fullmatch(part)})
+
+
+
+# Only short, explicit field labels establish a role. Material prose containing
+# “做法” or “部位” is not itself a header.
+FIELD_LABELS = {
+    'code': r'(?:设计|构造|做法|类型)?编号|型号',
+    'ordinal': r'序号',
+    'name': r'(?:构造|做法|材料|项目)?名称|项目|类别|类型',
+    'applicability': r'(?:适用|使用|应用)?(?:部位|位置|范围)|房间(?:名称)?|楼层',
+    'layers': r'(?:构造|材料|具体|建筑)?做法|构造层次|材料及做法',
+    'notes': r'备注|说明',
+}
+
+
+def field_roles(header_path):
+    return sorted({role for label in header_path for role, pattern in FIELD_LABELS.items()
+                   if re.fullmatch(pattern, re.sub(r'\s+', '', label))})
+
+
+def local_assembly_headers(index, target, band):
+    """Read headers on the same continuous side rails, without a global table scan.
+
+    Source text can consist of separate CAD glyphs. Reassemble only one baseline
+    at a time, retain each glyph's evidence, and accept a one-to-one, ordered
+    column mapping only. A label spilling slightly over a rail is kept explicit.
+    """
+    a, b, c, d = band['bbox']; xs = band['column_edges']; tol = .11
+    rails = [line['points'] for line in band['source_lines']
+             if abs(line['points'][0][0]-line['points'][1][0]) < .01
+             and any(abs(line['points'][0][0]-side) <= tol for side in (a,c))]
+    if len(rails) < 2:
+        return dict(state='unresolved', fields=[], diagnostics=['HEADER_SIDE_RAILS_UNRESOLVED'])
+    top = min(max(p[1] for p in rail) for rail in rails)
+    bottom = max(min(p[1] for p in rail) for rail in rails)
+    hs = []; horizontal_sources=[]
+    for line in index.scene['lines']:
+        if line['layout_id'] != target.layout_id: continue
+        for p,q in zip(line['points'],line['points'][1:]):
+            if abs(p[1]-q[1]) < .01 and abs(min(p[0],q[0])-a)<=tol and abs(max(p[0],q[0])-c)<=tol:
+                if bottom-tol <= p[1] <= top+tol:
+                    hs.append(p[1]);horizontal_sources.append(dict(entity_id=line['entity_id'],points=[p,q]))
+    ys = sorted({round(y,5) for y in hs if y >= d-tol})
+    ts = [t for t in index.scene['texts'] if t['layout_id']==target.layout_id
+          and a<=t['origin'][0]<c and d<=t['origin'][1]<top and abs(t.get('rotation',0))<.1]
+    for lo,hi in list(zip(ys,ys[1:]))[:64]:
+        chosen = sorted([t for t in ts if lo<=t['origin'][1]<hi],key=lambda t:(-t['origin'][1],t['origin'][0]))
+        if not chosen: continue
+        height = median(t['height'] for t in chosen)
+        if not height or hi-lo > 8*height: continue
+        baselines=[]
+        for t in chosen:
+            line=next((line for line in baselines if abs(line[0]['origin'][1]-t['origin'][1])<height*.35),None)
+            if line is None: baselines.append([t])
+            else: line.append(t)
+        possibilities=[]
+        for line in baselines:
+            groups=[]
+            for t in sorted(line,key=lambda t:t['origin'][0]):
+                if groups and t['origin'][0]-groups[-1][-1]['bbox'][2] <= height*2:
+                    groups[-1].append(t)
+                else: groups.append([t])
+            labels=[(''.join(t['text'] for t in group).strip(),group) for group in groups]
+            if len(labels)!=len(xs)-1 or any(not field_roles([text]) for text,_ in labels): continue
+            if any(not xs[i]-height*2 <= (group[0]['origin'][0]+group[-1]['bbox'][2])/2 <= xs[i+1]+height*2
+                   for i,(_,group) in enumerate(labels)): continue
+            possibilities.append(labels)
+        if len(possibilities)!=1: continue
+        fields=[]
+        for i,(text,group) in enumerate(possibilities[0]):
+            fields.append(dict(column_index=i,text=text,roles=field_roles([text]),
+                evidence=[e for t in group for e in index.entity_evidence(t['entity_id'])],
+                entity_ids=[t['entity_id'] for t in group],state='source_bound'))
+        # A merged title strip immediately under the field labels may declare
+        # the layer direction (e.g. a roof-family heading). Never inherit it
+        # through an intervening data row.
+        lower=max((y for y in hs if y<lo-tol),default=lo)
+        title_strip=lower<lo and lo-lower<=height*8 and not any(
+            abs(line['points'][0][0]-line['points'][1][0])<.01
+            and a+tol<line['points'][0][0]<c-tol
+            and min(p[1] for p in line['points'])<=lower+tol
+            and max(p[1] for p in line['points'])>=lo-tol for line in band['source_lines'])
+        order_texts=chosen+([t for t in ts if lower<=t['origin'][1]<lo] if title_strip else [])
+        return dict(state='source_bound',method='same_side_rails_ordered_header_labels',fields=fields,
+                    bbox=[a,lo,c,hi],table_bbox=[a,bottom,c,hi],row_separators=sorted(set(hs),reverse=True),
+                    source_lines=[line for line in horizontal_sources if any(abs(line['points'][0][1]-y)<=tol for y in (lo,hi))],
+                    order_evidence=[e for t in order_texts if re.search(r'由上[至及]下|由下[至及]上|由内[至及]外|由外[至及]内',t['text']) for e in index.entity_evidence(t['entity_id'])],
+                    diagnostics=[],note='字段来自同一连续边框内完整表头；适用条件仍按原文保留。')
+    return dict(state='unresolved',fields=[],diagnostics=['HEADER_UNRESOLVED'])
 
 
 def grid(index, table):
@@ -132,7 +224,8 @@ def read_semantic_table(index,args):
     key=(TABLE_VERSION,table['table_id'],tuple(table['bbox']))
     if key not in cache:cache[key]=grid(index,table)
     index._semantic_grids=cache
-    cells,n,m,diagnostics=cache[key]
+    cells,n,m,cached_diagnostics=cache[key]
+    diagnostics=list(cached_diagnostics)
     header_rows=args.header_rows
     if header_rows is not None and max(header_rows)>=n:raise ValueError('表头行超出表格。')
     if header_rows is None:
@@ -141,7 +234,7 @@ def read_semantic_table(index,args):
             row=[c for c in cells if c['row_index']==r]
             words=[c for c in row if HEADER_WORDS.search(c['text'])]
             values=[c for c in row if re.fullmatch(r'\s*[+\-]?\d+(?:\.\d+)?\s*',c['text'])]
-            if words and not values and (len(words)>=2 or (len(row)==1 and row[0]['column_span']==m)):
+            if words and (not values or (len(words)>=3 and len(words)*2>=len(row))) and (len(words)>=2 or (len(row)==1 and row[0]['column_span']==m)):
                 header_rows.append(r)
             else:break
     headers=[c for c in cells if c['row_index'] in header_rows]
@@ -156,7 +249,7 @@ def read_semantic_table(index,args):
             ancestry=[h for h in headers if h['row_index']<cell['row_index'] and h['column_index']<=cell['column_index'] and
                       h['column_index']+h['column_span']>=cell['column_index']+cell['column_span']]
             ancestry.sort(key=lambda h:h['row_index'])
-            units=sorted({u for h in ancestry for u in explicit_units(h['text'])})
+            units=sorted({u for h in ancestry if h not in title_headers for u in explicit_units(h['text'])})
             own=explicit_units(cell['text'])
             unit_set=sorted(set(units+own))
             unit_state='conflict' if len(unit_set)>1 else 'derived' if len(unit_set)==1 else 'unknown'
@@ -170,7 +263,7 @@ def read_semantic_table(index,args):
                 header_evidence=[e for h in ancestry for e in h['evidence']],
                 header_relation='user_selected' if args.header_rows is not None else 'candidate',
                 unit=unit_set[0] if len(unit_set)==1 else None,unit_candidates=unit_set,unit_state=unit_state,
-                unit_evidence=[e for h in ancestry if explicit_units(h['text']) for e in h['evidence']]+(cell['evidence'] if own else []),
+                unit_evidence=[e for h in ancestry if h not in title_headers and explicit_units(h['text']) for e in h['evidence']]+(cell['evidence'] if own else []),
                 numeric_value=number,value_state='observed' if value else 'unknown'))
         output.sort(key=lambda c:c['column_index'])
         rows.append(dict(row_index=r,cells=output))
@@ -187,9 +280,53 @@ def read_semantic_table(index,args):
                 total=len(matches),truncated=len(matches)>12,
                 targets=[dict(entity_id=t['entity_id'],bbox=t['bbox'],evidence=index.entity_evidence(t['entity_id'])) for t in matches[:12]],
                 note='同编号文字候选，不证明门窗实例身份或实例数量。'))
+    # Expose same-row field candidates with explicit header lineage, without
+    # filling blank cells or turning repeated/merged codes into new instances.
+    records=[]
+    for row in rows:
+        data_cells=[c for c in row['cells'] if not c['is_header']]
+        if not data_cells:continue
+        identities=[c for c in data_cells if any(re.search('编号|型号|名称',p) for p in c['header_path'])]
+        records.append(dict(row_index=row['row_index'],state='candidate',
+            relation_basis='source_grid_row',identity_cell_ids=[c['cell_id'] for c in identities],
+            identity_state='candidate' if identities else 'unresolved',
+            fields=[dict(cell_id=c['cell_id'],header_path=c['header_path'],header_cell_ids=c['header_cell_ids'],
+                         text=c['text'],state=c['value_state'],field_roles=field_roles(c['header_path']),unit=c['unit'],unit_state=c['unit_state'],
+                         row_span=c['row_span'],column_span=c['column_span'],continuation_of=c['continuation_of'],
+                         evidence=c['evidence'],header_evidence=c['header_evidence']) for c in data_cells],
+            missing_cell_ids=[c['cell_id'] for c in data_cells if c['value_state']=='unknown']))
+    for record in records:
+        fields=record['fields']
+        identity=[f for f in fields if set(f['field_roles']) & {'code','name','applicability'} and f['text'].strip()]
+        conflicts=[]
+        for field in identity:
+            if 'code' in field['field_roles'] and len([part for part in re.split(r'[\s,，;；、/]+',field['text'].strip()) if re.search(r'[0-9０-９]',part)])>1:
+                conflicts.append('MULTIPLE_CODES_IN_IDENTITY_CELL')
+        for role in ('code','name'):
+            if len([f for f in identity if role in f['field_roles']])>1:
+                conflicts.append('MULTIPLE_IDENTITY_FIELDS_REQUIRE_REVIEW')
+        if any(f['column_span']>1 and not f['field_roles'] for f in fields):
+            conflicts.append('MERGED_FIELD_ROLE_UNRESOLVED')
+        record['binding']=dict(state='source_bound' if identity and not conflicts and not cached_diagnostics else 'unresolved',
+            basis='explicit_header_and_source_grid',identity_cell_ids=[f['cell_id'] for f in identity],
+            applicability_cell_ids=[f['cell_id'] for f in fields if 'applicability' in f['field_roles']],
+            layer_cell_ids=[f['cell_id'] for f in fields if 'layers' in f['field_roles']],
+            shared_cell_ids=[f['cell_id'] for f in fields if f['row_span']>1],
+            diagnostics=conflicts,object_instance_state='unverified',
+            note='仅绑定原表行字段；合并格为同一来源，空格不继承，不能据此确认图中实例。')
+    more=args.row_offset+args.row_limit<n
+    next_offset=args.row_offset+args.row_limit if more else None
+    actions=[]
+    if more:
+        arguments=dict(table_id=table['table_id'],row_offset=next_offset,row_limit=args.row_limit)
+        if args.header_rows is not None:arguments['header_rows']=args.header_rows
+        actions.append(dict(tool='read_table_semantics',arguments=arguments))
     return dict(snapshot_id=index.snapshot,table_id=table['table_id'],layout_id=table['layout_id'],bbox=table['bbox'],
                 version=TABLE_VERSION,row_count=n,column_count=m,header_rows=header_rows,
                 header_state='user_selected' if args.header_rows is not None else 'candidate' if header_rows else 'unresolved',
-                items=rows,instance_links=links,diagnostics=sorted(set(diagnostics)),coverage='partial',
+                items=rows,records=records,instance_links=links,diagnostics=sorted(set(diagnostics)),coverage='partial',
+                next_offset=next_offset,next_actions=actions,
+                checks=dict(source_rows_exhausted=not more and args.row_offset<n,earlier_rows_not_in_page=args.row_offset,
+                            header_relation='candidate' if header_rows else 'unresolved',object_completeness='unverified'),
                 has_more=args.row_offset+args.row_limit<n,row_offset=args.row_offset,
                 note='表头关系和编号关联为候选；合并格保留同一 cell_id 与跨度，空白不向下填充。单位仅来自明确表头或单元格，不采用 DWG 绘图单位。')

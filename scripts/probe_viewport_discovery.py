@@ -2,6 +2,7 @@ from pathlib import Path
 import sys,json,sqlite3,logging,shutil,os
 from dataclasses import replace
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from cad_agent.artifact_storage import copy_artifact_tree
 from cad_agent.service import Workspace
 from cad_agent.config import Settings
 from cad_agent.geometry.service import GeometryService
@@ -17,7 +18,7 @@ w=Workspace(replace(Settings.load(),data_dir=out/'data'))
 try:
  for kind,key,r in records:
   if (kind=='drawing' and key==sid) or (kind in ('measurement','visual_image') and r.get('snapshot_id')==sid):w.store.put(kind,key,r)
- shutil.copytree(base/'drawings'/sid,out/'data/drawings'/sid,dirs_exist_ok=True)
+ copy_artifact_tree(base/'drawings'/sid,out/'data/drawings'/sid,dirs_exist_ok=True)
  source=next(r for k,key,r in records if k=='measurement' and r.get('kind')=='room_discovery' and r.get('snapshot_id')==sid and r['scope_bbox']==[320000.,-3730000.,370000.,-3690000.])
  args=RoomDiscover.model_validate(source['request'])
  if '--full' in sys.argv:args=args.model_copy(update={'bbox':[275957.02750723425,-3756320.9793645972,460812.0052178508,-3666010.9793645963]})

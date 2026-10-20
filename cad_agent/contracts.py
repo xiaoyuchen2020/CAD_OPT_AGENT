@@ -162,8 +162,9 @@ class ChatRequest(Record):
     allow_fallback: bool = False
     retrieval_mode: Literal["keyword", "lexical", "hybrid"] = "keyword"
     agent_policy: Literal["efficient", "legacy"] = "efficient"
+    source_read_batching: bool = Field(default=False, strict=True, description="手动启用独立来源批量读取；默认逐项读取。")
     model_profile: (
-        Literal["default", "qwen_large", "qwen_medium", "qwen_small", "codex_sol_56", "codex_sol", "codex_astra", "siwc_sol"] | None
+        Literal["default", "qwen_large", "qwen_medium", "qwen_small", "codex_sol_56", "codex_sol", "codex_astra", "siwc_sol", "siwc_sol_high", "siwc_luna_high"] | None
     ) = None
 
 
@@ -181,3 +182,49 @@ class GenericFact(Record):
     relation_state: Literal["derived", "unknown"] = "unknown"
     review_status: Literal["needs_review"] = "needs_review"
     producer: Literal["deterministic_parser"] = "deterministic_parser"
+
+
+PropertyBasis = Literal["source_nominal", "annotation", "measurement", "calculation"]
+
+
+class PropertySourceRef(Record):
+    """A locator into an existing registered source/observation, not new evidence."""
+
+    kind: Literal["evidence", "observation"]
+    ref_id: str
+    role: Literal["subject", "property", "value", "unit", "scope"]
+    path: list[str | int] = Field(default_factory=list)
+
+
+class PropertyEvidence(Record):
+    field_id: str
+    snapshot_id: str
+    subject_id: str
+    subject_label: str = ""
+    subject_kind: Literal["source_record", "dimension", "geometry_object", "calculation"]
+    property_name: str
+    property_label: str
+    value: Any = None
+    basis: PropertyBasis
+    measurement_basis: str = ""
+    unit: str | None = None
+    unit_state: Literal["explicit", "conditional", "unknown", "conflict"] = "unknown"
+    state: Literal["observed", "derived", "unknown", "conflict"] = "unknown"
+    binding_state: Literal["source_bound", "candidate", "unresolved"] = "unresolved"
+    object_instance_state: Literal["unverified"] = "unverified"
+    scope: dict[str, Any] = Field(default_factory=dict)
+    source_refs: list[PropertySourceRef] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
+    conflicting_field_ids: list[str] = Field(default_factory=list)
+    comparison_state: Literal["uncompared", "consistent", "conflict", "different_bases", "unit_unresolved"] = "uncompared"
+
+
+class PropertyAssertion(Record):
+    """Optional typed final-answer binding; every component must match a read field."""
+
+    field_id: str
+    subject_id: str
+    property_name: str
+    basis: PropertyBasis
+    unit: str | None
+    value: Any

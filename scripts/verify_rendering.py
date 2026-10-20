@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import time
 
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.config import Settings, ROOT
 from cad_agent.service import Workspace
 from cad_agent.cad.render import render_svg,RENDER_VERSION
@@ -37,7 +38,7 @@ def main():
         before={}
         for name in ('source.dxf','scene.json','entities.json','regions.json'):
             p=SOURCE_DATA/'drawings'/sid/name
-            shutil.copy2(p,dest/name)
+            copy_artifact(p,dest/name)
             before[name]=sha256((dest/name).read_bytes()).hexdigest()
         ws.store.put('drawing',sid,d)
         t=time.monotonic();scene=ws.preview_scene(sid);elapsed=time.monotonic()-t

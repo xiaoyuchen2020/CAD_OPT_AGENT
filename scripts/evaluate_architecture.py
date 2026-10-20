@@ -53,13 +53,20 @@ def make_drawing(workspace, spec):
     stream = io.StringIO(); doc.write(stream)
     content = stream.getvalue().encode(); digest = sha256(content).hexdigest()
     sid = 'snap_' + digest[:24]
-    path = workspace.store.artifact(sid, 'source.dxf'); path.write_bytes(content)
+    path = workspace.store.artifact(sid, 'source.dxf')
+    if not path.exists():
+        path.write_bytes(content)
+    elif sha256(path.read_bytes()).hexdigest() != digest:
+        raise ValueError('Synthetic drawing input checksum mismatch')
     texts, scene, rectangles, segments, diagnostics = read_drawing(path, sid)
     regions, frames = build_regions(texts, scene, rectangles, segments, sid)
     scene.update(frames=frames, snapshot_id=sid)
     workspace.store.write_json(workspace.store.artifact(sid, 'scene.json'), scene)
     workspace.store.write_json(workspace.store.artifact(sid, 'regions.json'), [r.model_dump() for r in regions])
     record = dict(id=sid, snapshot_id=sid, sha256=digest, unit=scene['unit'], layouts=scene['layouts'], frames=frames, synthetic=True)
+    references = workspace.store.share_artifacts(sid)
+    if references:
+        record['artifact_references'] = references
     workspace.store.put('drawing', sid, record)
     return record | {'key':spec['key'], 'source_bytes':len(content), 'parser_diagnostics':[d.model_dump() for d in diagnostics]}
 

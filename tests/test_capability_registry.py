@@ -22,7 +22,7 @@ def test_capability_registry_has_no_dangling_groups_or_operations():
 
 
 def test_tool_schemas_filter_unsupported_and_are_fresh():
-    s=SimpleNamespace(request=SimpleNamespace(runtime='native'),w=SimpleNamespace(settings=SimpleNamespace(provider='deepseek')),
+    s=SimpleNamespace(request=SimpleNamespace(runtime='native', source_read_batching=False),w=SimpleNamespace(settings=SimpleNamespace(provider='deepseek')),
                       focused_enabled=True,task=SimpleNamespace(complex=False))
     definitions=tool_definitions(True,s)
     names={x['function']['name'] for x in definitions}

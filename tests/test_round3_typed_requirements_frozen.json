@@ -1,0 +1,3937 @@
+[
+  {
+    "id": "Q01-B-luna-high",
+    "source_task_id": "task_6ebca62ae4224d32b37d408ff52f7d35",
+    "snapshot_id": "snap_ef95ba940715f9f93396f465",
+    "source_sha256": "476b01535679490e363a00c9d2a1a7b92b335b9e8afeaffff182489da87b114a",
+    "question": "请从这套通用说明中分别还原地下室底板、侧墙防水的全部构造层，按施工层次列出材料和厚度，定位原图证据。请同时摘录图内明确写出的防水等级、基层条件及材料兼容性说明，并说明各条属于哪套做法。以下仅作为用户给定的文字比对清单：底板1.2厚高分子自粘胶膜预铺反粘、1.0厚水泥基渗透结晶涂料、100厚C15垫层、100厚碎石；侧墙25厚XPS保护层（密度≥13kg/m³）、1.5厚无胎自粘卷材、1.0厚渗透结晶涂料、混凝土表面修补平整。逐项列出图纸与清单的字面异同，未写明的内容标注未查明。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请从这套通用说明中分别还原地下室底板、侧墙防水的全部构造层，按施工层次列出材料和厚度，定位原图证据。",
+        "kind": "enumerate",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_040e60697b0ea4d916a8d763",
+          "ev_0611a0a365dc2dd73f09e2e4",
+          "ev_073ac7cec6dd611bdca6ea82",
+          "ev_13724c03ef2c9533cca15ff4",
+          "ev_1cabdc8ae3de0c4a794347d2",
+          "ev_1d3c34ee29e525c0800b3c31",
+          "ev_1eefad6990ae5a2f42a9b158",
+          "ev_29e61ddcb8a037a702b32e2a",
+          "ev_42c3b5d7bde628e2343c7730",
+          "ev_4421fa5d03852c04cacc2444",
+          "ev_497927ed4bee8701a9553fcc",
+          "ev_49bda46a174712350c3b24ec",
+          "ev_4f855e2b490d267cdb554acc",
+          "ev_65171a33ab8f7cb0716458e6",
+          "ev_687748a299961a4f4c5b6dc2",
+          "ev_6f80909555c6dcec81951ebd",
+          "ev_82af95891467f043e43e0f7c",
+          "ev_86ec4879e7b22a8e9216124d",
+          "ev_8a703cad0ff615e787f12388",
+          "ev_98440ac4b6ee3cd54da2705d",
+          "ev_bae80a441e2724108e2b2873",
+          "ev_bd18c3f02c54d5147ce088f9",
+          "ev_bdfc7292a19e1069f6cbaf44",
+          "ev_ce06243e728d0a1a1ef06bcc",
+          "ev_df27d2c7d45f76e3946615b2",
+          "ev_e0feff1994f58534efe64fd7",
+          "ev_e1cc2bc09a6a794c296be144",
+          "ev_e3ff28aac61b3133342e0c9c",
+          "ev_e5b5c758fbea4d9f37e0958c",
+          "ev_e84920eba47e1c4e80ceae43",
+          "ev_ecf3238bac23eb0ddbda5a27",
+          "ev_efd388ba2dc05c051410fc34",
+          "ev_f0b8507f708e819ccdaab22b",
+          "ev_f510f07dbf43384464c27f15",
+          "ev_f7e08d1536b44c1806bb9989",
+          "ev_fa977be35aef61bbf5667ec0"
+        ],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "地下室底板",
+            "field": "按施工层次列出材料和厚度",
+            "planning_label": {
+              "object": "地下室底板",
+              "field": "按施工层次列出材料和厚度"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "地下室底板",
+                  "requirement_span": [
+                    13,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "按施工层次列出材料和厚度",
+                  "requirement_span": [
+                    30,
+                    42
+                  ]
+                }
+              ]
+            },
+            "state": "not_found_in_read_scope",
+            "evidence_ids": [],
+            "gap_kind": "not_found_in_read_scope"
+          },
+          {
+            "object": "侧墙防水",
+            "field": "按施工层次列出材料和厚度",
+            "planning_label": {
+              "object": "侧墙防水",
+              "field": "按施工层次列出材料和厚度"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "侧墙防水",
+                  "requirement_span": [
+                    19,
+                    23
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "按施工层次列出材料和厚度",
+                  "requirement_span": [
+                    30,
+                    42
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "requirement": "请同时摘录图内明确写出的防水等级、基层条件及材料兼容性说明",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_04d711e34a6802ee1d9e663d",
+          "ev_26e68823213e429caa3cfccb",
+          "ev_65171a33ab8f7cb0716458e6",
+          "ev_bdfc7292a19e1069f6cbaf44",
+          "ev_df7c4fea2bc195de85bb4943",
+          "ev_e1cc2bc09a6a794c296be144",
+          "ev_f8ed15cbec5182faf3fad61e"
+        ],
+        "delivered": true,
+        "operations": [
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "图内明确写出的",
+            "field": "防水等级",
+            "planning_label": {
+              "object": "图内明确写出的",
+              "field": "防水等级"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "图内明确写出的",
+                  "requirement_span": [
+                    5,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "防水等级",
+                  "requirement_span": [
+                    12,
+                    16
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "图内明确写出的",
+            "field": "基层条件",
+            "planning_label": {
+              "object": "图内明确写出的",
+              "field": "基层条件"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "图内明确写出的",
+                  "requirement_span": [
+                    5,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "基层条件",
+                  "requirement_span": [
+                    17,
+                    21
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "图内明确写出的",
+            "field": "材料兼容性说明",
+            "planning_label": {
+              "object": "图内明确写出的",
+              "field": "材料兼容性说明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "图内明确写出的",
+                  "requirement_span": [
+                    5,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "材料兼容性说明",
+                  "requirement_span": [
+                    22,
+                    29
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "requirement": "并说明各条属于哪套做法。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_4421fa5d03852c04cacc2444",
+          "ev_4f855e2b490d267cdb554acc",
+          "ev_65171a33ab8f7cb0716458e6",
+          "ev_bdfc7292a19e1069f6cbaf44",
+          "ev_e1cc2bc09a6a794c296be144",
+          "ev_f510f07dbf43384464c27f15"
+        ],
+        "delivered": true,
+        "operations": [
+          "relations"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "各条",
+            "field": "属于哪套做法",
+            "planning_label": {
+              "object": "各条",
+              "field": "属于哪套做法"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "各条",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "属于哪套做法",
+                  "requirement_span": [
+                    5,
+                    11
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "requirement": "以下仅作为用户给定的文字比对清单：底板1.2厚高分子自粘胶膜预铺反粘、1.0厚水泥基渗透结晶涂料、100厚C15垫层、100厚碎石；",
+        "kind": "compare",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_040e60697b0ea4d916a8d763",
+          "ev_073ac7cec6dd611bdca6ea82",
+          "ev_13724c03ef2c9533cca15ff4",
+          "ev_42c3b5d7bde628e2343c7730",
+          "ev_4421fa5d03852c04cacc2444",
+          "ev_497927ed4bee8701a9553fcc",
+          "ev_4f855e2b490d267cdb554acc",
+          "ev_6f80909555c6dcec81951ebd",
+          "ev_82af95891467f043e43e0f7c",
+          "ev_86ec4879e7b22a8e9216124d",
+          "ev_98440ac4b6ee3cd54da2705d",
+          "ev_bae80a441e2724108e2b2873",
+          "ev_ce06243e728d0a1a1ef06bcc",
+          "ev_e3ff28aac61b3133342e0c9c",
+          "ev_e84920eba47e1c4e80ceae43",
+          "ev_f0b8507f708e819ccdaab22b",
+          "ev_f510f07dbf43384464c27f15",
+          "ev_f7e08d1536b44c1806bb9989"
+        ],
+        "delivered": true,
+        "operations": [
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "底板",
+            "field": "1.2厚高分子自粘胶膜预铺反粘",
+            "planning_label": {
+              "object": "底板",
+              "field": "1.2厚高分子自粘胶膜预铺反粘"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "底板",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "1.2厚高分子自粘胶膜预铺反粘",
+                  "requirement_span": [
+                    19,
+                    34
+                  ]
+                }
+              ]
+            },
+            "state": "attribution_unknown",
+            "evidence_ids": [],
+            "gap_kind": "attribution_unknown"
+          },
+          {
+            "object": "底板",
+            "field": "1.0厚水泥基渗透结晶涂料",
+            "planning_label": {
+              "object": "底板",
+              "field": "1.0厚水泥基渗透结晶涂料"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "底板",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "1.0厚水泥基渗透结晶涂料",
+                  "requirement_span": [
+                    35,
+                    48
+                  ]
+                }
+              ]
+            },
+            "state": "attribution_unknown",
+            "evidence_ids": [],
+            "gap_kind": "attribution_unknown"
+          },
+          {
+            "object": "底板",
+            "field": "100厚C15垫层",
+            "planning_label": {
+              "object": "底板",
+              "field": "100厚C15垫层"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "底板",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "100厚C15垫层",
+                  "requirement_span": [
+                    49,
+                    58
+                  ]
+                }
+              ]
+            },
+            "state": "attribution_unknown",
+            "evidence_ids": [],
+            "gap_kind": "attribution_unknown"
+          },
+          {
+            "object": "底板",
+            "field": "100厚碎石",
+            "planning_label": {
+              "object": "底板",
+              "field": "100厚碎石"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "底板",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "100厚碎石",
+                  "requirement_span": [
+                    59,
+                    65
+                  ]
+                }
+              ]
+            },
+            "state": "attribution_unknown",
+            "evidence_ids": [],
+            "gap_kind": "attribution_unknown"
+          }
+        ]
+      },
+      {
+        "id": "q5",
+        "requirement": "侧墙25厚XPS保护层（密度≥13kg/m³）、1.5厚无胎自粘卷材、1.0厚渗透结晶涂料、混凝土表面修补平整。",
+        "kind": "compare",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_0611a0a365dc2dd73f09e2e4",
+          "ev_073ac7cec6dd611bdca6ea82",
+          "ev_1cabdc8ae3de0c4a794347d2",
+          "ev_1d3c34ee29e525c0800b3c31",
+          "ev_1eefad6990ae5a2f42a9b158",
+          "ev_29e61ddcb8a037a702b32e2a",
+          "ev_49bda46a174712350c3b24ec",
+          "ev_687748a299961a4f4c5b6dc2",
+          "ev_86ec4879e7b22a8e9216124d",
+          "ev_8a703cad0ff615e787f12388",
+          "ev_bd18c3f02c54d5147ce088f9",
+          "ev_df27d2c7d45f76e3946615b2",
+          "ev_e0feff1994f58534efe64fd7",
+          "ev_e5b5c758fbea4d9f37e0958c",
+          "ev_e84920eba47e1c4e80ceae43",
+          "ev_ecf3238bac23eb0ddbda5a27",
+          "ev_efd388ba2dc05c051410fc34",
+          "ev_f0b8507f708e819ccdaab22b",
+          "ev_fa977be35aef61bbf5667ec0"
+        ],
+        "delivered": true,
+        "operations": [
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "侧墙",
+            "field": "25厚XPS保护层（密度≥13kg/m³）",
+            "planning_label": {
+              "object": "侧墙",
+              "field": "25厚XPS保护层（密度≥13kg/m³）"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "侧墙",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "25厚XPS保护层（密度≥13kg/m³）",
+                  "requirement_span": [
+                    2,
+                    23
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "侧墙",
+            "field": "1.5厚无胎自粘卷材",
+            "planning_label": {
+              "object": "侧墙",
+              "field": "1.5厚无胎自粘卷材"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "侧墙",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "1.5厚无胎自粘卷材",
+                  "requirement_span": [
+                    24,
+                    34
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "侧墙",
+            "field": "1.0厚渗透结晶涂料",
+            "planning_label": {
+              "object": "侧墙",
+              "field": "1.0厚渗透结晶涂料"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "侧墙",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "1.0厚渗透结晶涂料",
+                  "requirement_span": [
+                    35,
+                    45
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "侧墙",
+            "field": "混凝土表面修补平整",
+            "planning_label": {
+              "object": "侧墙",
+              "field": "混凝土表面修补平整"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "侧墙",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "混凝土表面修补平整",
+                  "requirement_span": [
+                    46,
+                    55
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "requirement": "逐项列出图纸与清单的字面异同，未写明的内容标注未查明。",
+        "kind": "enumerate",
+        "depends_on": [
+          "q4",
+          "q5"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_027f1e2339728bb0ecf5debb",
+          "ev_3f1c1288566d7864cb56ac64",
+          "ev_4421fa5d03852c04cacc2444",
+          "ev_4f855e2b490d267cdb554acc",
+          "ev_ed587be080519252aa062839",
+          "ev_f510f07dbf43384464c27f15"
+        ],
+        "delivered": true,
+        "operations": [
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。",
+        "kind": "lookup",
+        "depends_on": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_65171a33ab8f7cb0716458e6",
+          "ev_bdfc7292a19e1069f6cbaf44",
+          "ev_e1cc2bc09a6a794c296be144"
+        ],
+        "delivered": true,
+        "operations": [
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      }
+    ]
+  },
+  {
+    "id": "Q06-B-sol-high",
+    "source_task_id": "task_473679f237384b09aabc9835582bbb7e",
+    "snapshot_id": "snap_387d51baa9bf10359b5cf120",
+    "source_sha256": "6a7ba0e14533db4731cbc4d628deafa5aa054cde91ba78afa37d0a54d41bbb21",
+    "question": "请选两种图中涂料外墙做法，逐层列出砂浆材料和厚度并分别求总厚度；保温板、饰面涂料和界面剂另列，不计入此次砂浆合计。请给出每项求和算式、证据和适用部位。用户给定的算术参照为5厚抗裂砂浆+5厚聚合物防水砂浆+10厚找平砂浆=20mm，请计算各套原图砂浆合计减20mm的差值，并列出图内网片信息。厚度未明确或层次归属不清时保留缺失，不能仅用单层厚度代表合计。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请选两种图中涂料外墙做法，逐层列出砂浆材料和厚度并分别求总厚度；",
+        "kind": "enumerate",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6983032da9fced21acbe2acd",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9c2674662c5be182bffee9e8",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_ccf23d0d924c2f66c603e13b",
+          "ev_d38375582daa3fb448116578",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "两种图中涂料外墙做法",
+            "field": "砂浆材料",
+            "planning_label": {
+              "object": "两种图中涂料外墙做法",
+              "field": "砂浆材料"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "两种图中涂料外墙做法",
+                  "requirement_span": [
+                    2,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "砂浆材料",
+                  "requirement_span": [
+                    17,
+                    21
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "两种图中涂料外墙做法",
+            "field": "厚度",
+            "planning_label": {
+              "object": "两种图中涂料外墙做法",
+              "field": "厚度"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "两种图中涂料外墙做法",
+                  "requirement_span": [
+                    2,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "厚度",
+                  "requirement_span": [
+                    22,
+                    24
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "两种图中涂料外墙做法",
+            "field": "总厚度",
+            "planning_label": {
+              "object": "两种图中涂料外墙做法",
+              "field": "总厚度"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "两种图中涂料外墙做法",
+                  "requirement_span": [
+                    2,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "总厚度",
+                  "requirement_span": [
+                    28,
+                    31
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "requirement": "保温板、饰面涂料和界面剂另列，不计入此次砂浆合计。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "保温板",
+            "field": "另列",
+            "planning_label": {
+              "object": "保温板",
+              "field": "另列"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "保温板",
+                  "requirement_span": [
+                    0,
+                    3
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "另列",
+                  "requirement_span": [
+                    12,
+                    14
+                  ]
+                }
+              ]
+            },
+            "state": "not_found_in_read_scope",
+            "evidence_ids": [],
+            "gap_kind": "not_found_in_read_scope"
+          },
+          {
+            "object": "饰面涂料",
+            "field": "另列",
+            "planning_label": {
+              "object": "饰面涂料",
+              "field": "另列"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "饰面涂料",
+                  "requirement_span": [
+                    4,
+                    8
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "另列",
+                  "requirement_span": [
+                    12,
+                    14
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "界面剂",
+            "field": "另列",
+            "planning_label": {
+              "object": "界面剂",
+              "field": "另列"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "界面剂",
+                  "requirement_span": [
+                    9,
+                    12
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "另列",
+                  "requirement_span": [
+                    12,
+                    14
+                  ]
+                }
+              ]
+            },
+            "state": "not_found_in_read_scope",
+            "evidence_ids": [],
+            "gap_kind": "not_found_in_read_scope"
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "requirement": "请给出每项求和算式、证据和适用部位。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6983032da9fced21acbe2acd",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9c2674662c5be182bffee9e8",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_ccf23d0d924c2f66c603e13b",
+          "ev_d38375582daa3fb448116578",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "每项",
+            "field": "求和算式",
+            "planning_label": {
+              "object": "每项",
+              "field": "求和算式"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "每项",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "求和算式",
+                  "requirement_span": [
+                    5,
+                    9
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "每项",
+            "field": "证据",
+            "planning_label": {
+              "object": "每项",
+              "field": "证据"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "每项",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "证据",
+                  "requirement_span": [
+                    10,
+                    12
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "每项",
+            "field": "适用部位",
+            "planning_label": {
+              "object": "每项",
+              "field": "适用部位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "每项",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "适用部位",
+                  "requirement_span": [
+                    13,
+                    17
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "requirement": "用户给定的算术参照为5厚抗裂砂浆+5厚聚合物防水砂浆+10厚找平砂浆=20mm，请计算各套原图砂浆合计减20mm的差值",
+        "kind": "compare",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_6983032da9fced21acbe2acd",
+          "ev_ccf23d0d924c2f66c603e13b"
+        ],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "各套原图砂浆合计",
+            "field": "减20mm的差值",
+            "planning_label": {
+              "object": "各套原图砂浆合计",
+              "field": "减20mm的差值"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "各套原图砂浆合计",
+                  "requirement_span": [
+                    43,
+                    51
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q4",
+                  "quote": "减20mm的差值",
+                  "requirement_span": [
+                    51,
+                    59
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q5",
+        "requirement": "并列出图内网片信息。",
+        "kind": "enumerate",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4d21e27599df30b2206e32d7",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6983032da9fced21acbe2acd",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_ccf23d0d924c2f66c603e13b",
+          "ev_dd071a41169fb86799bbf238",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e1cf180771360e88be492100",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "图内网片",
+            "field": "信息",
+            "planning_label": {
+              "object": "图内网片",
+              "field": "信息"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "图内网片",
+                  "requirement_span": [
+                    3,
+                    7
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "信息",
+                  "requirement_span": [
+                    7,
+                    9
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "requirement": "厚度未明确或层次归属不清时保留缺失，不能仅用单层厚度代表合计。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6983032da9fced21acbe2acd",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9c2674662c5be182bffee9e8",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_ccf23d0d924c2f66c603e13b",
+          "ev_d38375582daa3fb448116578",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_238a81f2916770c9395704f2",
+          "ev_278fadc7ba1c011184f24ade",
+          "ev_2c8884b14d3955e3208efe10",
+          "ev_30293435155ff384a0d4dbe4",
+          "ev_3e1e54b5ada28cbf85d6255e",
+          "ev_41fa7b627432fa3b4db4637f",
+          "ev_4202f6ef010199ee384849af",
+          "ev_42e41c79a5d6355691b36705",
+          "ev_4e00ccc924184186d65d38a3",
+          "ev_50348dda72e101a969d37216",
+          "ev_5cd808929007f58b5069b9de",
+          "ev_640180e4221655970d6dae24",
+          "ev_6951e9dc5cb751349d7cea62",
+          "ev_6983032da9fced21acbe2acd",
+          "ev_6fba1f53924d861410a339da",
+          "ev_74b5e504b2718557c901acd8",
+          "ev_754c54e77da50af20a1c0129",
+          "ev_7d3844c9ba36481a1040cb7b",
+          "ev_861804f55514442107ddd5da",
+          "ev_872608e66e040636070143d0",
+          "ev_88879bb5dd6db91246e3695c",
+          "ev_9a6ebda90d19dc5d7c7aecfe",
+          "ev_9c2674662c5be182bffee9e8",
+          "ev_9e337a1344433607d657890b",
+          "ev_9f21059a5bac78daab5c7f9e",
+          "ev_a8b68e1617fa679fb1a6e2ed",
+          "ev_b4950943b4e1607bebb3ab99",
+          "ev_bcfef1c73bd1efc7a06b4246",
+          "ev_bea57141ad7aa90fa99e44b9",
+          "ev_c2c0b6613f3323ded5456e91",
+          "ev_c5414e772e265acf11882c58",
+          "ev_ccf23d0d924c2f66c603e13b",
+          "ev_d38375582daa3fb448116578",
+          "ev_dfd9f6a5eed7c1a5d4eabc91",
+          "ev_e1b33f18d0166b920164e690",
+          "ev_e543f43633638ca08cde63e8",
+          "ev_e685ddbbde6b3988d308efaf",
+          "ev_f47bd2f1b5dee02f52ea74f1",
+          "ev_f5e689a5e8cb2a1658d8dbbc",
+          "ev_f657c9521ad8a9e9f8ab04a1",
+          "ev_f94edcc762b1b8e1fa6363fa"
+        ],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      }
+    ]
+  },
+  {
+    "id": "Q14-B-luna-high",
+    "source_task_id": "task_b40c884351ce49e18d05d84317ddbb8e",
+    "snapshot_id": "snap_fa5c416d0ba39b836b0eeb8b",
+    "source_sha256": "190fe3d14e744c7ba05808b9a9477e63560a4890453304d55a9c1c9dfe4b6e40",
+    "question": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系，以及车位与门开启范围的重叠或净距，给出候选位置和高亮。本次按毫米测量，不凭文字邻近判定几何重叠。请分别记录已确认几何、候选归属及尚缺开门范围的对象，并说明已检查的范围和未覆盖部分。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_2fb54850a44eecd234e28f10",
+          "ev_4c30b8443404d680a9b83d7f",
+          "ev_80d406724b2abfa5fb5ec54a",
+          "ev_815f224be70476354936cbc5",
+          "ev_a7c68a18fa65072745e63cfb",
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_bad03509a832dc995554c1eb",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [
+          "discovery",
+          "selection",
+          "vision"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "集水坑",
+            "field": "定位",
+            "planning_label": {
+              "object": "集水坑",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "集水坑",
+                  "requirement_span": [
+                    10,
+                    13
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "not_found_in_read_scope",
+            "evidence_ids": [],
+            "gap_kind": "not_found_in_read_scope"
+          },
+          {
+            "object": "机动车道",
+            "field": "定位",
+            "planning_label": {
+              "object": "机动车道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "机动车道",
+                  "requirement_span": [
+                    14,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "车位",
+            "field": "定位",
+            "planning_label": {
+              "object": "车位",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "主要归家通道",
+            "field": "定位",
+            "planning_label": {
+              "object": "主要归家通道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "主要归家通道",
+                  "requirement_span": [
+                    22,
+                    28
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "相邻房间门",
+            "field": "定位",
+            "planning_label": {
+              "object": "相邻房间门",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "相邻房间门",
+                  "requirement_span": [
+                    30,
+                    35
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "消火栓开门范围",
+            "field": "定位",
+            "planning_label": {
+              "object": "消火栓开门范围",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "消火栓开门范围",
+                  "requirement_span": [
+                    36,
+                    43
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "requirement": "对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系",
+        "kind": "enumerate",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_2fb54850a44eecd234e28f10",
+          "ev_4c30b8443404d680a9b83d7f",
+          "ev_80d406724b2abfa5fb5ec54a",
+          "ev_815f224be70476354936cbc5",
+          "ev_a7c68a18fa65072745e63cfb",
+          "ev_bad03509a832dc995554c1eb"
+        ],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "井坑",
+            "field": "车道",
+            "planning_label": {
+              "object": "井坑",
+              "field": "车道"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "井坑",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车道",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "井坑",
+            "field": "车位",
+            "planning_label": {
+              "object": "井坑",
+              "field": "车位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "井坑",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "井坑",
+            "field": "通道",
+            "planning_label": {
+              "object": "井坑",
+              "field": "通道"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "井坑",
+                  "requirement_span": [
+                    16,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "通道",
+                  "requirement_span": [
+                    26,
+                    28
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "requirement": "以及车位与门开启范围的重叠或净距，给出候选位置和高亮。",
+        "kind": "measure",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "highlight"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "车位",
+            "field": "门开启范围的重叠或净距",
+            "planning_label": {
+              "object": "车位",
+              "field": "门开启范围的重叠或净距"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "门开启范围的重叠或净距",
+                  "requirement_span": [
+                    5,
+                    16
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "requirement": "本次按毫米测量，不凭文字邻近判定几何重叠。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "units"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q5",
+        "requirement": "请分别记录已确认几何、候选归属及尚缺开门范围的对象",
+        "kind": "lookup",
+        "depends_on": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "relations",
+          "selection"
+        ],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "已确认几何",
+            "field": "记录",
+            "planning_label": {
+              "object": "已确认几何",
+              "field": "记录"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "已确认几何",
+                  "requirement_span": [
+                    5,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "记录",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "候选归属",
+            "field": "记录",
+            "planning_label": {
+              "object": "候选归属",
+              "field": "记录"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "候选归属",
+                  "requirement_span": [
+                    11,
+                    15
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "记录",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "尚缺开门范围的对象",
+            "field": "记录",
+            "planning_label": {
+              "object": "尚缺开门范围的对象",
+              "field": "记录"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "尚缺开门范围的对象",
+                  "requirement_span": [
+                    16,
+                    25
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "记录",
+                  "requirement_span": [
+                    3,
+                    5
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "requirement": "并说明已检查的范围和未覆盖部分。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_2fb54850a44eecd234e28f10",
+          "ev_4c30b8443404d680a9b83d7f",
+          "ev_80d406724b2abfa5fb5ec54a",
+          "ev_815f224be70476354936cbc5",
+          "ev_a7c68a18fa65072745e63cfb",
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_bad03509a832dc995554c1eb",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [
+          "vision"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "已检查的范围",
+            "field": "说明",
+            "planning_label": {
+              "object": "已检查的范围",
+              "field": "说明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "已检查的范围",
+                  "requirement_span": [
+                    3,
+                    9
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "说明",
+                  "requirement_span": [
+                    1,
+                    3
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "未覆盖部分",
+            "field": "说明",
+            "planning_label": {
+              "object": "未覆盖部分",
+              "field": "说明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "未覆盖部分",
+                  "requirement_span": [
+                    10,
+                    15
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "说明",
+                  "requirement_span": [
+                    1,
+                    3
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "arithmetic"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [
+          "units",
+          "vision"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "用户给定值",
+            "field": "分别标明",
+            "planning_label": {
+              "object": "用户给定值",
+              "field": "分别标明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "用户给定值",
+                  "requirement_span": [
+                    0,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "分别标明",
+                  "requirement_span": [
+                    9,
+                    13
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "原图值",
+            "field": "分别标明",
+            "planning_label": {
+              "object": "原图值",
+              "field": "分别标明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "原图值",
+                  "requirement_span": [
+                    6,
+                    9
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "分别标明",
+                  "requirement_span": [
+                    9,
+                    13
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "回答",
+            "field": "包含可定位证据",
+            "planning_label": {
+              "object": "回答",
+              "field": "包含可定位证据"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "回答",
+                  "requirement_span": [
+                    14,
+                    16
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "包含可定位证据",
+                  "requirement_span": [
+                    16,
+                    23
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q14-B-sol-high",
+    "source_task_id": "task_fd9172f86fcc45929b6a31756ee08aad",
+    "snapshot_id": "snap_fa5c416d0ba39b836b0eeb8b",
+    "source_sha256": "190fe3d14e744c7ba05808b9a9477e63560a4890453304d55a9c1c9dfe4b6e40",
+    "question": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系，以及车位与门开启范围的重叠或净距，给出候选位置和高亮。本次按毫米测量，不凭文字邻近判定几何重叠。请分别记录已确认几何、候选归属及尚缺开门范围的对象，并说明已检查的范围和未覆盖部分。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_2c9233f4526ae8e972b30ae3",
+          "ev_6251cb6640fe2c1bd87b2392",
+          "ev_87cedd6d93de151a22f3d788",
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_b3b91ac9820bca4d886a90a0",
+          "ev_b973ced0111bb69dcd1fc451",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "集水坑",
+            "field": "定位",
+            "planning_label": {
+              "object": "集水坑",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "集水坑",
+                  "requirement_span": [
+                    10,
+                    13
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "机动车道",
+            "field": "定位",
+            "planning_label": {
+              "object": "机动车道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "机动车道",
+                  "requirement_span": [
+                    14,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位",
+            "field": "定位",
+            "planning_label": {
+              "object": "车位",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "主要归家通道",
+            "field": "定位",
+            "planning_label": {
+              "object": "主要归家通道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "主要归家通道",
+                  "requirement_span": [
+                    22,
+                    28
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "相邻房间门",
+            "field": "开门范围",
+            "planning_label": {
+              "object": "相邻房间门",
+              "field": "开门范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "相邻房间门",
+                  "requirement_span": [
+                    30,
+                    35
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "开门范围",
+                  "requirement_span": [
+                    39,
+                    43
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "消火栓",
+            "field": "开门范围",
+            "planning_label": {
+              "object": "消火栓",
+              "field": "开门范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "消火栓",
+                  "requirement_span": [
+                    36,
+                    39
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "开门范围",
+                  "requirement_span": [
+                    39,
+                    43
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "requirement": "对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系",
+        "kind": "enumerate",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "井坑与车道",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "井坑与车道",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "井坑与车道",
+                  "requirement_span": [
+                    16,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "车位",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          },
+          {
+            "object": "通道",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "通道",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "通道",
+                  "requirement_span": [
+                    26,
+                    28
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "requirement": "以及车位与门开启范围的重叠或净距，给出候选位置和高亮。",
+        "kind": "highlight",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "highlight",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "车位与门开启范围",
+            "field": "重叠或净距",
+            "planning_label": {
+              "object": "车位与门开启范围",
+              "field": "重叠或净距"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "车位与门开启范围",
+                  "requirement_span": [
+                    2,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "重叠或净距",
+                  "requirement_span": [
+                    11,
+                    16
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位与门开启范围",
+            "field": "候选位置",
+            "planning_label": {
+              "object": "车位与门开启范围",
+              "field": "候选位置"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "车位与门开启范围",
+                  "requirement_span": [
+                    2,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "候选位置",
+                  "requirement_span": [
+                    19,
+                    23
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位与门开启范围",
+            "field": "高亮",
+            "planning_label": {
+              "object": "车位与门开启范围",
+              "field": "高亮"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "车位与门开启范围",
+                  "requirement_span": [
+                    2,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "高亮",
+                  "requirement_span": [
+                    24,
+                    26
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "requirement": "本次按毫米测量，不凭文字邻近判定几何重叠。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "units"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q5",
+        "requirement": "请分别记录已确认几何、候选归属及尚缺开门范围的对象",
+        "kind": "lookup",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "对象",
+            "field": "已确认几何",
+            "planning_label": {
+              "object": "对象",
+              "field": "已确认几何"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "已确认几何",
+                  "requirement_span": [
+                    5,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "对象",
+            "field": "候选归属",
+            "planning_label": {
+              "object": "对象",
+              "field": "候选归属"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "候选归属",
+                  "requirement_span": [
+                    11,
+                    15
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "对象",
+            "field": "尚缺开门范围",
+            "planning_label": {
+              "object": "对象",
+              "field": "尚缺开门范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "尚缺开门范围",
+                  "requirement_span": [
+                    16,
+                    22
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "requirement": "并说明已检查的范围和未覆盖部分。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_2c9233f4526ae8e972b30ae3",
+          "ev_6251cb6640fe2c1bd87b2392",
+          "ev_87cedd6d93de151a22f3d788",
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_b3b91ac9820bca4d886a90a0",
+          "ev_b973ced0111bb69dcd1fc451",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "已检查的范围",
+            "field": "已检查的范围",
+            "planning_label": {
+              "object": "已检查的范围",
+              "field": "已检查的范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "已检查的范围",
+                  "requirement_span": [
+                    3,
+                    9
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "已检查的范围",
+                  "requirement_span": [
+                    3,
+                    9
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "未覆盖部分",
+            "field": "未覆盖部分",
+            "planning_label": {
+              "object": "未覆盖部分",
+              "field": "未覆盖部分"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "未覆盖部分",
+                  "requirement_span": [
+                    10,
+                    15
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "未覆盖部分",
+                  "requirement_span": [
+                    10,
+                    15
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "completed",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": [
+          {
+            "object": "用户给定值",
+            "field": "分别标明",
+            "planning_label": {
+              "object": "用户给定值",
+              "field": "分别标明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "用户给定值",
+                  "requirement_span": [
+                    0,
+                    5
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "分别标明",
+                  "requirement_span": [
+                    9,
+                    13
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "原图值",
+            "field": "分别标明",
+            "planning_label": {
+              "object": "原图值",
+              "field": "分别标明"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "原图值",
+                  "requirement_span": [
+                    6,
+                    9
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "分别标明",
+                  "requirement_span": [
+                    9,
+                    13
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "回答",
+            "field": "可定位证据",
+            "planning_label": {
+              "object": "回答",
+              "field": "可定位证据"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "回答",
+                  "requirement_span": [
+                    14,
+                    16
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q8",
+                  "quote": "可定位证据",
+                  "requirement_span": [
+                    18,
+                    23
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "Q14-B-sol-low",
+    "source_task_id": "task_6933be08133e4154b11a6192ef50dc23",
+    "snapshot_id": "snap_fa5c416d0ba39b836b0eeb8b",
+    "source_sha256": "190fe3d14e744c7ba05808b9a9477e63560a4890453304d55a9c1c9dfe4b6e40",
+    "question": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系，以及车位与门开启范围的重叠或净距，给出候选位置和高亮。本次按毫米测量，不凭文字邻近判定几何重叠。请分别记录已确认几何、候选归属及尚缺开门范围的对象，并说明已检查的范围和未覆盖部分。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。",
+        "kind": "lookup",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_bae23448264b70a943aff7ac",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "relations",
+          "vision"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "集水坑",
+            "field": "定位",
+            "planning_label": {
+              "object": "集水坑",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "集水坑",
+                  "requirement_span": [
+                    10,
+                    13
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "机动车道",
+            "field": "定位",
+            "planning_label": {
+              "object": "机动车道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "机动车道",
+                  "requirement_span": [
+                    14,
+                    18
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "车位",
+            "field": "定位",
+            "planning_label": {
+              "object": "车位",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "主要归家通道",
+            "field": "定位",
+            "planning_label": {
+              "object": "主要归家通道",
+              "field": "定位"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "主要归家通道",
+                  "requirement_span": [
+                    22,
+                    28
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "定位",
+                  "requirement_span": [
+                    8,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          },
+          {
+            "object": "相邻房间门和消火栓",
+            "field": "开门范围",
+            "planning_label": {
+              "object": "相邻房间门和消火栓",
+              "field": "开门范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "相邻房间门和消火栓",
+                  "requirement_span": [
+                    30,
+                    39
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "开门范围",
+                  "requirement_span": [
+                    39,
+                    43
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": [],
+            "gap_kind": "unread_source"
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "requirement": "对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系",
+        "kind": "enumerate",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "井坑与车道",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "井坑与车道",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "井坑与车道",
+                  "requirement_span": [
+                    16,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "车位",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "车位",
+                  "requirement_span": [
+                    19,
+                    21
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          },
+          {
+            "object": "通道",
+            "field": "重叠关系",
+            "planning_label": {
+              "object": "通道",
+              "field": "重叠关系"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "通道",
+                  "requirement_span": [
+                    26,
+                    28
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "重叠关系",
+                  "requirement_span": [
+                    28,
+                    32
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "requirement": "以及车位与门开启范围的重叠或净距，给出候选位置和高亮。",
+        "kind": "highlight",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "geometry",
+          "highlight",
+          "relations"
+        ],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "车位与门开启范围",
+            "field": "重叠或净距",
+            "planning_label": {
+              "object": "车位与门开启范围",
+              "field": "重叠或净距"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "车位与门开启范围",
+                  "requirement_span": [
+                    2,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "重叠或净距",
+                  "requirement_span": [
+                    11,
+                    16
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "车位与门开启范围",
+            "field": "候选位置和高亮",
+            "planning_label": {
+              "object": "车位与门开启范围",
+              "field": "候选位置和高亮"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "车位与门开启范围",
+                  "requirement_span": [
+                    2,
+                    10
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q3",
+                  "quote": "候选位置和高亮",
+                  "requirement_span": [
+                    19,
+                    26
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "requirement": "本次按毫米测量，不凭文字邻近判定几何重叠。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [
+          "units"
+        ],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q5",
+        "requirement": "请分别记录已确认几何、候选归属及尚缺开门范围的对象",
+        "kind": "lookup",
+        "depends_on": [
+          "q1"
+        ],
+        "status": "partial",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "对象",
+            "field": "已确认几何",
+            "planning_label": {
+              "object": "对象",
+              "field": "已确认几何"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "已确认几何",
+                  "requirement_span": [
+                    5,
+                    10
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          },
+          {
+            "object": "对象",
+            "field": "候选归属",
+            "planning_label": {
+              "object": "对象",
+              "field": "候选归属"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "候选归属",
+                  "requirement_span": [
+                    11,
+                    15
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "对象",
+            "field": "尚缺开门范围",
+            "planning_label": {
+              "object": "对象",
+              "field": "尚缺开门范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q2",
+                  "quote": "对象",
+                  "requirement_span": [
+                    9,
+                    11
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q5",
+                  "quote": "尚缺开门范围",
+                  "requirement_span": [
+                    16,
+                    22
+                  ]
+                }
+              ]
+            },
+            "state": "unknown",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "requirement": "并说明已检查的范围和未覆盖部分。",
+        "kind": "scope",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_b097d1bbf32659802130d0c7",
+          "ev_f4aae775cfa0f6690e49938c"
+        ],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "geometry",
+            "fulfilled": false,
+            "tool": "inspect_scope_objects",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "vision",
+            "fulfilled": true,
+            "tool": "render_region",
+            "reference": null
+          },
+          {
+            "operation": "highlight",
+            "fulfilled": false,
+            "tool": "render_region",
+            "reference": null
+          }
+        ],
+        "coverage": [
+          {
+            "object": "范围",
+            "field": "已检查的范围",
+            "planning_label": {
+              "object": "范围",
+              "field": "已检查的范围"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q1",
+                  "quote": "范围",
+                  "requirement_span": [
+                    41,
+                    43
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "已检查的范围",
+                  "requirement_span": [
+                    3,
+                    9
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          },
+          {
+            "object": "未覆盖部分",
+            "field": "未覆盖部分",
+            "planning_label": {
+              "object": "未覆盖部分",
+              "field": "未覆盖部分"
+            },
+            "question_binding": {
+              "object": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "未覆盖部分",
+                  "requirement_span": [
+                    10,
+                    15
+                  ]
+                }
+              ],
+              "field": [
+                {
+                  "requirement_id": "q6",
+                  "quote": "未覆盖部分",
+                  "requirement_span": [
+                    10,
+                    15
+                  ]
+                }
+              ]
+            },
+            "state": "unread",
+            "evidence_ids": []
+          }
+        ]
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "blocked_capability",
+        "evidence_ids": [],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。",
+        "kind": "constraint",
+        "depends_on": [],
+        "status": "partial",
+        "evidence_ids": [
+          "ev_bae23448264b70a943aff7ac"
+        ],
+        "delivered": true,
+        "operations": [],
+        "operation_receipts": [],
+        "coverage": []
+      }
+    ]
+  }
+]

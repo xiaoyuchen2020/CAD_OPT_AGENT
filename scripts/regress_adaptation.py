@@ -8,6 +8,7 @@ import sqlite3
 from dataclasses import replace
 from pathlib import Path
 
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT, Settings
 from cad_agent.service import Workspace
 from cad_agent.analysis.general import DrawingIndex
@@ -49,14 +50,14 @@ def seed(workspace, sources):
             if wanted:
                 dest = workspace.settings.data_dir/'drawings'/key
                 if not dest.exists():
-                    shutil.copytree(root/'drawings'/key, dest)
+                    copy_artifact_tree(root/'drawings'/key, dest)
             if wanted or (root == PRIOR/'data' and kind.startswith('adaptation_')):
                 try:
                     workspace.store.get(kind, key)
                 except KeyError:
                     workspace.store.put(kind, key, value)
     for name in ('adaptation-runtime.json', 'table-recovery-runtime.json'):
-        shutil.copy2(PRIOR/'data'/name, workspace.settings.data_dir/name)
+        copy_artifact(PRIOR/'data'/name, workspace.settings.data_dir/name)
 
 
 def baseline(index, table):

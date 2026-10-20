@@ -8,6 +8,7 @@ import sqlite3
 import time
 from dataclasses import replace
 from pathlib import Path
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT, Settings
 from cad_agent.service import Workspace
 from cad_agent.adapters.siwc import SiwcAccount
@@ -28,11 +29,11 @@ def init():
     data=OUT/'data'
     if not (data/'index.sqlite3').exists():
         data.mkdir(exist_ok=True)
-        shutil.copytree(CROSS/'data/drawings',data/'drawings',dirs_exist_ok=True)
+        copy_artifact_tree(CROSS/'data/drawings',data/'drawings',dirs_exist_ok=True)
         src=sqlite3.connect(f'file:{CROSS}/data/index.sqlite3?mode=ro',uri=True)
         dst=sqlite3.connect(data/'index.sqlite3');src.backup(dst);src.close();dst.close()
         for name in ('adaptation-runtime.json','table-recovery-runtime.json'):
-            shutil.copy2(CROSS/'data'/name,data/name)
+            copy_artifact(CROSS/'data'/name,data/name)
     w=Workspace(replace(Settings.load(),data_dir=data,max_upload_bytes=256*1024*1024))
     # Reuse the app's independent subscription in place; never copy credentials into this audit.
     w.siwc_account.close()

@@ -17,8 +17,10 @@ from cad_agent.geometry.source import scoped_geometry_index, source_descriptors
 from cad_agent.geometry.room_batch import RoomBatchService
 from cad_agent.geometry.vision import VisionService, MAX_IMAGE_BYTES
 from cad_agent.cad.render import render_svg
+from cad_agent.cache import file_stamp
+from cad_agent.geometry.source import GEOMETRY_VERSION
 
-VERSION = 'room-boundary-visual-v1.4'
+VERSION = 'room-boundary-visual-v1.5'
 WALL = re.compile(r'墙|WALL|柱|COLUMN|(?:^|[-_])COL(?:$|[-_])', re.I)
 FURNITURE = re.compile(r'家具|FURN|BED|床', re.I)
 
@@ -144,16 +146,39 @@ class RoomBoundaryService:
         if record['snapshot_id']!=self.sid or record['source_sha256']!=self.drawing['sha256']:raise KeyError(rid)
         return record
 
-    def prepare(self,args):
+    def prepare(self,args,remaining=None):
+        from cad_agent.geometry.compute import remaining_budget
+        with remaining_budget(remaining):
+            return self._prepare(args,remaining)
+
+    def _prepare(self,args,remaining=None):
+        # Session callback checks cancellation as well as its original deadline.
+        def checkpoint(cold=False):
+            if remaining is not None:
+                required = 15 if cold else 5
+                if remaining() < required:
+                    raise ValueError('边界准备剩余时间不足；未启动新的长几何步骤，请缩小房间批次。')
+        checkpoint()
         batch=self.batches.get(args.batch_id)
         if not batch['scope'] or not batch['items']:raise ValueError('需要先定位图框并枚举房间名称。')
-        rid=stable_id('boundary',self.sid,self.drawing['sha256'],VERSION,args.batch_id)
-        try:return self.get(rid)
+        signature=dict(version=VERSION,geometry_version=GEOMETRY_VERSION,batch=batch,
+            source_stamps={name:file_stamp(self.w.store.artifact(self.sid,name)) for name in ('source.dxf','scene.json','regions.json')})
+        rid=stable_id('boundary',self.sid,self.drawing['sha256'],VERSION,args.batch_id,json.dumps(signature,sort_keys=True))
+        try:
+            cached=self.get(rid)
+            for image in cached['images']:
+                checkpoint()
+                VisionService(self.w,self.sid).png(image['image_id'])
+            checkpoint()
+            # This is reusable preparation, never a reused model review.
+            return cached
         except KeyError:pass
+        checkpoint(cold=True)
         scope=batch['scope'];bounds=scope['bbox'];lid=scope['layout_id']
         index=scoped_geometry_index(self.w,self.sid,lid,bounds,'unknown')
         rows=[];anchors=batch.get('label_anchors',batch['items'])
         for item in batch['items']:
+            checkpoint(cold=True)
             p=center(item);h=item['label_evidence']['bbox'][3]-item['label_evidence']['bbox'][1]
             neighbors=[p.distance(center(other)) for other in anchors if other['region_id']!=item['region_id'] and p.distance(center(other))>h]
             radius=min(min(neighbors)*.9 if neighbors else h*24,h*32)
@@ -172,9 +197,11 @@ class RoomBoundaryService:
             bounded=len(records)<=4000
             records=records[:4000]
             if bounded:
+                checkpoint(cold=True)
                 descriptors=source_descriptors(self.w,self.sid,records)
                 records=[dict(r,effective_layer=descriptors['effective_layers'][r['entity_id']]) for r in records]
             from cad_agent.geometry.compute import compute
+            checkpoint(cold=True)
             candidates=compute(self.w,'boundary_candidates',dict(records=records,item=item,labels=anchors,scope=bounds)) if bounded else []
             for n,c in enumerate(candidates):c['display_label']=chr(65+n)
             rows.append(dict(number=item['number'],region_id=item['region_id'],label_evidence=item['label_evidence'],
@@ -188,7 +215,9 @@ class RoomBoundaryService:
             source_geometry_diagnostics=index.data.get('diagnostics',[])[:24],
             source_geometry_complete=index.data['complete'],
             evidence_url=f'/api/drawings/{self.sid}/boundary-reviews/{rid}',images=[])
+        checkpoint()
         record['images']=self.render_sheets(record)
+        checkpoint()
         self.w.store.put('room_boundary_review',rid,record)
         return record
 

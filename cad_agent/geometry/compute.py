@@ -8,6 +8,8 @@ import multiprocessing
 import os
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from .contracts import RoomMeasure, RoomDiscover
 from .rooms import analyze_room
@@ -17,13 +19,20 @@ OPERATIONS = frozenset({'room', 'discover', 'geometry_measure', 'spatial_query',
     'discovery_anchors', 'boundary_candidates', 'contour_area', 'tiled_discovery',
     'component_refine', 'component_relations', 'component_openings',
     'connection_evidence', 'enclosure_inspection', 'source_geometry', 'visual_candidates',
-    'source_descriptors', 'source_dimensions', 'source_viewports', 'source_bundle'})
+    'source_descriptors', 'source_dimensions', 'source_viewports', 'source_bundle', 'source_text_metadata',
+    'similarity_search'})
 
 
 def dispatch(operation, payload):
+    if operation == 'similarity_search':
+        from cad_agent.analysis.similarity_search import compute_similarity_search
+        return compute_similarity_search(payload)
     if operation == 'source_bundle':
         from .source import compute_source_bundle
         return compute_source_bundle(payload)
+    if operation=='source_text_metadata':
+        from .source import compute_text_metadata
+        return compute_text_metadata(payload)
     if operation in {'source_descriptors','source_dimensions','source_viewports'}:
         from .source import compute_source_metadata
         return compute_source_metadata(operation,payload)
@@ -196,8 +205,30 @@ class GeometryExecutor:
         self._retire(process,connection)
 
 
-def compute(workspace, operation, payload):
+_REQUEST_REMAINING = ContextVar('geometry_request_remaining', default=None)
+
+
+@contextmanager
+def remaining_budget(remaining):
+    """Request-local deadline; never mutate the shared executor's timeout."""
+    token = _REQUEST_REMAINING.set(remaining)
+    try:
+        yield
+    finally:
+        _REQUEST_REMAINING.reset(token)
+
+
+def compute(workspace, operation, payload, *, timeout=None):
     executor=getattr(workspace,'geometry_executor',None)
     if executor is None:
         executor=LocalGeometryExecutor()
-    return executor.compute(operation,payload)
+    remaining = _REQUEST_REMAINING.get()
+    if remaining is None:
+        return executor.compute(operation,payload) if timeout is None else executor.compute(operation,payload,timeout=timeout)
+    left = remaining()-5
+    if left <= 0:
+        raise ValueError('几何计算剩余时间不足；未启动新步骤。')
+    result = executor.compute(operation,payload,timeout=min(getattr(executor,'timeout',120),left,
+                                                          timeout if timeout is not None else float('inf')))
+    remaining()
+    return result

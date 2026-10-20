@@ -8,6 +8,7 @@ import argparse,json,sqlite3,shutil,time,sys,logging,fcntl,hashlib
 logging.getLogger("ezdxf").setLevel(logging.ERROR)
 from dataclasses import replace
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.config import Settings
 from cad_agent.service import Workspace
 from cad_agent.adapters.siwc import SiwcAccount
@@ -38,7 +39,7 @@ def prepare(w):
   dest=w.store.artifact_dir(sid)
   for name in ('source.dxf','scene.json','regions.json','entities.json','render.json'):
    p=source/'drawings'/sid/name
-   if p.exists() and not (dest/name).exists():shutil.copy2(p,dest/name)
+   if p.exists() and not (dest/name).exists():copy_artifact(p,dest/name)
 
 
 def main():

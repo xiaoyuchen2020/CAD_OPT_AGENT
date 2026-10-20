@@ -51,9 +51,10 @@ def check_chain(w,sid,args):
             # Ambiguous competing chains must not silently pick one.
             if len(solutions)==1 and len(solutions[0])>=2:chains.append((total,solutions[0]))
     chains.sort(key=lambda c: ((c[0][2] if args.side in ('lower','left') else -c[0][2]),-len(c[1])))
-    receipts=[dict(operation='dimensions',fulfilled=bool(dims)),dict(operation='geometry',fulfilled=bool(dims))]
+    receipts=[dict(operation='dimensions',fulfilled=bool(chains)),dict(operation='geometry',fulfilled=bool(chains))]
     if not chains:return dict(record_id=record['record_id'],status='unresolved',candidate_chain_count=0,
-        checked_dimension_count=len(dims),scope=record['request'],operation_receipts=receipts,
+        checked_dimension_count=len(dims),candidate_dimensions=[x[3] for x in dims[:12]],
+        candidate_dimensions_complete=len(dims)<=12,scope=record['request'],operation_receipts=receipts,
         diagnostics=['no_unique_continuous_native_dimension_chain'],note='未找到连续且唯一的原生尺寸链；爆炸尺寸或缺少总尺寸不能据邻近文字拼接。')
     total,parts=chains[0]
     def value(d):
@@ -62,13 +63,15 @@ def check_chain(w,sid,args):
         if text not in ('','<>'):
             return Decimal(text) if re.fullmatch(r'[+-]?\d+(?:\.\d+)?',text) else None
         v=d['expected_unformatted_text_value']
+        if any(c['state']=='conflict' for c in d.get('measurement_comparisons',[])):
+            return None
         return Decimal(str(v)) if v is not None else None
     readings=[p[3] for p in parts];all_dims=readings+[total[3]]
     nums=[value(d) for d in all_dims]
     delta=None
     if all(n is not None for n in nums):
         subtotal=sum(nums[:-1]);delta=subtotal-nums[-1]
-        receipts.append(dict(operation='arithmetic',fulfilled=True))
+        receipts.append(dict(operation='arithmetic',fulfilled=True,calculation_operations=['sum','subtract']))
     def displayed(d):
         labels=d.get('rendered_texts',[])
         if len(labels)!=1 or not re.fullmatch(r'[+-]?\d+(?:\.\d+)?',labels[0].strip()):return None
@@ -80,7 +83,12 @@ def check_chain(w,sid,args):
             sum=str(sum(shown[:-1])),difference=str(sum(shown[:-1])-shown[-1]),
             basis='native_rendered_dimension_text',note='原图显示文字算术，保留CAD未取整数值作另一口径。')
     selected=[{k:d[k] for k in ('object_id','entity_ids','bbox','text_override','rendered_texts','text_state','expected_unformatted_text_value','geometry_recomputed','geometry_length_m','definition_points','dimension_line_point','style','association_status','target_candidates','diagnostics')} for d in all_dims]
-    return dict(record_id=record['record_id'],status='checked_candidate',candidate_chain_count=len(chains),
+    for item,d in zip(selected,all_dims):
+        item.update({k:d.get(k) for k in ('actual_measurement','stored_measurement','measurement_comparisons','definition_control_points','target_binding')})
+    conflicts=any(d.get('status')=='conflict' for d in all_dims)
+    return dict(record_id=record['record_id'],status='conflict' if conflicts else 'checked_candidate',candidate_chain_count=len(chains),
+        arithmetic_basis='explicit_text_or_nonconflicting_native_measurement',
+        target_binding_status='unconfirmed',unit_status=record.get('unit_status','unknown'),
         parts=selected[:-1],total=selected[-1],sum_value=float(round(sum(nums[:-1]),6)) if delta is not None else None,
         display_arithmetic=display_arithmetic,
         difference=float(round(delta,6)) if delta is not None else None,

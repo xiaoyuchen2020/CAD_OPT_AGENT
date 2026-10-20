@@ -103,7 +103,15 @@ class DrawingIndex:
         offset=0,
         limit=8,
         mode="keyword",
+        alternatives=None,
     ):
+        from cad_agent.analysis.recall import terms as recall_terms, matched, page
+        groups = recall_terms(query, keywords, alternatives)
+        # Explicit alternative words request a deterministic, exhaustive literal
+        # enumeration. They are candidate vocabulary, not asserted synonyms.
+        requested_mode = mode
+        if alternatives:
+            mode = 'keyword'
         if mode != "keyword":
             from cad_agent.analysis.retrieval import search
 
@@ -119,15 +127,14 @@ class DrawingIndex:
                 limit,
                 mode,
             )
-        terms = list(
-            dict.fromkeys(x.strip() for x in ([query] + (keywords or [])) if x.strip())
-        )
         rows = self.scope(layout_id, frame_id, section_id)
         hits = []
+        seen = set()
         for r in rows:
-            found = [t for t in terms if t.casefold() in r.text.casefold()]
-            if terms and (not found or (match == "all" and len(found) != len(terms))):
+            accepted, found = matched(r.text, groups, match)
+            if not accepted or r.region_id in seen:
                 continue
+            seen.add(r.region_id)
             pos = max(
                 0,
                 min((r.text.casefold().find(t.casefold()) for t in found), default=0)
@@ -143,17 +150,25 @@ class DrawingIndex:
                     "snippet_start": pos,
                     "text_length": len(r.text),
                     "matched_terms": found,
+                    "matched_query_variants": found,
                     "match_basis": "literal_case_insensitive",
                     "parser_context_region_ids": r.context_region_ids,
                 }
             )
-        return {
+        hits.sort(key=lambda item: item['region_id'])
+        result = {
             "items": hits[offset : offset + limit],
             "total": len(hits),
             "offset": offset,
             "has_more": offset + limit < len(hits),
             "note": "仅检索已解析文字；章节筛选基于解析器关系，零命中不证明原图未注明。",
         }
+        if alternatives:
+            result['retrieval'] = dict(requested_mode=requested_mode,effective_mode='keyword',
+                fallback_reason='explicit_alternatives_literal_enumeration', score_is_confidence=False)
+        return page(self,result,'search_sources',dict(query=query,keywords=keywords or [],match=match,
+            alternatives=alternatives or [],layout_id=layout_id,frame_id=frame_id,section_id=section_id,
+            offset=offset,limit=limit))
 
     def outline(self, kind="sections", layout_id="", frame_id="", offset=0, limit=8):
         rows = self.scope(layout_id, frame_id)
@@ -409,7 +424,10 @@ class DrawingIndex:
         query="",
         offset=0,
         limit=12,
+        alternatives=None,
     ):
+        from cad_agent.analysis.recall import terms, matched, page
+        groups = terms(query, alternatives=alternatives)
         self.scope(layout_id, frame_id)
         kind = kind.upper()
         frame_box = None
@@ -428,6 +446,7 @@ class DrawingIndex:
         ):
             raise ValueError("范围必须为有效原图坐标")
         items = []
+        seen = set()
         for e in self.scene["texts"] + self.scene["lines"]:
             box = e.get("bbox")
             if box is None:
@@ -448,8 +467,10 @@ class DrawingIndex:
                 continue
             if kind and e.get("kind") != kind:
                 continue
-            if query and query.casefold() not in e.get("text", "").casefold():
+            accepted, found = matched(e.get('text',''),groups)
+            if not accepted or e['entity_id'] in seen:
                 continue
+            seen.add(e['entity_id'])
             items.append(
                 {
                     k: e.get(k)
@@ -465,6 +486,12 @@ class DrawingIndex:
                 }
                 | {
                     "bbox": box,
+                    "matched_terms": found,
+                    "matched_query_variants": found,
+                    "source_spans": [dict(region_id=r.region_id,text_span=p.text_span)
+                                     for r,p in self.entity_sources[e['entity_id']]],
+                    "source_locations": [dict(region_id=r.region_id,frame_id=r.frame_id,layout_id=r.layout_id)
+                                         for r,_ in self.entity_sources[e['entity_id']]],
                     "source_region_ids": list(
                         dict.fromkeys(
                             r.region_id for r, _ in self.entity_sources[e["entity_id"]]
@@ -472,7 +499,8 @@ class DrawingIndex:
                     ),
                 }
             )
-        return {
+        items.sort(key=lambda item: item['entity_id'])
+        result = {
             "items": items[offset : offset + limit],
             "total": len(items),
             "has_more": offset + limit < len(items),
@@ -480,6 +508,8 @@ class DrawingIndex:
             "unit": self.drawing["unit"],
             "note": "几何相交只表示空间邻近，不证明构件或引线关联。旧快照的几何元数据可能为空；重新导入可获取新版本。未做工程量测算。",
         }
+        return page(self,result,'query_entities',dict(query=query,alternatives=alternatives or [],
+            layout_id=layout_id,frame_id=frame_id,bbox=bbox,layer=layer,kind=kind,offset=offset,limit=limit))
 
     def inspect(self, region_id, padding=1.0):
         r = self.by_id.get(region_id)

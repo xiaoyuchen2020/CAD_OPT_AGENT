@@ -43,7 +43,7 @@ class Workspace:
         from cad_agent.runtimes.subscription import CodexAccount
         self.codex_account = CodexAccount(settings.data_dir)
         from cad_agent.adapters.siwc import SiwcAccount
-        self.siwc_account = SiwcAccount(settings.data_dir)
+        self.siwc_account = SiwcAccount(settings.data_dir, settings.siwc_max_concurrency)
         self.execution = ExecutionManager(self.store)
         from cad_agent.geometry.compute import GeometryExecutor
         self.geometry_executor = GeometryExecutor()
@@ -161,6 +161,9 @@ class Workspace:
                 try:
                     for source in folder.iterdir():
                         source.replace(destination / source.name)
+                    references = self.store.share_artifacts(snapshot_id)
+                    if references:
+                        record["artifact_references"] = references
                     # Publish last, so failed imports never appear as ready drawings.
                     self.store.put("drawing", snapshot_id, record)
                 except Exception:
@@ -542,6 +545,9 @@ class Workspace:
         try:
             update(status="running",queue_wait_seconds=max(0,(datetime.now(timezone.utc)-datetime.fromisoformat(record["created_at"])).total_seconds()))
             runner.execution.check_cancelled()
+            if runner.w.settings.provider == "responses_subscription":
+                # Executor scheduling time is separate from the per-question budget.
+                runner.started += record["queue_wait_seconds"]
             result = runner.run(history)
             runner.execution.check_cancelled()
             runner.task.data.update(publication_status='published',last_error=None)

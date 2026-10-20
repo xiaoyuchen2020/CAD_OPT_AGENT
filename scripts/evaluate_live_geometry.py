@@ -16,6 +16,7 @@ import time
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from fastapi.testclient import TestClient
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.app import create_app
 from cad_agent.config import Settings
 from cad_agent.adapters.siwc import SiwcAccount
@@ -64,7 +65,7 @@ def main():
                     raise ValueError('Fresh source hash mismatch')
                 w.store.put('drawing',sid,drawing)
                 for name in ('source.dxf','scene.json','regions.json','entities.json','render.json'):
-                    if (source/name).is_file():shutil.copy2(source/name,w.store.artifact(sid,name))
+                    if (source/name).is_file():copy_artifact(source/name,w.store.artifact(sid,name))
                 lid=next(l['layout_id'] for l in drawing['layouts'] if l['name']=='Model')
                 question=(f"仅检查 Model 布局（layout_id={lid}）中 WCS 范围 {case['bbox']}，本次单位按毫米。"
                     "请识别这个范围的门窗洞口候选，逐项列出类型、可识别的开启方式及来源依据。"

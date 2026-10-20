@@ -8,6 +8,7 @@ from pathlib import Path
 from itertools import islice
 import json
 import math
+import os
 
 import ezdxf
 from ezdxf.path import make_path, from_hatch
@@ -127,12 +128,98 @@ def _native_source(path, sid, cache):
     return cache.get_or_build(key, build, lambda _: path.stat().st_size * 12)
 
 
+def native_cache_options():
+    """Explicit retention budget, shared by worker and local cache creation.
+
+    Defaults to 512 MiB estimated retained native-index weight per cache. The
+    existing file-size x 12 estimate is unchanged. Each spawned geometry worker
+    owns one cache; legacy in-process workspace callers own a separate cache.
+    N worker caches plus M local workspace caches can therefore retain up to
+    (N + M) times this budget, in addition to source documents being built,
+    derived geometry and other process memory. This is not an RSS limit.
+    Oversized indices can still be computed, but are never retained.
+
+    Set CAD_NATIVE_GEOMETRY_CACHE_BYTES and CAD_NATIVE_GEOMETRY_CACHE_ENTRIES
+    before starting a worker or creating a local cache. Zero disables retention;
+    existing caches retain their original limits until their owner is recreated.
+    """
+    result = {}
+    for key, env, default in (
+            ('max_bytes', 'CAD_NATIVE_GEOMETRY_CACHE_BYTES', 512 * 1024 * 1024),
+            ('max_entries', 'CAD_NATIVE_GEOMETRY_CACHE_ENTRIES', 4)):
+        raw = os.environ.get(env, str(default))
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(f'{env} must be a nonnegative integer.') from None
+        if value < 0:
+            raise ValueError(f'{env} must be a nonnegative integer.')
+        result[key] = value
+    return result
+
+
 def native_source(workspace, sid):
     return _native_source(workspace.store.artifact(sid, "source.dxf"), sid,
-                          workspace_cache(workspace, '_native_geometry', max_entries=4))
+                          workspace_cache(workspace, '_native_geometry', **native_cache_options()))
 
 
-_WORKER_NATIVE = BoundedCache(max_entries=4)
+_WORKER_NATIVE = BoundedCache(**native_cache_options())
+_WORKER_TEXT = BoundedCache(max_entries=2)
+
+
+def source_text_metadata(workspace, sid, handles):
+    """Bounded root TEXT attributes; parsing remains inside the worker."""
+    from .compute import compute
+    path=workspace.store.artifact(sid,'source.dxf')
+    return compute(workspace,'source_text_metadata',dict(source_path=str(path.resolve()),
+        source_stamp=list(file_stamp(path)),sid=sid,handles=list(handles)))
+
+
+def compute_text_metadata(payload):
+    path=Path(payload['source_path'])
+    handles=payload['handles']
+    if len(handles)>24 or any(not isinstance(h,str) or not h or len(h)>32 for h in handles):
+        raise ValueError('原生文字属性每次最多读取24个有效handle。')
+    if list(file_stamp(path))!=payload['source_stamp']:
+        raise ValueError('文字来源文件已变化，请重新读取。')
+    # Index only DXF byte offsets; do not materialize every object in a large
+    # pump-room drawing merely to inspect two TEXT records.
+    from ezdxf.lldxf import fileindex
+    from ezdxf.lldxf.extendedtags import ExtendedTags
+    from ezdxf.entities import factory
+    def build_index():
+        structure=fileindex.load(str(path));spans={};layouts=[];current=None;handle=None
+        for entry in structure.index:
+            if entry.code==0:
+                if current is not None and handle:
+                    span=(current.value,current.location,entry.location)
+                    if current.value=='TEXT':spans[handle]=span
+                    elif current.value=='LAYOUT':layouts.append(span)
+                current=entry;handle=None
+            elif entry.code==5:handle=entry.value
+        return dict(encoding=structure.encoding,texts=spans,layouts=layouts)
+    indexed=_WORKER_TEXT.get_or_build((str(path.resolve()),file_stamp(path)),build_index,lambda _:path.stat().st_size)
+    result={}
+    with path.open('rb') as stream:
+        def entity(span):
+            _,start,end=span;stream.seek(start)
+            raw=stream.read(end-start).decode(indexed['encoding'],errors='surrogateescape').replace('\r\n','\n')
+            return factory.load(ExtendedTags.from_text(raw))
+        owners={}
+        for span in indexed['layouts']:
+            layout=entity(span)
+            owners[layout.dxf.block_record_handle]=stable_id('layout',payload['sid'],layout.dxf.name)
+        for handle in handles:
+            span=indexed['texts'].get(handle)
+            if not span:continue
+            e=entity(span)
+            if e.dxf.owner not in owners:continue
+            result[handle]=dict(owner=e.dxf.owner,style=e.dxf.get('style','Standard'),text=e.plain_text(),
+                origin=list(e.dxf.insert),height=e.dxf.height,rotation=e.dxf.get('rotation',0),
+                layout_id=owners[e.dxf.owner],layer=e.dxf.get('layer','0'))
+    if list(file_stamp(path))!=payload['source_stamp']:
+        raise ValueError('文字来源文件已变化，结果未发布。')
+    return result
 
 
 class ScopedSourceBundle:

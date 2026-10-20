@@ -164,7 +164,16 @@ def test_partial_delivery_keeps_valid_fact_and_drops_unbound_number(workspace,de
  assert r['recovery']['kept_claims']==1 and r['recovery']['rejected_claims']==1
  assert '987654' not in r['answer'] and r['citations']
  answer['claims']=answer['claims'][1:]
- assert s.recover_valid_claims(json.dumps(answer)) is None
+ # A later bad correction cannot erase an independently validated clause.
+ retained=s.recover_valid_claims(json.dumps(answer))
+ assert retained and retained['task']['status']=='partial'
+ assert text in retained['answer'] and '987654' not in retained['answer']
+ assert retained['citations']
+ # Without a previously validated clause, the same invalid number supplies
+ # no recoverable answer.
+ fresh=make(workspace,demo_bytes)
+ fresh.invoke_tool('read_source_context',{'region_id':fresh.index.regions[0].region_id})
+ assert fresh.recover_valid_claims(json.dumps(answer)) is None
 
 
 def test_bad_global_reference_does_not_poison_valid_source_clause(workspace,demo_bytes):

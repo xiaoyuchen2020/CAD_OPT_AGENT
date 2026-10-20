@@ -4,12 +4,29 @@ import re
 from cad_agent.analysis.boundary_context import numeric_evidence
 from cad_agent.analysis.grounding import numbers, contains_number, verify_calculations
 from cad_agent.analysis.fact_tools import user_values
+from cad_agent.analysis.assembly_delivery import ownership_issues
+from cad_agent.analysis.spatial_delivery import is_spatial_fact, spatial_claim_issues, spatial_numeric_evidence, spatial_measurement_issues, spatial_numeric_claim_text
+from cad_agent.analysis.property_evidence import collect_property_evidence, property_claim_issues
 
 from cad_agent.analysis.tool_registry import FinalAnswer
+from cad_agent.analysis.answer_protocol import inspect_answer, explicit_user_conditions, repair_targets, delivery_consistency_issues
+
+
+class AnswerValidationError(ValueError):
+    """Rejected delivery with independently checked clauses for bounded repair."""
+
+    def __init__(self, issues, validated_claims, attempted_claims, *, field_issues=(), validated_user_inputs=(), targets=()):
+        super().__init__("\n".join(issues))
+        self.validated_claims = validated_claims
+        self.attempted_claims = attempted_claims
+        self.field_issues = list(field_issues)
+        self.repair_targets = list(targets)
+        self.validated_user_inputs = list(validated_user_inputs)
 
 
 def validate_answer(self, content):
-    parsed = FinalAnswer.model_validate_json(content)
+    parts = inspect_answer(content, self.request.question)
+    parsed = parts.answer
     if len(self.task.parts)==1:
         for claim in parsed.claims:
             if not claim.question_part_ids:claim.question_part_ids=[self.task.parts[0]['id']]
@@ -21,7 +38,9 @@ def validate_answer(self, content):
         if claim.state=='derived' and re.search('用户|题设|给定|假设|参考|条件',claim.text):
             own={(r.quote,r.value) for r in claim.user_inputs}
             claim.user_inputs.extend(r for r in parsed.user_inputs if any(contains_number(claim.text,n) for n in numbers(r.value)) and (r.quote,r.value) not in own)
-    claims, citations, positions, issues = [], [], {}, []
+    claims, citations, positions = [], [], {}
+    issues = [f"{e['path']} [{e['code']}]：{e['message']}" for e in parts.field_issues]
+    validated_claims = []
     outcomes={v.requirement_id:v for v in parsed.requirement_outcomes}
     if len(outcomes)!=len(parsed.requirement_outcomes) or not set(outcomes)<={s["id"] for s in self.task.data["subtasks"]}:
         issues.append("requirement_outcomes 含重复或不存在的要求。")
@@ -35,7 +54,14 @@ def validate_answer(self, content):
     if addressed - required:
         issues.append("question_part_ids 包含不存在的分项。")
     used_observations = {}
-    for index, claim in enumerate(parsed.claims, 1):
+    property_fields, property_diagnostics = collect_property_evidence(
+        self.evidence, self.observations, self.allowed_snapshots)
+    for parsed_index, claim in enumerate(parsed.claims):
+        index = parts.claim_indexes[parsed_index] + 1
+        issue_count = len(issues)
+        issues.extend(f"第 {index} 条{message}" for message in delivery_consistency_issues(claim, self.evidence, self.observations))
+        issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence))
+        issues.extend(f"第 {index} 条{message}" for message in property_claim_issues(claim, property_fields))
         ids = list(dict.fromkeys(claim.evidence_ids))
         # A source can itself contain design instructions or "同上". Keep
         # literal source reporting, but do not turn derived prose into a
@@ -75,6 +101,14 @@ def validate_answer(self, content):
                     f"第 {index} 条工具观测不能混用原文引用，请拆分结论。"
                 )
             obs = [self.observations[oid] for oid in claim.observation_ids]
+            for observation in obs:
+                issues.extend(f"第 {index} 条{message}" for message in spatial_claim_issues(claim, observation['data']))
+            spatial_data = [o['data'] for o in obs if is_spatial_fact(o['data'])]
+            if spatial_data:
+                issues.extend(f"第 {index} 条{message}" for message in spatial_measurement_issues(claim, spatial_data))
+            if any(o.get('snapshot_id') is not None and o['snapshot_id'] not in self.allowed_snapshots for o in obs):
+                issues.append(f"第 {index} 条工具观测引用了未授权图纸快照。")
+                continue
             if any(o['tool']=='calculate_facts' and o['data'].get('conditional') for o in obs) and not re.search('用户|题设|给定|假设|参考|条件',claim.text):
                 issues.append(f'第 {index} 条包含用户输入的运算须明确条件，不能冒充图纸实测。')
             diagnostic = claim.observation_kind == 'measurement_diagnostic'
@@ -82,9 +116,11 @@ def validate_answer(self, content):
                 issues.append(f'第 {index} 条计算/继承集合保留候选口径，必须标 derived/unknown。')
             if any(o['tool'] in ('analyze_room_batch','prepare_room_boundaries','select_room_boundaries','resolve_room_units') for o in obs) and claim.state not in ('derived', 'unknown'):
                 issues.append(f"第 {index} 条房间批量结果是名称与范围候选，必须标 derived/unknown。")
-            if any(o['tool'] in ('query_annotations', 'locate_by_axes', 'trace_detail', 'read_table_semantics') for o in obs) and claim.state not in ('derived', 'unknown', 'conflict'):
+            if any(o['tool'] in ('query_annotations', 'locate_by_axes', 'trace_detail', 'read_table_semantics',
+                                 'read_door_schedule_table', 'trace_door_schedule', 'search_similar_objects')
+                   for o in obs) and claim.state not in ('derived', 'unknown', 'conflict'):
                 issues.append(f"第 {index} 条语义组件含候选关系，工具观测结论须标 derived/unknown/conflict；原文事实另引用 source 证据。")
-            if any(o["tool"] in ("get_drawing_context", "read_dimensions", "query_building_relations", "get_component_evidence") for o in obs) and claim.state not in ("derived", "unknown", "conflict"):
+            if any(o["tool"] in ("inspect_scope_objects", "get_drawing_context", "read_dimensions", "query_building_relations", "get_component_evidence") for o in obs) and claim.state not in ("derived", "unknown", "conflict"):
                 issues.append(f"第 {index} 条公共组件包含候选对象和推导关系，必须标 derived/unknown/conflict，不能升级为已确认设计事实。")
             measurements = [o for o in obs if o["tool"] in ("measure_geometry", "measure_room", "get_measurement_evidence", "measure_room_area")]
             diagnostic_sources = measurements + [o for o in obs if o['tool'] in ('discover_rooms','prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces','analyze_measurements','get_analysis_results','check_dimension_chain')]
@@ -104,14 +140,19 @@ def validate_answer(self, content):
                     issues.append(f"第 {index} 条测量为程序推导；待复核测量必须标 unknown，完整测量标 derived。")
             numeric_source = json.dumps(
                 [{k:v for k,v in o['data'].items() if k in ('status','diagnostics','unit_basis','applied_unit')}
-                 if diagnostic else numeric_evidence(o['data']) for o in obs], ensure_ascii=False
+                 if diagnostic else spatial_numeric_evidence(o['data']) if is_spatial_fact(o['data'])
+                 else numeric_evidence(o['data']) for o in obs], ensure_ascii=False
             )
-            unsupported_numbers=sorted({v for v in re.findall(r"\d+(?:\.\d+)?", re.sub(r'\]\([^)]*\)', ']', claim.text) if diagnostic else claim.text)
-                                        if v not in numeric_source and v not in calculated_values})
+            numeric_claim_text = spatial_numeric_claim_text(claim.text) if spatial_data else claim.text
+            unsupported_numbers=sorted({v for v in re.findall(r"\d+(?:\.\d+)?", re.sub(r'\]\([^)]*\)', ']', numeric_claim_text) if diagnostic else numeric_claim_text)
+                                        if (not contains_number(numeric_source, v) if any(is_spatial_fact(o['data']) for o in obs)
+                                            else v not in numeric_source) and v not in calculated_values})
             if unsupported_numbers:
                 issues.append(f"第 {index} 条数值 {', '.join(unsupported_numbers[:12])} 不在该条引用的工具观测中；请引用实际含该数值的观测，或保留工具原单位及精度，不得自行换算或补值。")
             used_observations.update({o["observation_id"]: o for o in obs})
             claims.append(claim.model_dump() | {"citation_numbers": []})
+            if len(issues) == issue_count and set(claim.question_part_ids) <= required:
+                validated_claims.append(claim.model_dump())
             continue
         if claim.observation_ids:
             issues.append(f"第 {index} 条原文结论不能以工具观测代替来源。")
@@ -121,6 +162,10 @@ def validate_answer(self, content):
             issues.append(
                 f"第 {index} 条引用了未读取或不存在的证据，请先调用证据工具。"
             )
+            continue
+        if any(self.evidence[eid].get("snapshot_id") is not None
+               and self.evidence[eid]["snapshot_id"] not in self.allowed_snapshots for eid in ids):
+            issues.append(f"第 {index} 条引用了未授权图纸快照。")
             continue
         quote = "\n".join(self.evidence[eid]["quote"] for eid in ids)
         # Exact numeric tokens or explicitly source-bound, recomputed values.
@@ -153,8 +198,21 @@ def validate_answer(self, content):
                 "citation_numbers": [positions[eid] for eid in ids],
             }
         )
+        if len(issues) == issue_count and set(claim.question_part_ids) <= required:
+            validated_claims.append(claim.model_dump())
     if issues:
-        raise ValueError("\n".join(issues))
+        fields = list(parts.field_issues)
+        for issue in issues:
+            match = re.match(r'第 (\d+) 条', issue)
+            if match:
+                index = int(match[1]) - 1
+                field = ('user_inputs' if 'user_inputs[' in issue else
+                         'evidence_ids' if any(t in issue for t in ('数值', '证据', '引用', '来源', '快照')) else
+                         'text')
+                fields.append({'path': f'claims.{index}.{field}', 'code': 'grounding_validation', 'message': issue})
+        raise AnswerValidationError(issues, validated_claims, [c.model_dump() for c in parsed.claims],
+            field_issues=fields, validated_user_inputs=parts.validated_user_inputs,
+            targets=repair_targets(parts.raw, fields))
     prefixes = {
         "observed": "",
         "derived": "【模型推断，待核查】",
@@ -173,11 +231,27 @@ def validate_answer(self, content):
         + "".join(f" [{n}]" for n in c["citation_numbers"])
         for c in claims
     )
+    if parts.validated_user_inputs:
+        answer += "\n\n用户给定条件（非原图事实）：\n" + "\n".join(
+            "“" + r["quote"] + "”（值：" + r["value"] + "）" for r in parts.validated_user_inputs)
+    conditions = explicit_user_conditions(self.request.question)
+    if conditions:
+        answer += "\n\n用户条件原句（仅保留输入，不是原图事实或计算结果）：\n" + "\n".join(c["quote"] for c in conditions)
     return {
         "answer": answer,
+        "user_conditions": conditions,
+        "user_inputs": parts.validated_user_inputs,
+        "protocol_normalizations": parts.normalizations,
         "claims": claims,
         "citations": citations,
         "tool_observations": list(used_observations.values()),
+        "property_evidence": [
+            field for field in property_fields.values()
+            if any((ref["kind"] == "observation" and ref["ref_id"] in used_observations)
+                   or (ref["kind"] == "evidence" and ref["ref_id"] in positions)
+                   for ref in field["source_refs"])
+        ],
+        "property_evidence_diagnostics": property_diagnostics,
         "missing_information": parsed.missing_information,
         "requirement_outcomes": [v.model_dump() for v in parsed.requirement_outcomes],
         "mode": "agent",
@@ -185,3 +259,67 @@ def validate_answer(self, content):
         "note": "引用已校验原文与来源；语义理解、适用范围和完整性仍需核查。",
     }
 
+
+
+def append_source_excerpts(session, result):
+    """Expose exact read text without claiming the requested analysis is complete.
+
+    Only task-owned, currently registered sources are eligible. Keep quotes whole,
+    include citation metadata, and never add them to claims or operation receipts.
+    """
+    if result.get('task', {}).get('status') == 'completed' and not any(
+            c['state'] == 'unknown' for c in result['claims']):
+        return result
+    owners = {}
+    for step in session.task.data['subtasks']:
+        for eid in step.get('evidence_ids', []):
+            if eid in session.evidence:
+                owners.setdefault(eid, []).append(step['id'])
+    positions = {e['evidence_id']: i for i, e in enumerate(result['citations'], 1)}
+    excerpts, used_chars = [], 0
+    # Prefer complete informative clauses to bare numbers or isolated table cells.
+    sources = sorted((session.evidence[eid] for eid in owners),
+                     key=lambda e: (-len(e.get('quote', '')), e['evidence_id']))
+    for evidence in sources:
+        quote = evidence.get('quote', '')
+        if (not quote or not re.search(r'[a-zA-Z\u3400-\u9fff]', quote)
+                or any(quote in c['text'] and evidence['evidence_id'] in c['evidence_ids']
+                       for c in result['claims'])
+                or len(quote) > 1500 or used_chars + len(quote) > 4000):
+            continue
+        eid = evidence['evidence_id']
+        if eid not in positions:
+            positions[eid] = len(result['citations']) + 1
+            result['citations'].append(evidence | {'label': '已读原文摘录', 'evidence_url': None})
+        excerpts.append({'quote': quote, 'evidence_id': eid,
+                         'question_part_ids': owners[eid], 'citation_number': positions[eid]})
+        used_chars += len(quote)
+        if len(excerpts) == 12:
+            break
+    if excerpts:
+        result['source_excerpts'] = excerpts
+        result['answer'] += '\n\n已读原文摘录（仅保留来源文字；对象归属、适用范围及所问统计或几何关系尚待核查，不计为完成）：\n\n' + '\n\n'.join(
+            '“' + e['quote'] + '” [' + str(e['citation_number']) + ']' for e in excerpts)
+    return result
+
+
+def supersedes_claim(current, cached):
+    """A later statement can retract a prior fact, even if repair still fails."""
+    if not set(current.get('question_part_ids', [])) & set(cached.get('question_part_ids', [])):
+        return False
+    current_fields = set(current.get('evidence_roles', {}).get('property', [])) | set(current.get('evidence_roles', {}).get('value', []))
+    cached_fields = set(cached.get('evidence_roles', {}).get('property', [])) | set(cached.get('evidence_roles', {}).get('value', []))
+    if current_fields and cached_fields and current_fields.isdisjoint(cached_fields):
+        return False  # A shared subject/title cannot retract a different field.
+    # A gap on the same requirement is not a retraction of every source fact.
+    # Only an explicit overlapping source/observation can retract a cached fact.
+    if current['state'] in ('unknown', 'conflict'):
+        return bool(set(current.get('evidence_ids', [])) & set(cached.get('evidence_ids', []))
+                    or set(current.get('observation_ids', [])) & set(cached.get('observation_ids', [])))
+    source_key = lambda c: (tuple(sorted(c.get('evidence_ids', []))),
+                            tuple(sorted(c.get('observation_ids', []))))
+    # Several independent fields can legitimately share a paragraph citation.
+    # A new positive fact is not an implicit revision of every sibling field.
+    return (source_key(current) == source_key(cached) and any(source_key(current))
+            and (current['text'] == cached['text']
+                 or bool(re.search(r'修正|更正|撤回|更改|替换原结论', current['text']))))

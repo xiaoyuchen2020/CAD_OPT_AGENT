@@ -17,6 +17,10 @@ from cad_agent.contracts import Record
 from cad_agent.adapters.store import now
 from cad_agent.analysis.operations import Operation, infer_operations, planned_operations, receipts
 from cad_agent.analysis.coverage import question_parts
+from cad_agent.analysis.planning import CoverageReference, PlanValidationError, issue, validate_coverage, BINDING_GUIDANCE
+from cad_agent.analysis.typed_requirements import RequirementType, annotate_step, is_source_fact
+from cad_agent.analysis.tool_metadata import READS
+from cad_agent.analysis.scheduling import execution_state, SUBTASK_CALL_LIMIT, REPETITION_LIMIT, PLAN_REVISION_LIMIT
 from cad_agent.analysis.unit_policy import user_unit_policy
 from cad_agent.geometry.room_batch import RoomBatchService, RoomBatchQuery, UnitConfirmation, ScopeConfirmation
 
@@ -52,6 +56,50 @@ def draft_kind(text):
     return 'lookup'
 
 
+def coverage_targets(text):
+    """Conservative lexical lower bound, not a domain object recognizer.
+
+    Preserve explicit lists from the question. Unknown grammar keeps the whole
+    requirement in the normal task ledger; absence of a parsed list is never a
+    proof that the question is complete. No drawing-specific names are used.
+    """
+    targets=[]
+    for clause in re.split(r'[，,。；;？！?!]',text):
+        if '、' not in clause:continue
+        # Explicit transformation syntax has the same object/field boundary
+        # as a possessive list. Keep only the user's literal labels.
+        reshaped=re.fullmatch(r'(?:请)?把(.+?)分别(?:整理|列|汇总)成(.+?)(?:表)?',clause.strip())
+        if reshaped:
+            objects_text=re.split(r'中的',reshaped[1])[-1]
+            objects_text=objects_text.replace('和','、').replace('以及','、')
+            clause=objects_text+'的'+reshaped[2]
+        clause=re.sub(r'^(?:请|并|同时|分别|逐项|查找|查询|读取|核对|列出|区分|比较|说明|检查)+','',clause.strip())
+        subject,sep,field=clause.partition('的')
+        # Without a clear possessive boundary, "门、窗各自..." can be
+        # objects, fields, or prose. Keep requirement-level incompleteness
+        # rather than manufacture a literal object such as "窗各自".
+        if not sep:continue
+        subject=re.sub(r'(?:各自|分别)$','',subject)
+        if re.search(r'各自|分别|对应|等|以及|和|与|及',subject):continue
+        objects=[x.strip() for x in subject.split('、') if x.strip()]
+        fields=[x.strip() for x in re.split(r'、|以及|和|与|及',field) if x.strip()] or ['原文']
+        if len(objects)<2:continue
+        for obj in objects:
+            for prop in fields:
+                if len(obj)<=40 and len(prop)<=40:
+                    target={'object':obj,'field':prop}
+                    if target not in targets:targets.append(target)
+    return targets
+
+
+class CoverageTarget(Record):
+    requirement_type: RequirementType | None = Field(default=None,description='生产者要求与验收要求分开：来源事实、空间事实、计算、用户条件、范围排除和交付检查。')
+    object: str = Field(min_length=1,max_length=80,description='用户原问题中的对象原文；不可新增对象。')
+    field: str = Field(min_length=1,max_length=80,description='用户原问题中的所需字段原文；不表示已查到。明确枚举字段逐项检查。')
+    object_refs: list[CoverageReference] = Field(default_factory=list,max_length=8,description=BINDING_GUIDANCE)
+    field_refs: list[CoverageReference] = Field(default_factory=list,max_length=8,description=BINDING_GUIDANCE)
+
+
 class PlanStep(Record):
     requirement_id: str
     operations: list[Operation] = Field(default_factory=list, max_length=16, description="仅列用户要求的操作：discovery专指不依赖名称的几何空间发现；contours轮廓核查；selection筛选集合；units单位检查；dimensions专指读取原图尺寸标注/尺寸链，测几何长度宽度间距用geometry。area/perimeter/arithmetic/ranking/relations/vision/highlight/exclusions按需。勿给命名房间枚举添加discovery。")
@@ -59,6 +107,7 @@ class PlanStep(Record):
     depends_on: list[str] = Field(default_factory=list, max_length=8)
     acceptance: str = Field(min_length=1, max_length=300)
     actions: list[str] = Field(default_factory=list, max_length=8, description='为满足目标执行的步骤，可包括范围、空间识别、单位检查、测量及复核；不是新增用户要求。')
+    coverage: list[CoverageTarget] = Field(default_factory=list,max_length=24,description='显式对象×字段检查项，尤其同一要求含多个对象时逐项列出。仅规划，不能授予完成状态。')
 
 
 class TaskPlan(Record):
@@ -102,6 +151,21 @@ class TaskLedger:
                     reason=None, evidence_ids=[], observation_ids=[], batch_ids=[], calls=0, stalled=0,
                     delivered=False, claims=[], operations=infer_operations(p['text']), operation_receipts=[]) for p in parts],
                 batches={}, evidence={}, observations={}, delivery_check=None)
+        self.ensure_coverage()
+
+    def ensure_coverage(self):
+        for step in self.data['subtasks']:
+            targets=coverage_targets(step['requirement'])
+            step['coverage_unparsed_list']=bool(re.search(r'、|和|与|及|分别|各自|同时|比较|对比',step['requirement'])) and not targets
+            cells=step.setdefault('coverage',[])
+            keys={(c['object'],c['field']) for c in cells}
+            for target in targets:
+                if (target['object'],target['field']) in keys:continue
+                if len(cells)>=24:
+                    step['coverage_overflow']=True
+                    break
+                cells.append(target|{'state':'unread','evidence_ids':[]})
+            annotate_step(step)
 
     @staticmethod
     def read(w, task_id):
@@ -149,35 +213,75 @@ class TaskLedger:
 
     def public(self):
         from cad_agent.analysis.object_registry import registry_summary
-        return {k:deepcopy(v) for k,v in self.data.items() if k not in ('evidence','observations','batches','object_registry','object_workflows')} | ({'object_registry':registry_summary(self.data)} if self.data.get('object_registry') else {}) | {
+        result = {k:deepcopy(v) for k,v in self.data.items() if k not in ('evidence','observations','batches','object_registry','object_workflows','drawing_scopes','spatial_objects','door_schedule_relations')} | ({'object_registry':registry_summary(self.data)} if self.data.get('object_registry') else {}) | {
             'batch_refs':[dict(batch_id=b['batch_id'],status=b['status'],evidence_url=b['evidence_url']) for b in self.data['batches'].values()],
             'evidence_url':'/api/tasks/'+self.data['task_id'],
             'note':'完成表示交付项有记录，不代表候选对象或设计语义已得到人工确认。'}
 
+        if self.data.get('drawing_scopes'):
+            from cad_agent.analysis.scope_workflow import compact_scope
+            result['drawing_scopes']={key:compact_scope(scope) for key,scope in self.data['drawing_scopes'].items()}
+        if self.data.get('spatial_objects'):
+            from cad_agent.analysis.spatial_evidence import public_object
+            result['spatial_objects'] = {key: public_object(obj) for key, obj in self.data['spatial_objects'].items()}
+        if self.data.get('gap_recovery'):
+            from cad_agent.analysis.gap_routing import context as gap_context
+            result['gap_recovery'] = gap_context(self.data)
+        result['door_schedule_relation_count'] = len(self.data.get('door_schedule_relations', {}))
+        return result
+
     def context(self):
         d=self.public()
+        from cad_agent.analysis.gap_routing import context as gap_context
+        d['gap_recovery']=gap_context(self.data)
         d.pop('spatial_results',None)
         d['subtasks']=[{k:v for k,v in s.items() if k not in ('claims','evidence_ids','observation_ids')} for s in d['subtasks']]
+        d['execution_states']={s['id']:execution_state(self.data,s['id']) for s in self.data['subtasks']}
+        d['runnable']=self.runnable()
         return d
 
     def plan(self, args, origin='model'):
-        if self.data['planned']:
-            raise ValueError('已有计划；本轮不允许重复规划或删除已完成要求。')
+        revision=self.data.get('plan_revisions',0)
+        if self.data['planned'] and revision>=PLAN_REVISION_LIMIT:
+            raise PlanValidationError([issue('steps','plan_revision_limit','计划修订次数已用完；保留当前要求与证据，继续可执行动作或说明具体阻塞。')])
         nodes = {s['id']:s for s in self.data['subtasks']}
         if len(args.steps) != len(nodes) or {s.requirement_id for s in args.steps} != set(nodes):
-            raise ValueError('计划必须逐一覆盖所有原始 requirement_id，不得增删或重复。')
+            ids=[s.requirement_id for s in args.steps]
+            problems=[issue(f'steps.{i}.requirement_id','invalid_requirement_id','不得新增或重复原始 requirement_id。',value=rid)
+                      for i,rid in enumerate(ids) if rid not in nodes or ids.count(rid)>1]
+            missing=sorted(set(nodes)-set(ids))
+            if missing:problems.append(issue('steps','missing_requirements','计划必须逐一覆盖所有原始 requirement_id。',missing_requirement_ids=missing))
+            raise PlanValidationError(problems)
+        coverage = validate_coverage(args, nodes, self.data['question'])
         edges = {s.requirement_id:set(s.depends_on) for s in args.steps}
-        if any(not deps <= set(nodes) or key in deps for key,deps in edges.items()):
-            raise ValueError('依赖必须引用本任务其他要求。')
+        dependency_errors=[issue(f'steps.{i}.depends_on.{j}','invalid_dependency','依赖必须引用本任务其他要求。',value=dep)
+                           for i,step in enumerate(args.steps) for j,dep in enumerate(step.depends_on)
+                           if dep not in nodes or dep==step.requirement_id]
+        if dependency_errors:raise PlanValidationError(dependency_errors)
         done=set()
         while len(done)<len(nodes):
             ready={k for k,v in edges.items() if v<=done}-done
-            if not ready: raise ValueError('任务依赖存在循环。')
+            if not ready: raise PlanValidationError([issue('steps','dependency_cycle','任务依赖存在循环。',requirement_ids=sorted(set(nodes)-done))])
             done |= ready
         for p in args.steps:
             kind='constraint' if draft_kind(nodes[p.requirement_id]['requirement'])=='constraint' else p.kind
             nodes[p.requirement_id].update(kind=kind, depends_on=p.depends_on, acceptance=p.acceptance,actions=p.actions,
-                operations=planned_operations(nodes[p.requirement_id]['requirement'],p.operations))
+                operations=sorted(set(planned_operations(nodes[p.requirement_id]['requirement'],p.operations)) |
+                                  (set(nodes[p.requirement_id].get('operations',[])) if self.data['planned'] else set())))
+            cells=nodes[p.requirement_id].setdefault('coverage',[])
+            for target in coverage[p.requirement_id]:
+                existing=next((c for c in cells if c['object']==target['object'] and c['field']==target['field']),None)
+                if existing is not None:
+                    existing.update(question_binding=target['question_binding'],planning_label=target['planning_label'],declared_requirement_type=target.get('declared_requirement_type'))
+                else:
+                    if len(cells)>=24:
+                        nodes[p.requirement_id]['coverage_overflow']=True
+                        break
+                    cells.append(target|{'state':'unread','evidence_ids':[]})
+            annotate_step(nodes[p.requirement_id])
+        self.ensure_coverage()
+        if self.data['planned']:
+            self.data['plan_revisions']=revision+1
         self.data.update(planned=True,plan_origin=origin)
         self.save()
         return self.public()
@@ -193,14 +297,9 @@ class TaskLedger:
             raise ValueError('必须使用任务中的 task_ids 关联本次工具调用。')
         if self.needs_plan: raise ValueError('先调用 plan_task 确认完整计划。')
         for key in ids:
-            s=by_id[key]
-            if self.complex and s['status']=='completed' and s['delivered']:
-                raise ValueError('该分项已经交付，请复用已有来源，继续未完成要求。')
-            if s['status'] in ('waiting_input','blocked_capability'):
-                raise ValueError('该子任务已阻塞，请执行其他可推进要求或等待确认。')
-            if s['calls']>=12: raise ValueError('该子任务工具预算已用完，请交代已有结果与缺口。')
-            if any(by_id[d]['status'] in ('waiting_input','blocked_capability') and by_id[d]['kind']!='constraint' for d in s['depends_on'] if d not in ids):
-                raise ValueError('该子任务依赖尚未解除；请继续独立子任务。')
+            state=execution_state(self.data,key)
+            if not state['executable']:
+                raise ValueError('TASK_NOT_EXECUTABLE：'+json.dumps(dict(task_id=key,**state),ensure_ascii=False)+'；继续 runnable 中的独立要求，或通过 plan_task 修正不必要依赖；预算耗尽须部分交付。')
         return [by_id[k] for k in ids]
 
     def start(self, ids):
@@ -212,14 +311,17 @@ class TaskLedger:
         self.data['evidence'].update(deepcopy(evidence))
         self.data['observations'].update(deepcopy(observations))
         eid=set(evidence); oid=result.get('observation_id')
+        self.record_coverage(ids,name,result,evidence)
+        from cad_agent.analysis.calculation_workflow import record_calculation
+        record_calculation(self.data,ids,name,result)
         for s in self.data['subtasks']:
             if s['id'] not in ids: continue
             s['evidence_ids']=sorted(set(s['evidence_ids'])|eid)
             if oid and oid not in s['observation_ids']:s['observation_ids'].append(oid)
             s['stalled']=s['stalled']+1 if duplicate else 0
             s['status']='pending'
-            if s['stalled']>=2 or s['calls']>=12:
-                s.update(status='blocked_capability',reason='subtask_tool_budget_or_repetition')
+            if s['stalled']>=REPETITION_LIMIT or s['calls']>=SUBTASK_CALL_LIMIT:
+                s.update(status='partial',reason='subtask_tool_budget_or_repetition',gap_kind='budget_exhausted')
         for s in self.data['subtasks']:
             if s['id'] in ids:
                 s.setdefault('operation_receipts',[]).extend(receipts(name,result))
@@ -244,6 +346,8 @@ class TaskLedger:
                         if oid and oid not in step['observation_ids']:step['observation_ids'].append(oid)
             self.data['batches'][batch['batch_id']]=deepcopy(batch)
             self.bind_batch(related,batch)
+        from cad_agent.analysis.calculation_workflow import refresh_calculation_inputs
+        refresh_calculation_inputs(self.data)
         self.save()
 
     def bind_batch(self, ids, batch):
@@ -293,11 +397,72 @@ class TaskLedger:
 
     def missing_operations(self, step, attempted=False):
         seen={r['operation'] for r in step.get('operation_receipts',[]) if attempted or r.get('fulfilled')}
-        return sorted(set(step.get('operations',[]))-seen)
+        missing=set(step.get('operations',[]))-seen
+        if not attempted:
+            from cad_agent.analysis.calculation_workflow import outstanding
+            if outstanding(self.data,step):missing.add('arithmetic')
+        return sorted(missing)
+
+    def record_coverage(self, ids, name, result, evidence):
+        self.ensure_coverage()
+        if name in ('search_sources','query_entities') and not result.get('error'):
+            words=[word for group in result.get('query_variants',[]) for word in group]
+            for step in self.data['subtasks']:
+                if step['id'] not in ids:continue
+                for cell in step.get('coverage',[]):
+                    if cell['state']=='unread' and cell['object'] in words and result.get('total')==0:
+                        cell.update(gap_kind='not_matched_in_checked_scope',checked_scope=deepcopy(result.get('coverage',{}).get('scope',{})))
+        if name not in READS or result.get('error'):return
+        # Preserve each quote's identity. Concatenating unrelated evidence lets
+        # a neighbor's property silently satisfy the target object's field.
+        from cad_agent.analysis.coverage import record_cells
+        for step in self.data['subtasks']:
+            if step['id'] not in ids:continue
+            if any(e.get('quote') for e in evidence.values()):step['source_read']=True
+            record_cells(step.get('coverage',[]),result,evidence,tool=name,
+                         registry=self.data['evidence'],observations=self.data['observations'])
+
+    def coverage_summary(self):
+        self.ensure_coverage()
+        from cad_agent.analysis.recall import coverage_feedback
+        return {'requirements':[{'requirement_id':s['id'],'source_read':s.get('source_read',False),
+                    'items':deepcopy(s['coverage']),'overflow':s.get('coverage_overflow',False),
+                    'unparsed_list':s.get('coverage_unparsed_list',False),
+                    'status':s['status'],'reason':s.get('reason'),
+                    'gap_kind':s.get('gap_kind','not_checked')} for s in self.data['subtasks']],
+                'ready_to_stop':self.coverage_ready(),
+                'source_coverage':coverage_feedback(self.data),
+                'note':'source_candidate仅表示同条原文出现对象和字段线索，仍须复核归属和完整性；unread_source、not_matched_in_checked_scope、attribution_unknown、missing_input分别保留，均不等于完成。'}
+
+    def coverage_ready(self):
+        """Early reserve requires delivered work or a concrete recorded block.
+
+        A simple one-object lookup retains its source-review gate. Multi-part
+        and explicit object/field lists must actually reach delivery first.
+        """
+        self.ensure_coverage()
+        for step in self.data['subtasks']:
+            if step.get('coverage_overflow'):return False
+            concrete_block=(step['status']=='waiting_input' or
+                            step.get('reason')=='subtask_tool_budget_or_repetition' or
+                            step.get('gap_kind') in ('missing_input','unsupported_capability','ambiguous_scope','out_of_scope'))
+            if step['status'] in ('waiting_input','blocked_capability','partial') and step.get('reason') and concrete_block:continue
+            if self.complex or step['coverage'] or step.get('coverage_unparsed_list'):
+                if not step['delivered'] or step['status']!='completed':return False
+            elif not step.get('source_read') and not step['delivered']:return False
+        return True
 
     def pending_work(self):
-        """Missing operations, not missing prose; reusable by every runtime."""
-        work=[]
+        """Missing operations and explicit unread targets; never infer completion."""
+        self.ensure_coverage()
+        from cad_agent.analysis.scope_workflow import pending_scope_calls
+        work=pending_scope_calls(self.data)
+        from cad_agent.analysis.recall import pending_calls
+        work.extend(pending_calls(self.data))
+        from cad_agent.analysis.calculation_workflow import pending_calculations
+        work.extend(pending_calculations(self.data))
+        from cad_agent.analysis.project_sources_workflow import pending_calls as pending_project_sources
+        work.extend(pending_project_sources(self.data))
         for b in self.data['batches'].values():
             owners=[s for s in self.data['subtasks'] if b['batch_id'] in s['batch_ids']]
             if not b['scope'] or not b['items']:continue
@@ -306,17 +471,19 @@ class TaskLedger:
             if any(s['kind']=='measure' for s in owners) and b['unit']=='unknown' and not b.get('unit_resolution'):
                 work.append(dict(operation='resolve_units',batch_id=b['batch_id'],task_ids=[s['id'] for s in owners if s['kind']=='measure' and s['status']=='pending']))
         for s in self.data['subtasks']:
-            if s['status'] not in ('waiting_input','blocked_capability'):
+            if s['status']!='completed':
                 work.extend(dict(operation=op,task_ids=[s['id']],attempted=False) for op in self.missing_operations(s,attempted=True))
-        return work
+                work.extend(dict(operation='read_requested_fact',task_ids=[s['id']],object=c['object'],field=c['field'],gap_kind=c.get('gap_kind','unread_source'),attempted=False)
+                            for c in s['coverage'] if is_source_fact(c,s) and c['state'] in ('unread','attribution_unknown','not_found_in_read_scope') and
+                            not any(w.get('object')==c['object'] and w.get('field')==c['field'] and s['id'] in w['task_ids'] for w in work))
+        return sorted(work,key=lambda item:item.get('priority',10))
 
     def runnable(self):
-        nodes={s['id']:s for s in self.data['subtasks']}
-        return [s['id'] for s in nodes.values() if s['status'] in ('pending','running') and
-                not any(nodes[d]['status'] in ('waiting_input','blocked_capability') and nodes[d]['kind']!='constraint' for d in s['depends_on'])]
+        return [s['id'] for s in self.data['subtasks'] if execution_state(self.data,s['id'])['executable']]
 
     def finalise(self, result):
         checks=[]
+        execution_before={s['id']:execution_state(self.data,s['id']) for s in self.data['subtasks']}
         outcomes={v["requirement_id"]:v for v in result.get("requirement_outcomes",[])}
         for s in self.data['subtasks']:
             claims=[c for c in result['claims'] if s['id'] in c.get('question_part_ids',[])]
@@ -335,6 +502,20 @@ class TaskLedger:
             if outcome:
                 s['gap_kind']=outcome.get('gap_kind','none')
                 if outcome['status']!='fulfilled':s.update(status='partial',reason=outcome['reason'])
+            # A claim about one member cannot discharge every object that was
+            # routed to the same requirement. Keep explicit unknown/conflict
+            # states; never promote source co-occurrence into an accepted fact.
+            for cell in s.get('coverage',[]):
+                prop=re.sub(r'(?:原文|做法|情况|分别|是什么|有哪些|多少|[？?])','',cell['field']).strip()
+                matching=[c for c in claims if cell['object'] in c['text'] and
+                          (not prop or prop in c['text']) and
+                          (c['state']=='unknown' or set(c.get('evidence_ids',[]))&set(cell['evidence_ids']))]
+                if matching:
+                    states={c['state'] for c in matching}
+                    cell['state']='conflict' if 'conflict' in states else 'unknown' if 'unknown' in states else 'addressed'
+            unresolved=[c for c in s.get('coverage',[]) if c['state']!='addressed']
+            if unresolved and s['status']=='completed':
+                s.update(status='partial',reason='对象字段尚未全部交付：'+'；'.join(c['object']+' / '+c['field'] for c in unresolved))
             # An unavailable target measurement does not undo an applied unit
             # convention. Only source-owned resolved units discharge this
             # narrow constraint; arbitrary claims and unknown units cannot.
@@ -348,6 +529,9 @@ class TaskLedger:
                     s.setdefault('operation_receipts',[]).append(dict(operation='units',fulfilled=True,basis='source_measurement_units'))
                     s.update(status='completed',delivered=True,reason='实际几何结果已采用指定单位。',gap_kind='none')
                     missing=self.missing_operations(s)
+            block=execution_before[s['id']]
+            if s['status']!='completed' and not block['executable'] and block.get('gap_kind')=='budget_exhausted':
+                s.update(status='partial',gap_kind='budget_exhausted',execution_block=block)
             checks.append(dict(requirement_id=s['id'],delivered=bool(claims) or s['delivered'],status=s['status'],missing_operations=missing))
         self.check_batch_rows()
         if any(not c['delivered'] for c in checks):

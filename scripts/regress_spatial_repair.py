@@ -4,6 +4,7 @@ import os,sys,fcntl,json,shutil,hashlib,time
 import regress_complex_repair as suite
 import regress_complex_extensions as extra
 from regress_agent_workflow import ROOT
+from cad_agent.artifact_storage import copy_artifact
 os.environ.setdefault('CAD_RENDER_FONT_DIR',str(ROOT/'.data/render-fonts'))
 SUFFIX=Path(__file__).resolve().parents[1].name.split('20261016')[-1] or '-development'
 suite.OUT=ROOT/('artifacts/spatial-repair-live-20261016'+SUFFIX)
@@ -45,7 +46,7 @@ def prepare(w):
   sid=suite.SOURCES[idx][1];cache=ROOT/'artifacts/spatial-repair-20261016-probe/data/drawings'/sid/'render.json'
   if cache.exists():
    data=json.loads(cache.read_text())
-   if data.get('version')==RENDER_VERSION and data.get('font_signature')==font_signature():shutil.copy2(cache,w.store.artifact(sid,'render.json'))
+   if data.get('version')==RENDER_VERSION and data.get('font_signature')==font_signature():copy_artifact(cache,w.store.artifact(sid,'render.json'))
   # Render cache preparation is explicit setup, not charged as model thinking.
   w.rendering(sid)
   print('READY',sid,flush=True)

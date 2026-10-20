@@ -1,0 +1,976 @@
+[
+  {
+    "id": "Q01-B",
+    "question": "请从这套通用说明中分别还原地下室底板、侧墙防水的全部构造层，按施工层次列出材料和厚度，定位原图证据。请同时摘录图内明确写出的防水等级、基层条件及材料兼容性说明，并说明各条属于哪套做法。以下仅作为用户给定的文字比对清单：底板1.2厚高分子自粘胶膜预铺反粘、1.0厚水泥基渗透结晶涂料、100厚C15垫层、100厚碎石；侧墙25厚XPS保护层（密度≥13kg/m³）、1.5厚无胎自粘卷材、1.0厚渗透结晶涂料、混凝土表面修补平整。逐项列出图纸与清单的字面异同，未写明的内容标注未查明。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请从这套通用说明中分别还原地下室底板、侧墙防水的全部构造层，按施工层次列出材料和厚度，定位原图证据。"
+      },
+      {
+        "id": "q2",
+        "requirement": "请同时摘录图内明确写出的防水等级、基层条件及材料兼容性说明"
+      },
+      {
+        "id": "q3",
+        "requirement": "并说明各条属于哪套做法。"
+      },
+      {
+        "id": "q4",
+        "requirement": "以下仅作为用户给定的文字比对清单：底板1.2厚高分子自粘胶膜预铺反粘、1.0厚水泥基渗透结晶涂料、100厚C15垫层、100厚碎石；"
+      },
+      {
+        "id": "q5",
+        "requirement": "侧墙25厚XPS保护层（密度≥13kg/m³）、1.5厚无胎自粘卷材、1.0厚渗透结晶涂料、混凝土表面修补平整。"
+      },
+      {
+        "id": "q6",
+        "requirement": "逐项列出图纸与清单的字面异同，未写明的内容标注未查明。"
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。"
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "enumerate",
+          "acceptance": "分别读取底板、侧墙有序全部构造层、材料厚度及原图定位。",
+          "coverage": [
+            {
+              "object": "地下室底板",
+              "field": "全部构造层、材料和厚度"
+            },
+            {
+              "object": "侧墙防水",
+              "field": "全部构造层、材料和厚度"
+            }
+          ],
+          "actions": [
+            "检索做法标题并读取有序原文与关联表格"
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "lookup",
+          "acceptance": "摘录明确等级、基层条件与兼容性，未读到则注明缺口。",
+          "coverage": [
+            {
+              "object": "地下室底板",
+              "field": "防水等级、基层条件及材料兼容性说明"
+            },
+            {
+              "object": "侧墙防水",
+              "field": "防水等级、基层条件及材料兼容性说明"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "lookup",
+          "acceptance": "各条引用与做法适用关系分别有来源，不能按邻近归属。"
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "compare",
+          "acceptance": "逐项对照底板用户文字与图纸。",
+          "coverage": [
+            {
+              "object": "底板",
+              "field": "1.2厚高分子自粘胶膜预铺反粘"
+            },
+            {
+              "object": "底板",
+              "field": "1.0厚水泥基渗透结晶涂料"
+            },
+            {
+              "object": "底板",
+              "field": "100厚C15垫层"
+            },
+            {
+              "object": "底板",
+              "field": "100厚碎石"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "compare",
+          "acceptance": "逐项对照侧墙用户文字与图纸。",
+          "coverage": [
+            {
+              "object": "侧墙",
+              "field": "25厚XPS保护层（密度≥13kg/m³）"
+            },
+            {
+              "object": "侧墙",
+              "field": "1.5厚无胎自粘卷材"
+            },
+            {
+              "object": "侧墙",
+              "field": "1.0厚渗透结晶涂料"
+            },
+            {
+              "object": "侧墙",
+              "field": "混凝土表面修补平整"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "compare",
+          "depends_on": [
+            "q4",
+            "q5"
+          ],
+          "acceptance": "逐项列明字面异同、未查明字段。"
+        },
+        {
+          "requirement_id": "q7",
+          "kind": "constraint",
+          "acceptance": "只整理图纸事实，不提供优化、合规、造价判断。"
+        },
+        {
+          "requirement_id": "q8",
+          "kind": "constraint",
+          "acceptance": "用户给定值和原图值分列；原图结论引用已读可定位证据。"
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "ae358b8e947b017d38acd832054c5adec1cb6ab3a91854987d51655701c06027",
+      "task.json": "76a92d788ec2c74eb321a244957a26361c14fb3c897517e341fc3dc6799340e8"
+    }
+  },
+  {
+    "id": "Q06-B",
+    "question": "请选两种图中涂料外墙做法，逐层列出砂浆材料和厚度并分别求总厚度；保温板、饰面涂料和界面剂另列，不计入此次砂浆合计。请给出每项求和算式、证据和适用部位。用户给定的算术参照为5厚抗裂砂浆+5厚聚合物防水砂浆+10厚找平砂浆=20mm，请计算各套原图砂浆合计减20mm的差值，并列出图内网片信息。厚度未明确或层次归属不清时保留缺失，不能仅用单层厚度代表合计。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请选两种图中涂料外墙做法，逐层列出砂浆材料和厚度并分别求总厚度；"
+      },
+      {
+        "id": "q2",
+        "requirement": "保温板、饰面涂料和界面剂另列，不计入此次砂浆合计。"
+      },
+      {
+        "id": "q3",
+        "requirement": "请给出每项求和算式、证据和适用部位。"
+      },
+      {
+        "id": "q4",
+        "requirement": "用户给定的算术参照为5厚抗裂砂浆+5厚聚合物防水砂浆+10厚找平砂浆=20mm，请计算各套原图砂浆合计减20mm的差值"
+      },
+      {
+        "id": "q5",
+        "requirement": "并列出图内网片信息。"
+      },
+      {
+        "id": "q6",
+        "requirement": "厚度未明确或层次归属不清时保留缺失，不能仅用单层厚度代表合计。"
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。"
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "enumerate",
+          "operations": [
+            "arithmetic"
+          ],
+          "acceptance": "选取两种涂料外墙做法，读取完整层次并逐项核实砂浆厚度后求和。",
+          "coverage": [
+            {
+              "object": "两种图中涂料外墙做法",
+              "field": "逐层砂浆材料和厚度及总厚度"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "lookup",
+          "acceptance": "分别列出两种做法的保温板、饰面涂料、界面剂，不纳入砂浆合计。",
+          "coverage": [
+            {
+              "object": "保温板",
+              "field": "材料及厚度"
+            },
+            {
+              "object": "饰面涂料",
+              "field": "材料及厚度"
+            },
+            {
+              "object": "界面剂",
+              "field": "材料及厚度"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "lookup",
+          "acceptance": "每套提供求和式、原文证据及适用部位。",
+          "coverage": [
+            {
+              "object": "两种图中涂料外墙做法",
+              "field": "求和算式、证据和适用部位"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "compare",
+          "operations": [
+            "arithmetic"
+          ],
+          "depends_on": [
+            "q1"
+          ],
+          "acceptance": "两套总厚度分别减用户给定20mm，明确参照并非图纸数值。"
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "lookup",
+          "acceptance": "读取并列明图内网片信息及其适用归属。",
+          "coverage": [
+            {
+              "object": "图内网片",
+              "field": "信息"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "constraint",
+          "acceptance": "厚度或归属不明保留缺失，不以单层代替总厚度。"
+        },
+        {
+          "requirement_id": "q7",
+          "kind": "constraint",
+          "acceptance": "只作图纸事实及有来源算术，不作优化、合规和造价结论。"
+        },
+        {
+          "requirement_id": "q8",
+          "kind": "constraint",
+          "acceptance": "区分用户给定值与原图值，提供可定位证据。"
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "af8bc7caacbcb6efb658a738d466e9d5ac97ac58b621c1f08fd6632b0967239a",
+      "task.json": "cc511e580211eac2add9d3e87dbf989280e93be484ec9c6c41d68419d93791bc"
+    }
+  },
+  {
+    "id": "Q13-B",
+    "question": "请在地下一层机动车库范围内提取各防火分区面积、实际楼梯数量及能确认的梯段净宽，排除非机动车库和设备房，定位来源并去重。令A为有来源的机动车分区总面积，N为同范围实际楼梯数，请按用户给定算式计算ceil(A/4000㎡)、T=(A/4000㎡)×2及N−T，保留公式、单位和数值依据。对梯段净宽只列出与用户给定1.1~1.3m区间的数值关系。缺面积、楼梯图、疏散距离或出口独立性等资料时逐项说明，已能独立计算的项目照常列出。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请在地下一层机动车库范围内提取各防火分区面积、实际楼梯数量及能确认的梯段净宽，排除非机动车库和设备房，定位来源并去重。"
+      },
+      {
+        "id": "q2",
+        "requirement": "令A为有来源的机动车分区总面积，N为同范围实际楼梯数，请按用户给定算式计算ceil(A/4000㎡)、T=(A/4000㎡)×2及N−T，保留公式、单位和数值依据。"
+      },
+      {
+        "id": "q3",
+        "requirement": "对梯段净宽只列出与用户给定1.1~1.3m区间的数值关系。"
+      },
+      {
+        "id": "q4",
+        "requirement": "缺面积、楼梯图、疏散距离或出口独立性等资料时逐项说明，已能独立计算的项目照常列出。"
+      },
+      {
+        "id": "q5",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。"
+      },
+      {
+        "id": "q6",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "measure",
+          "operations": [
+            "selection",
+            "exclusions",
+            "geometry",
+            "dimensions"
+          ],
+          "acceptance": "核对地下一层机动车库各分区面积、实际楼梯及梯段净宽，排除非机动车库及设备房并去重；不足明确列出。",
+          "actions": [
+            "读取图纸范围、分区标注和楼梯局部证据",
+            "区分楼梯编号与实际楼梯，检查净宽口径和单位"
+          ],
+          "coverage": [
+            {
+              "object": "地下一层机动车库",
+              "field": "各防火分区面积"
+            },
+            {
+              "object": "地下一层机动车库",
+              "field": "实际楼梯数量"
+            },
+            {
+              "object": "地下一层机动车库",
+              "field": "能确认的梯段净宽"
+            },
+            {
+              "object": "非机动车库和设备房",
+              "field": "排除"
+            },
+            {
+              "object": "地下一层机动车库",
+              "field": "定位来源并去重"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "measure",
+          "depends_on": [
+            "q1"
+          ],
+          "operations": [
+            "arithmetic"
+          ],
+          "acceptance": "仅使用有来源且范围一致的A、N执行用户公式；缺操作数的项目保留公式并说明。",
+          "coverage": [
+            {
+              "object": "A",
+              "field": "有来源的机动车分区总面积"
+            },
+            {
+              "object": "N",
+              "field": "同范围实际楼梯数"
+            },
+            {
+              "object": "ceil(A/4000㎡)",
+              "field": "公式、单位和数值依据"
+            },
+            {
+              "object": "T=(A/4000㎡)×2",
+              "field": "公式、单位和数值依据"
+            },
+            {
+              "object": "N−T",
+              "field": "公式、单位和数值依据"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "compare",
+          "depends_on": [
+            "q1"
+          ],
+          "operations": [
+            "arithmetic"
+          ],
+          "acceptance": "确认梯段净宽后仅比较用户给定区间，不判断合规。",
+          "coverage": [
+            {
+              "object": "梯段净宽",
+              "field": "与用户给定1.1~1.3m区间的数值关系"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "lookup",
+          "acceptance": "逐项交代资料缺口，不阻塞独立计算。",
+          "coverage": [
+            {
+              "object": "面积",
+              "field": "缺资料时逐项说明"
+            },
+            {
+              "object": "楼梯图",
+              "field": "缺资料时逐项说明"
+            },
+            {
+              "object": "疏散距离",
+              "field": "缺资料时逐项说明"
+            },
+            {
+              "object": "出口独立性",
+              "field": "缺资料时逐项说明"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "constraint",
+          "acceptance": "仅交付事实和有依据的算术，不给优化、合规或造价判断。"
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "constraint",
+          "acceptance": "用户给定条件与原图数据分开，图纸事实附可定位已读证据。",
+          "coverage": [
+            {
+              "object": "用户给定值与原图值",
+              "field": "分别标明"
+            },
+            {
+              "object": "回答",
+              "field": "可定位证据"
+            }
+          ]
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "520d18361491a76924cdb8bda6e9b502d5e4fdf74ab9d986bedc9b6ae0cf9dcc",
+      "task.json": "5dc251598ec11af29fb2803ba5dd7f21e19c85814167e0451f0833434f019082"
+    }
+  },
+  {
+    "id": "Q14-B",
+    "question": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系，以及车位与门开启范围的重叠或净距，给出候选位置和高亮。本次按毫米测量，不凭文字邻近判定几何重叠。请分别记录已确认几何、候选归属及尚缺开门范围的对象，并说明已检查的范围和未覆盖部分。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请在地下一层平面定位集水坑、机动车道、车位、主要归家通道以及相邻房间门和消火栓开门范围。"
+      },
+      {
+        "id": "q2",
+        "requirement": "对能绑定真实几何的对象，逐处列出井坑与车道、车位、通道的重叠关系"
+      },
+      {
+        "id": "q3",
+        "requirement": "以及车位与门开启范围的重叠或净距，给出候选位置和高亮。"
+      },
+      {
+        "id": "q4",
+        "requirement": "本次按毫米测量，不凭文字邻近判定几何重叠。"
+      },
+      {
+        "id": "q5",
+        "requirement": "请分别记录已确认几何、候选归属及尚缺开门范围的对象"
+      },
+      {
+        "id": "q6",
+        "requirement": "并说明已检查的范围和未覆盖部分。"
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。"
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "lookup",
+          "operations": [
+            "geometry"
+          ],
+          "acceptance": "定位所列对象，区分真实几何与语义候选。",
+          "actions": [
+            "核对地下一层图纸范围",
+            "读取实体并绑定局部图像"
+          ],
+          "coverage": [
+            {
+              "object": "集水坑",
+              "field": "定位"
+            },
+            {
+              "object": "机动车道",
+              "field": "定位"
+            },
+            {
+              "object": "车位",
+              "field": "定位"
+            },
+            {
+              "object": "主要归家通道",
+              "field": "定位"
+            },
+            {
+              "object": "相邻房间门",
+              "field": "开门范围"
+            },
+            {
+              "object": "消火栓",
+              "field": "开门范围"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "enumerate",
+          "operations": [
+            "relations",
+            "geometry"
+          ],
+          "depends_on": [
+            "q1"
+          ],
+          "acceptance": "逐处用已绑定几何核查重叠，无法绑定则明确缺口。",
+          "coverage": [
+            {
+              "object": "井坑与车道",
+              "field": "重叠关系"
+            },
+            {
+              "object": "井坑与车位",
+              "field": "重叠关系"
+            },
+            {
+              "object": "井坑与通道",
+              "field": "重叠关系"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "highlight",
+          "operations": [
+            "geometry",
+            "relations",
+            "highlight"
+          ],
+          "depends_on": [
+            "q1"
+          ],
+          "acceptance": "核查车位与门开启范围重叠或净距并提供位置和高亮；缺失范围明确记录。",
+          "coverage": [
+            {
+              "object": "车位与门开启范围",
+              "field": "重叠或净距"
+            },
+            {
+              "object": "车位与门开启范围",
+              "field": "候选位置和高亮"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "constraint",
+          "operations": [
+            "units"
+          ],
+          "acceptance": "毫米作为用户给定条件，不以文字邻近证明重叠。",
+          "actions": [
+            "区分用户毫米约定与原图单位核查"
+          ]
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "lookup",
+          "depends_on": [
+            "q1"
+          ],
+          "acceptance": "分别记录几何、归属候选、开门范围缺口。",
+          "coverage": [
+            {
+              "object": "已确认几何",
+              "field": "记录"
+            },
+            {
+              "object": "候选归属",
+              "field": "记录"
+            },
+            {
+              "object": "尚缺开门范围的对象",
+              "field": "记录"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "scope",
+          "acceptance": "列明实际检查范围与未覆盖部分。",
+          "coverage": [
+            {
+              "object": "已检查的范围",
+              "field": "说明"
+            },
+            {
+              "object": "未覆盖部分",
+              "field": "说明"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q7",
+          "kind": "constraint",
+          "acceptance": "仅提供图纸事实与有来源算术，不作优化、合规、造价结论。"
+        },
+        {
+          "requirement_id": "q8",
+          "kind": "constraint",
+          "acceptance": "区分用户条件及原图值并提供可定位证据。",
+          "coverage": [
+            {
+              "object": "用户给定值",
+              "field": "分别标明"
+            },
+            {
+              "object": "原图值",
+              "field": "分别标明"
+            },
+            {
+              "object": "回答",
+              "field": "可定位证据"
+            }
+          ]
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "a50c4fecb40c514cd7be826313bdae01f0247f8f4a9f54b88f7d9c5714ede737",
+      "task.json": "dbda5b47d1967674002c176d4e346884dee17a0cd9b294673259a22d93c574dd"
+    }
+  },
+  {
+    "id": "Q16-B",
+    "question": "请结合本图剖面和标高，按同一剖面、同一部位配对提取地库上下层标高、顶板及室外地坪标高，逐项计算可确定的层高和覆土深度，并定位来源。请区分结构标高与建筑完成面，不用层高代替净高，不用一处结果代表全库。请记录能确认的梁和设备占用尺寸，并只在数据充分时计算相应位置净高。用户给定数值标签为人防3.7m、非人防3.6m、覆土1.5m、净高2.2m，请列出对应已算值与标签的算术差；缺梁高或风管等数据时分别说明。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请结合本图剖面和标高，按同一剖面、同一部位配对提取地库上下层标高、顶板及室外地坪标高，逐项计算可确定的层高和覆土深度"
+      },
+      {
+        "id": "q2",
+        "requirement": "并定位来源。"
+      },
+      {
+        "id": "q3",
+        "requirement": "请区分结构标高与建筑完成面，不用层高代替净高，不用一处结果代表全库。"
+      },
+      {
+        "id": "q4",
+        "requirement": "请记录能确认的梁和设备占用尺寸"
+      },
+      {
+        "id": "q5",
+        "requirement": "并只在数据充分时计算相应位置净高。"
+      },
+      {
+        "id": "q6",
+        "requirement": "用户给定数值标签为人防3.7m、非人防3.6m、覆土1.5m、净高2.2m，请列出对应已算值与标签的算术差；"
+      },
+      {
+        "id": "q7",
+        "requirement": "缺梁高或风管等数据时分别说明。"
+      },
+      {
+        "id": "q8",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "lookup",
+          "operations": [
+            "dimensions",
+            "arithmetic"
+          ],
+          "acceptance": "同剖面同部位读取并配对标高，有依据才计算层高及覆土。",
+          "coverage": [
+            {
+              "object": "地库上下层",
+              "field": "标高"
+            },
+            {
+              "object": "顶板",
+              "field": "标高"
+            },
+            {
+              "object": "室外地坪",
+              "field": "标高"
+            },
+            {
+              "object": "地库上下层",
+              "field": "层高"
+            },
+            {
+              "object": "顶板及室外地坪",
+              "field": "覆土深度"
+            }
+          ],
+          "actions": [
+            "查找剖面标题及原文标高，核对部位及标高类型后计算"
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "lookup",
+          "acceptance": "每项事实附可定位原图来源。"
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "constraint",
+          "acceptance": "分别标明结构与完成面；不以层高充净高，不外推全库。"
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "lookup",
+          "acceptance": "读取有部位绑定的梁与设备占用尺寸。",
+          "coverage": [
+            {
+              "object": "梁",
+              "field": "占用尺寸"
+            },
+            {
+              "object": "设备",
+              "field": "占用尺寸"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "measure",
+          "depends_on": [
+            "q1",
+            "q4"
+          ],
+          "operations": [
+            "arithmetic"
+          ],
+          "acceptance": "仅同位置完成面及最低障碍依据齐备时计算净高，否则列缺口。"
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "compare",
+          "depends_on": [
+            "q1",
+            "q5"
+          ],
+          "operations": [
+            "arithmetic"
+          ],
+          "acceptance": "已算值与用户给定标签逐项作差，不混作原图值。",
+          "coverage": [
+            {
+              "object": "人防",
+              "field": "与3.7m的算术差"
+            },
+            {
+              "object": "非人防",
+              "field": "与3.6m的算术差"
+            },
+            {
+              "object": "覆土",
+              "field": "与1.5m的算术差"
+            },
+            {
+              "object": "净高",
+              "field": "与2.2m的算术差"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q7",
+          "kind": "lookup",
+          "acceptance": "分别交代梁高、风管等数据缺口。",
+          "coverage": [
+            {
+              "object": "梁高",
+              "field": "缺失数据"
+            },
+            {
+              "object": "风管",
+              "field": "缺失数据"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q8",
+          "kind": "constraint",
+          "acceptance": "仅图纸事实及可追溯算术，区分用户标签，不作方案、合规或造价结论。"
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "b42ba6828880505208d215415c5678806d5216e6d7c9212f83a4f0462db1ed65",
+      "task.json": "9fd70f5e1815d9c2bc742a74f7bba1f8372c442ae71e3cb8d046437b5822c672"
+    }
+  },
+  {
+    "id": "Q18-B",
+    "question": "请找出地下室水泵房、变配电机房及其他图中有依据的设备房，列出位置和用途原文；仅供消防的风机房单独标明并从普通设备房候选中排除，用途不明则保留未定。请尝试按同项目共同轴网对应首层功能，记录上方是否为住宅、客房或宿舍及对应证据，不能把不同图的相近坐标直接当对应。如果当前资料缺少同项目首层平面或配准基准，请仍交付已确认的地下室候选，并准确说明还需要哪张图、哪些轴线或标高。 本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。用户给定值与原图值分别标明，回答包含可定位证据。",
+    "subtasks": [
+      {
+        "id": "q1",
+        "requirement": "请找出地下室水泵房、变配电机房及其他图中有依据的设备房"
+      },
+      {
+        "id": "q2",
+        "requirement": "列出位置和用途原文；"
+      },
+      {
+        "id": "q3",
+        "requirement": "仅供消防的风机房单独标明并从普通设备房候选中排除，用途不明则保留未定。"
+      },
+      {
+        "id": "q4",
+        "requirement": "请尝试按同项目共同轴网对应首层功能，记录上方是否为住宅、客房或宿舍及对应证据，不能把不同图的相近坐标直接当对应。"
+      },
+      {
+        "id": "q5",
+        "requirement": "如果当前资料缺少同项目首层平面或配准基准，请仍交付已确认的地下室候选"
+      },
+      {
+        "id": "q6",
+        "requirement": "并准确说明还需要哪张图、哪些轴线或标高。"
+      },
+      {
+        "id": "q7",
+        "requirement": "本题只整理图纸事实和来源明确的算术，不作优化方案、规范合规或造价结论。"
+      },
+      {
+        "id": "q8",
+        "requirement": "用户给定值与原图值分别标明，回答包含可定位证据。"
+      }
+    ],
+    "arguments": {
+      "steps": [
+        {
+          "requirement_id": "q1",
+          "kind": "lookup",
+          "acceptance": "读取地下室设备房名称依据，不将名称候选视为已确认空间。",
+          "coverage": [
+            {
+              "object": "水泵房",
+              "field": "名称依据"
+            },
+            {
+              "object": "变配电机房",
+              "field": "名称依据"
+            },
+            {
+              "object": "其他图中有依据的设备房",
+              "field": "名称依据"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q2",
+          "kind": "enumerate",
+          "acceptance": "逐房列位置及用途原文，缺失明确未定。",
+          "coverage": [
+            {
+              "object": "水泵房",
+              "field": "位置和用途原文"
+            },
+            {
+              "object": "变配电机房",
+              "field": "位置和用途原文"
+            },
+            {
+              "object": "其他图中有依据的设备房",
+              "field": "位置和用途原文"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q3",
+          "kind": "lookup",
+          "operations": [
+            "exclusions"
+          ],
+          "acceptance": "有仅供消防依据者单列排除，用途不明保留未定。"
+        },
+        {
+          "requirement_id": "q4",
+          "kind": "compare",
+          "operations": [
+            "relations"
+          ],
+          "acceptance": "核对选定资料、项目及共同轴网后对应首层功能；缺配准不推断。",
+          "coverage": [
+            {
+              "object": "水泵房",
+              "field": "上方是否为住宅、客房或宿舍"
+            },
+            {
+              "object": "变配电机房",
+              "field": "上方是否为住宅、客房或宿舍"
+            },
+            {
+              "object": "其他图中有依据的设备房",
+              "field": "上方是否为住宅、客房或宿舍"
+            }
+          ]
+        },
+        {
+          "requirement_id": "q5",
+          "kind": "lookup",
+          "acceptance": "不因缺首层资料阻塞地下室候选交付。"
+        },
+        {
+          "requirement_id": "q6",
+          "kind": "enumerate",
+          "acceptance": "说明缺少的图纸及配准轴线、标高依据，不编造轴号。"
+        },
+        {
+          "requirement_id": "q7",
+          "kind": "constraint",
+          "acceptance": "仅图纸事实及有来源算术，不作优化、合规或造价判断。"
+        },
+        {
+          "requirement_id": "q8",
+          "kind": "constraint",
+          "acceptance": "结论附可定位原文；区分用户给定值和原图值。"
+        }
+      ]
+    },
+    "original_error": {
+      "code": "INVALID_TOOL_INPUT",
+      "message": "先通过 plan_task 覆盖所有 requirement_id；工具参数须包含有效 task_ids。"
+    },
+    "source_hashes": {
+      "run.json": "600940d91b329d15a466e15eb570e7d3dbf4f67bfb62e741a17b9f76afdd0069",
+      "task.json": "60cf5bd67f7a641cd9a2a88507f3bdaf13e8a81ec43367759eb06ecd7c08dd78"
+    }
+  }
+]

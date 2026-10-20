@@ -33,7 +33,10 @@ def scripted_result(workspace,monkeypatch):
     def invoke(self,s,payload):
         calls.append(payload)
         if len(calls)==1:
-            assert [t['name'] for t in payload['tools'][0]['tools']]==['plan_task']
+            # Stable schema prefixes retain relevant capabilities; execution
+            # remains plan-only until the task's prerequisites are established.
+            assert 'plan_task' in {t['name'] for t in payload['tools'][0]['tools']}
+            assert {t['function']['name'] for t in s.offered_tools(planning_only=True)} == {'plan_task'}
             return tool('plan_task',plan(r).model_dump(),'p')
         if len(calls)==2:return tool('analyze_room_batch',q.model_dump()|{'task_ids':['q1','q2','q3']},'b')
         if len(calls)==3:
@@ -142,7 +145,8 @@ def test_subtask_repetition_does_not_exhaust_independent_task(workspace):
     r,_=session(workspace);r.task.plan(plan(r))
     args={'query':'nothing-matches','task_ids':['q4']}
     for _ in range(3):r.invoke_tool('search_sources',args)
-    assert r.task.data['subtasks'][3]['status']=='blocked_capability'
+    assert r.task.data['subtasks'][3]['status']=='partial'
+    assert r.task.data['subtasks'][3]['gap_kind']=='budget_exhausted'
     assert 'q1' in r.task.runnable() and not r.policy.stop_reason
 
 

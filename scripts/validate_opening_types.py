@@ -10,6 +10,7 @@ import sqlite3
 
 from shapely.geometry import Point, Polygon
 from fastapi.testclient import TestClient
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.app import create_app
 from cad_agent.analysis.session import CadAgentSession
 from cad_agent.contracts import ChatRequest, stable_id
@@ -87,7 +88,7 @@ def main():
         sid=case['sid'];d=drawings[sid];origin=archive/'data/drawings'/sid
         digest=sha256((origin/'source.dxf').read_bytes()).hexdigest();assert digest==d['sha256']
         try:
-            for fn in ('source.dxf','scene.json','entities.json','regions.json'):shutil.copy2(origin/fn,w.store.artifact(sid,fn))
+            for fn in ('source.dxf','scene.json','entities.json','regions.json'):copy_artifact(origin/fn,w.store.artifact(sid,fn))
             w.store.put('drawing',sid,d);lid=next(x['layout_id'] for x in d['layouts'] if x['name']=='Model')
             query=RelationQuery(layout_id=lid,bbox=case['bbox'],view_kind=case.get('view_kind','floor_plan'),max_opening_m=case['maximum'])
             print(case['name'],'build',flush=True);g=ComponentService(w,sid).build('relations',query)

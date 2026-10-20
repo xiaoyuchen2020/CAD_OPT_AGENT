@@ -12,12 +12,13 @@ from cad_agent.analysis.tasks import TaskLedger
 from cad_agent.analysis.focus import TaskFocus, PROMPT as FOCUSED_PROMPT, CONTROL
 from cad_agent.geometry.vision import VisionService
 from cad_agent.geometry.room_boundary import RoomBoundaryService
-from cad_agent.analysis.efficiency import ExplorationPolicy, GUIDANCE, compact, dumps
+from cad_agent.analysis.efficiency import ExplorationPolicy, GUIDANCE, compact, dumps, source_read_guidance
 from cad_agent.analysis.coverage import EvidenceCoverage
 from cad_agent.analysis.boundary_context import synthesis_observations
 
 from cad_agent.analysis.fact_tools import user_values
 from cad_agent.analysis.delivery_context import bounded_packet
+from cad_agent.analysis.answer_protocol import ANSWER_CONTRACT, explicit_user_conditions, inspect_answer
 
 from cad_agent.analysis.evidence_ledger import source_context, compact_evidence, compact_coverage
 
@@ -137,6 +138,10 @@ class CadAgentSession:
         self.policy = ExplorationPolicy(request.agent_policy == "efficient")
         self.coverage = EvidenceCoverage(request.question)
         self.validation_issue = None
+        self._validated_delivery_claims = []  # This session only; never restored from an older task/run.
+        self._validated_delivery_user_inputs = []
+        self.answer_field_issues = []
+        self.answer_repair_targets = []
         self.answer_repairs = 0
         from cad_agent.analysis.telemetry import PhaseMetrics
         self.metrics = PhaseMetrics()
@@ -179,9 +184,13 @@ class CadAgentSession:
         return self.policy.enabled and self.request.runtime in ('native','responses_subscription')
 
     @property
+    def stable_prefix_enabled(self):
+        return self.request.runtime == 'responses_subscription' and self.w.settings.stable_subscription_prefix
+
+    @property
     def system_prompt(self):
         if self.focused_enabled:
-            return FOCUSED_PROMPT
+            return source_read_guidance(FOCUSED_PROMPT, self.request.source_read_batching)
 
         if not self.policy.enabled:
             return SYSTEM
@@ -191,11 +200,14 @@ class CadAgentSession:
         ).replace(
             "非砌体问题先用 get_drawing_overview 的 sections/tables 视图导航，再 search_sources/read_source_context/read_table。",
             "需要结构导航时才用 get_drawing_overview 的 sections/tables 视图；具体问题直接检索。",
-        ) + GUIDANCE
+        ) + source_read_guidance(GUIDANCE, self.request.source_read_batching)
 
     @property
     def round_limit(self):
         limit = self.w.settings.agent_max_rounds
+        from cad_agent.runtimes.budget_policy import for_session
+        if for_session(self):
+            return limit
         operations={o for s in self.task.data['subtasks'] for o in s.get('operations',[])}
         if operations:
             return max(limit,min(20,8+2*len(operations)))
@@ -207,6 +219,7 @@ class CadAgentSession:
         tools=tool_definitions(self.policy.enabled,self)
         if self.focused_enabled and planning_only:
             names=self.focus.names()
+            if self.task.data.get("evidence_records"):names.add("read_evidence_record")
             return [t for t in tools if t['function']['name'] in names]
         tools=[t for t in tools if t['function']['name'] not in ('finish_analysis','request_toolset')]
         return [t for t in tools if t['function']['name']=='plan_task'] if planning_only and self.task.needs_plan else tools
@@ -345,18 +358,20 @@ class CadAgentSession:
     def invoke_tool(self, name, raw_args):
         from cad_agent.analysis.tool_execution import invoke_tool
         execution = getattr(self, 'execution', None)
-        checkpoint = execution.before_tool(name, raw_args) if execution else None
+        # A source batch has no operation of its own. Each child persists its
+        # checkpoint; cancellation must leave the last child visible for resume.
+        checkpoint = execution.before_tool(name, raw_args) if execution and name != 'batch_read_sources' else None
         with self.metrics.measure('tool.' + (name if name in TOOL_SPECS else 'unknown')):
             result = invoke_tool(self, name, raw_args)
         if json.loads(result).get('error'):
             self.metrics.returned_error('tool.' + (name if name in TOOL_SPECS else 'unknown'))
-        if execution:
+        if execution and checkpoint is not None:
             execution.after_tool(checkpoint, result)
         return result
 
     def final_context(self, controls, reason):
         """Shared, bounded local reads before synthesis; never searches or executes code."""
-        soft_stop = reason in ("subscription_answer_reserve", "exploration_budget", "subscription_exploration_budget", "tool_context_budget")
+        soft_stop = reason in ("subscription_answer_reserve", "exploration_budget", "subscription_exploration_budget", "tool_context_budget", "soft_budget_no_progress")
         if (soft_stop and not self.coverage.reserve_used and not self.validation_issue
                 and self._remaining() > 45
                 and sum(u.get("total_tokens", 0) for u in self.usage) < controls.total_budget(self)-controls.FINAL_CONTEXT_CHARS
@@ -383,7 +398,13 @@ class CadAgentSession:
                 "task": {"subtasks":[{k:s[k] for k in ("id","requirement","status","reason","operations")} for s in self.task.data["subtasks"]],"pending_operations":self.task.pending_work(),"unit_policy":self.task.data.get("unit_policy")},
                 "source_contexts": controls.source_contexts, "observations": synthesis_observations(self.observations, final=True),
                 "evidence_coverage": self.coverage.summary(), "validation_issue": self.validation_issue,
-                "answer_contract": {"claims":"数组；每条text,state,question_part_ids,evidence_ids；工具观测另用evidence_basis=tool_observation,observation_ids",
+                "validated_claims": self._validated_delivery_claims,
+                "validated_user_inputs": self._validated_delivery_user_inputs,
+                "user_conditions": explicit_user_conditions(self.request.question),
+                "field_issues": self.answer_field_issues,
+                "repair_targets": self.answer_repair_targets,
+                "requirement_coverage": self.task.coverage_summary() if hasattr(self.task, "coverage_summary") else {},
+                "answer_contract": {**ANSWER_CONTRACT, "claims":"数组；每条text,state,question_part_ids,evidence_ids；工具观测另用evidence_basis=tool_observation,observation_ids",
                     "user_inputs":"可在顶层或每条claim中填写数组 [{quote:本轮问题中的原句,value:该句中的数值字符串}]。含用户基准的结论须derived，正文明确用户给定/参考条件；原文证据仍须单独引用。不得把用户值写成原图实测。",
                     "requirement_outcomes":"逐项requirement_id,status=fulfilled/partial/unresolved,reason,gap_kind；unknown不算完成。"},
                 "instruction": "仅依据已读证据返回最终JSON，逐项回答用户问题，保留前提、例外和原文数值。每条结论自足，不用上述/前述/同上；不得列拟取消、替换、减薄等方案，即使注明供人工复核。跨来源适用或计算推导标derived；不足分项标unknown。不调用工具。校验反馈是待修正问题，不是图纸事实。"}
@@ -391,60 +412,17 @@ class CadAgentSession:
         return bounded_packet(packet,controls.FINAL_CONTEXT_CHARS,self.task.data['subtasks'])
 
     def recover_valid_claims(self, content):
-        """Keep only independently validated clauses after model repair is spent.
-
-        Never fix or publish a rejected numerical claim. The entire task remains
-        partial, omitted claims are disclosed, and no extra inference is made.
-        """
-        try: parsed=FinalAnswer.model_validate_json(content)
-        except ValueError:return None
-        # Invalid reference metadata must not poison otherwise source-bound
-        # clauses. Drop it, then revalidate each whole claim without repairing
-        # or inventing any numerical content.
-        valid_refs=[];dropped_refs=0
-        for ref in parsed.user_inputs:
-            try:user_values([ref],self.request.question,'derived','用户给定条件')
-            except ValueError:dropped_refs+=1
-            else:valid_refs.append(ref)
-        parsed.user_inputs=valid_refs
-        for claim in parsed.claims:
-            own=[]
-            for ref in claim.user_inputs:
-                try:user_values([ref],self.request.question,claim.state,claim.text)
-                except ValueError:dropped_refs+=1
-                else:own.append(ref)
-            claim.user_inputs=own
-        ids=[s['id'] for s in self.task.data['subtasks']]
-        outcomes=[dict(requirement_id=i,status='partial',gap_kind='unsupported_capability',
-            reason='最终答案有未通过校验的结论；仅保留已通过校验部分，整体仍需复核。') for i in ids]
-        kept=[];rejected=0
-        def packet(claims):
-            covered={i for c in claims for i in c.get('question_part_ids',[])}
-            missing=[i for i in ids if i not in covered]
-            return dict(claims=claims+([dict(text='这些分项尚未形成通过校验的结论，保留已读记录供继续分析。',state='unknown',question_part_ids=missing)] if missing else []),
-                user_inputs=[r.model_dump() for r in parsed.user_inputs],requirement_outcomes=outcomes,
-                missing_information=['部分模型结论未通过引用或数值校验，未发布；本结果仅为已校验的阶段事实。'])
-        for claim in parsed.claims:
-            if claim.state=='unknown':continue
-            data=claim.model_dump()
-            try:self.validate_answer(dumps(packet([data])))
-            except ValueError:rejected+=1;continue
-            if len(kept)<11:kept.append(data)
-        if not kept:return None
-        self.policy.stop_reason='validated_partial_recovery'
-        try:result=self.finish(dumps(packet(kept)))
-        except ValueError:return None
-        return result|{'delivery_kind':'validated_partial_recovery','recovery':{
-            'kept_claims':len(kept),'rejected_claims':rejected,'rejected_user_inputs':dropped_refs,'complete':False,
-            'note':'仅保留逐条通过原文/数值校验的模型结论；整体部分交付，未通过项不改写为事实。'}}
+        from cad_agent.analysis.delivery_recovery import recover_valid_claims
+        return recover_valid_claims(self, content)
 
     def record_validation_issue(self, error):
-        self.validation_issue = validation_feedback(error)[:4000]
-        self.progress(stage="答案引用校验未通过", validation_issue=self.validation_issue)
+        from cad_agent.analysis.delivery_recovery import record_validation_issue
+        return record_validation_issue(self, error)
 
     def can_repair_answer(self, controls):
+        from cad_agent.runtimes.token_budget import charged_tokens
         return (self.answer_repairs < 1 and self._remaining() > 15
-                and sum(u.get("total_tokens", 0) for u in self.usage) < controls.total_budget(self))
+                and charged_tokens(self) < controls.total_budget(self))
 
     def recover_scope_before_delivery(self):
         """Recheck legacy blockers once locally; never accept a stale wait as proof.
@@ -482,26 +460,44 @@ class CadAgentSession:
     def finish(self, content):
         if self.recover_scope_before_delivery():
             raise ValueError('ROOM_SCOPE_RECHECKED：本地已重新检查旧范围阻塞，最新候选和具体诊断见 recovered_batches；请基于新结果交付，不沿用旧的范围不足结论，也不重复调用批量工具。')
-        if self.focused_enabled and self.focus.pending_pages() and self.policy.stop_reason in (None,'evidence_sufficient') and self.calls<self.w.settings.agent_max_tool_calls and self._remaining()>15:
+        from cad_agent.analysis.scheduling import execution_state
+        pending_pages=[p for p in self.focus.pending_pages() if execution_state(self.task.data,p['task_id'])['executable']]
+        if self.focused_enabled and pending_pages and self.policy.stop_reason in (None,'evidence_sufficient') and self.calls<self.w.settings.agent_max_tool_calls and self._remaining()>15:
             raise ValueError('ROOM_BATCH_COVERAGE_PENDING：还有可读取的名称候选分页，请按 task.pending_pages 调用批量工具；不能提前结束。预算收束时才按部分交付说明缺口。')
         if not any(t["status"] == "completed" and t['tool'] not in CONTROL for t in self.trace):
             raise ValueError("必须先调用工具取得当前图纸信息。")
-        pending=self.task.pending_work()
+        # Pure source validation precedes publication gates so a later task/unit
+        # blocker cannot erase independently verified facts. Cache is not delivery.
+        result = self.validate_answer(content)
+        from cad_agent.analysis.delivery_recovery import cache_validated_parts
+        checked = [{k: v for k, v in c.items() if k != 'citation_numbers'} for c in result['claims']]
+        cache_validated_parts(self, checked, checked, result.get('user_inputs', []))
+        from cad_agent.analysis.scheduling import schedule
+        scheduled=schedule(self)
+        pending=[item for item in scheduled if item.get('blocking',True) and item['executable']]
         if pending and self.policy.stop_reason in (None,'evidence_sufficient') and self._remaining()>15 and self.calls<self.w.settings.agent_max_tool_calls:
-            raise ValueError('TASK_WORK_PENDING：仍有必要的几何或单位检查，请继续工具执行：'+dumps(pending))
+            parsed = inspect_answer(content, self.request.question).answer
+            blocked = {o.requirement_id for o in parsed.requirement_outcomes
+                       if o.status in ('partial', 'unresolved')
+                       and o.gap_kind in ('out_of_scope', 'missing_input', 'unsupported_capability', 'ambiguous_scope')
+                       and any(c.state == 'unknown' and o.requirement_id in c.question_part_ids for c in parsed.claims)}
+            pending = [item for item in pending if not item.get('task_ids') or not set(item['task_ids']) <= blocked]
+            if pending:
+                raise ValueError('TASK_WORK_PENDING：仍有可执行的必要检查；使用已开放的 next_action 工具及 task_ids：'+dumps(pending))
         batch = getattr(self, 'room_batch', None)
         if any(b['status']=='needs_unit_confirmation' for b in self.room_batches.values()):
-            parsed = FinalAnswer.model_validate_json(content)
+            parsed = inspect_answer(content, self.request.question).answer
             blocked={s['id'] for s in self.task.data['subtasks'] if s['kind']=='measure' and s['status']=='waiting_input'}
             if any((not c.question_part_ids or blocked.intersection(c.question_part_ids)) and re.search(r'\d+(?:\.\d+)?\s*(?:m²|m2|㎡|平方米|平方)', c.text, re.I) for c in parsed.claims):
                 raise ValueError('本批次单位尚未确认，不能报告物理面积数值；保留名称候选并请求单位确认。')
-        result=self.validate_answer(content)
         from cad_agent.analysis.object_registry import registry_summary
         if self.task.data.get("object_registry"):
             result["object_registry"] = registry_summary(self.task.data)
         self.task.data['evidence'].update(self.evidence)
         self.task.data['observations'].update(self.observations)
         task=self.task.finalise(result)
+        from cad_agent.analysis.delivery import append_source_excerpts
+        result=append_source_excerpts(self, result | {'task': task})
         if self.focused_enabled and self.task.complex and not self.policy.stop_reason and self.focus.review_ready():
             self.policy.stop_reason='evidence_sufficient' if task['status']=='completed' and all(c['state']!='unknown' for c in result['claims']) else 'partial_delivery'
         return result | {

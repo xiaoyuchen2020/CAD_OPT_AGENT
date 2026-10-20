@@ -48,7 +48,7 @@
         <div class="header-actions">
           <span class="milestone"><i></i>事实与证据</span
           ><button class="button quiet" id="demo-button">打开示例</button
-          ><button class="button dark" id="upload-button">＋ 导入图纸</button>
+          ><button class="button dark" id="upload-button" title="点击选择或拖入一张 DWG / DXF 图纸" aria-label="导入图纸，点击选择或拖入 DWG、DXF 文件">＋ 导入图纸</button>
         </div>
         <input id="file-input" type="file" accept=".dxf,.dwg" hidden />
       </header>
@@ -119,6 +119,7 @@
               ><span class="version-pill" id="version-pill">—</span>
             </div>
             <button id="room-measure-button" class="button" aria-pressed="false" title="点击后在房间内部选点测量">测量房间</button>
+            <button id="similarity-button" class="button" aria-pressed="false" title="框选一个样本，在所选图框或当前视野查找形状相似候选">框选找相似</button>
             <button id="adapt-region-button" class="button" title="对当前视野的局部文字与几何试运行独立适配方法">局部方法调试</button>
             <button id="room-discover-button" class="button" title="识别当前视野内任意用途及未命名的围合空间候选">识别房间</button>
             <button id="measurement-history-button" class="button">测量记录</button>
@@ -157,6 +158,7 @@
               <g id="drawing-geometry"></g>
               <g id="drawing-text"></g>
               <g id="drawing-highlight"></g>
+              <g id="drawing-selection" pointer-events="none"></g>
               <g id="drawing-measurement"></g>
             </svg>
             <div id="canvas-empty" class="canvas-empty">
@@ -317,6 +319,8 @@
                 <option value="responses_subscription" hidden>自定义 · 订阅直连</option>
               </select>
               <label class="runtime-fallback"><input type="checkbox" id="runtime-fallback" />失败时使用自定义 API 回退</label>
+          <label class="runtime-fallback"><input type="checkbox" id="source-read-batching" />批量读取来源（实验选项，节省模型往返）</label>
+          <p class="settings-help">默认关闭，逐项读取原文。勾选后对后续问答生效；刷新页面恢复关闭。</p>
           <p class="settings-help">订阅模型自动匹配连接方式，不启用付费 API 回退。</p>
         </div>
       </details>

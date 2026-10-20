@@ -1,5 +1,6 @@
 """Session-owned observation registration with source-stable identities."""
 import json
+import re
 from cad_agent.contracts import stable_id
 from cad_agent.evidence import bind_evidence
 from cad_agent.cad.regions import is_heading, clause_level
@@ -8,10 +9,13 @@ from cad_agent.cad.regions import is_heading, clause_level
 
 def register_observation(self, name, result):
     data = None
+    from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
+    if name in SPATIAL_METHODS | {'bind_spatial_object', 'get_spatial_object'}:
+        data = {k: v for k, v in result.items() if k != 'observation_id'}
     if name in ('analyze_room_batch','resolve_room_units'):
         data = {k:v for k,v in result.items() if k not in ('scope_evidence', 'instruction')}
         data['items'] = [{k:v for k,v in i.items() if k != 'label_evidence'} for i in result['items']]
-    if name in ('query_annotations', 'locate_by_axes', 'trace_detail', 'read_table_semantics'):
+    if name in ('query_annotations', 'locate_by_axes', 'trace_detail', 'read_table_semantics', 'read_door_schedule_table', 'trace_door_schedule', 'search_similar_objects'):
         data = {k:v for k,v in result.items() if k != 'observation_id'}
     if name in ("get_drawing_context", "read_dimensions", "query_building_relations", "get_component_evidence"):
         data = {k:v for k,v in result.items() if k != "observation_id"}
@@ -22,7 +26,7 @@ def register_observation(self, name, result):
             data=observation_payload(data)
     elif name in ("measure_geometry", "measure_room", "get_measurement_evidence"):
         data = {k:v for k,v in result.items() if k not in ("label_evidence", "boundary", "holes", "source_entity_ids")}
-    elif name in ("read_geometry", "query_spatial", "discover_rooms", "get_room_contours", "measure_room_area"):
+    elif name in ("inspect_scope_objects", "read_geometry", "query_spatial", "discover_rooms", "get_room_contours", "measure_room_area"):
         data = {k:v for k,v in result.items() if k != "observation_id"}
     elif name == "get_drawing_overview":
         data = {
@@ -95,14 +99,15 @@ def register_observation(self, name, result):
         ]
     if name in ("get_analysis_results","analyze_measurements","check_dimension_chain","inspect_enclosure","prepare_space_connections","review_space_connections","prepare_discovery_review","review_discovered_spaces"):
         data={k:v for k,v in result.items() if k not in ("highlight_action",)}
-    if name in ('calculate_facts','resolve_drawing_scope','read_project_sources'):data={k:v for k,v in result.items() if k!='observation_id'}
+    if name in ('calculate_facts','resolve_drawing_scope','read_project_sources','read_assembly'):data={k:v for k,v in result.items() if k!='observation_id'}
     if data is not None:
+        snapshot_id = data["snapshot_id"] if name == 'read_door_schedule_table' else self.request.snapshot_id
         oid = stable_id(
-            "obs", self.request.snapshot_id, name, json.dumps(data, sort_keys=True)
+            "obs", snapshot_id, name, json.dumps(data, sort_keys=True)
         )
         observation = {
             "observation_id": oid,
-            "snapshot_id": self.request.snapshot_id,
+            "snapshot_id": snapshot_id,
             "tool": name,
             "data": data,
             "basis": "tool_observation",
@@ -145,13 +150,13 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
             (r, "section_child")
             for r in peers
             if target.region_id in r.context_region_ids
-        ][:4]
+        ]
     if target.context_region_ids and not bounded:
         candidates += [
             (r, "sibling")
             for r in peers
             if r != target and r.context_region_ids == target.context_region_ids
-        ][:3]
+        ]
     candidates += [
         (r, "neighbor")
         for r in peers[max(0, index - neighbors) : index + neighbors + 1]
@@ -222,10 +227,32 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
                 "evidence": evidence,
             }
         )
+    next_actions = [
+        {"tool": "read_source_context", "arguments": {
+            "region_id": item["region_id"], "neighbors": 0, "start": item["next_start"]}}
+        for item in items if item["next_start"] is not None
+    ]
+    unit_candidates = []
+    from cad_agent.analysis.text_units import read_elevation_annotation
+    elevation_annotation = read_elevation_annotation(target)
+    if re.search(r'\d\s*(?:mm|cm|m)\s*(?:$|\n)', target.text):
+        from cad_agent.analysis.general import DrawingIndex
+        from cad_agent.analysis.text_units import read_unit_candidates
+        unit_candidates = read_unit_candidates(DrawingIndex(workspace, snapshot_id), target)
+    omitted = list(dict.fromkeys(r.region_id for r, _ in candidates if r.region_id not in seen))
+    next_actions += [{"tool": "read_source_context", "arguments": {
+        "region_id": rid, "neighbors": 0, "start": 0}} for rid in omitted[:4]]
+    if omitted:
+        next_actions.append({"tool": "read_assembly", "arguments": {"region_id": region_id, "offset": 0, "limit": 12}})
     return {
         "snapshot_id": snapshot_id,
         "target_region_id": region_id,
         "items": items,
+        "omitted_context_region_count": len(omitted),
+        "unit_candidates": unit_candidates,
+        "elevation_annotation": elevation_annotation,
+        "has_more": bool(next_actions),
+        "next_actions": next_actions,
         "note": "邻近关系不证明适用范围；表头与条款之间的语义关系仍需核查。",
     }
 

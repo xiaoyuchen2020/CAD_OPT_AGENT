@@ -8,7 +8,7 @@ from cad_agent.geometry.service import GeometryService
 from cad_agent.geometry.source import GEOMETRY_VERSION
 from cad_agent.geometry.discovery import DISCOVERY_VERSION
 from .context import build_context
-from .dimensions import read_dimensions
+from .dimensions import read_dimensions, DIMENSION_VERSION
 from .relations import refine_discovery, enrich_openings
 
 COMPONENT_VERSION = "drawing-components-v1.6-native-viewports"
@@ -45,7 +45,8 @@ class ComponentService:
         reading,frames,bounds=self.scope(args)
         request=args.model_dump(exclude={"offset","limit","view"}) | {"bbox":bounds}
         key=stable_id("component",self.sid,self.drawing["sha256"],COMPONENT_VERSION,GEOMETRY_VERSION,
-                      DISCOVERY_VERSION,kind,json.dumps(request,sort_keys=True))
+                      DISCOVERY_VERSION,kind,json.dumps(request,sort_keys=True),
+                      *([DIMENSION_VERSION] if kind=='dimensions' else []))
         try:return self.get(key)
         except KeyError:pass
         if kind=="context":
@@ -71,6 +72,9 @@ class ComponentService:
         elif kind=="dimensions":
             data=read_dimensions(self.w,self.sid,args.layout_id,bounds,args.unit_override or self.drawing["unit"])
             data["unit_basis"]="request_override" if args.unit_override else "dxf_header"
+            data['unit_status']='assumption' if args.unit_override else 'source_declared' if self.drawing['unit']!='unknown' else 'unknown'
+            data['unit_source_conflict']=bool(args.unit_override and self.drawing['unit']!='unknown' and args.unit_override!=self.drawing['unit'])
+            data['dimension_version']=DIMENSION_VERSION
         elif kind=="relations":
             from cad_agent.geometry.source import ScopedSourceBundle
             source_bundle=ScopedSourceBundle(self.w,self.sid)
@@ -104,7 +108,7 @@ class ComponentService:
         if view not in COLLECTIONS[record["kind"]]:raise ValueError("该记录不包含所请求的视图。")
         items=record[view]
         keys=("record_id","snapshot_id","source_sha256","component_version","layout_id","kind",
-              "coordinate_space","unit","unit_basis","applied_unit","status","evidence_url",
+              "coordinate_space","unit","unit_basis","unit_status","unit_source_conflict","dimension_version","applied_unit","status","evidence_url",
               "diagnostics","coverage","truncated","scope_bbox","discovery_id","source_diagnostics")
         result={k:record[k] for k in keys if k in record}
         result["linework_basis"]=record.get("linework_basis")

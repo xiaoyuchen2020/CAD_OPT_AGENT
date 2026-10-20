@@ -25,10 +25,15 @@ class Settings:
     protocol: str = "anthropic"
     provider: str = "custom"
     model_profile: str = "default"
+    reasoning_effort: str = "low"
     context_length: int | None = None
     agent_max_rounds: int = 8
     agent_max_tool_calls: int = 16
     agent_timeout_seconds: int = 180
+    subscription_budget_policy: str = "adaptive_v1"
+    stable_subscription_prefix: bool = True
+    siwc_max_concurrency: int = 1
+    siwc_queue_timeout_seconds: float = 600
     max_upload_bytes: int = 32 * 1024 * 1024
     oda_base_url: str = "http://192.168.1.146:18080"
     oda_api_key: str = ""
@@ -42,7 +47,16 @@ class Settings:
         env = local_env()
         profiles = {"default": self}
         profiles["siwc_sol"] = replace(self, api_base="", api_key="", model="gpt-6.1-sol",
-            provider="responses_subscription", protocol="responses", model_profile="siwc_sol", context_length=None)
+            provider="responses_subscription", protocol="responses", model_profile="siwc_sol", context_length=None, reasoning_effort="low")
+        profiles["siwc_sol_high"] = replace(profiles["siwc_sol"], model_profile="siwc_sol_high", reasoning_effort="high")
+        profiles["siwc_luna_high"] = replace(profiles["siwc_sol"], model_profile="siwc_luna_high", model="gpt-6-luna", reasoning_effort="high")
+        from cad_agent.runtimes.budget_policy import policy_for
+        for key in ("siwc_sol", "siwc_sol_high", "siwc_luna_high"):
+            policy = policy_for(profiles[key])
+            if policy:
+                profiles[key] = replace(profiles[key], agent_max_rounds=policy.rounds_ceiling,
+                    agent_max_tool_calls=policy.tool_calls_ceiling,
+                    agent_timeout_seconds=policy.elapsed_ceiling_seconds)
         for profile, model in (("codex_sol_56", "gpt-5.6-sol"), ("codex_sol", "gpt-6.1-sol"), ("codex_astra", "gpt-6-astra")):
             profiles[profile] = replace(self, api_base="", api_key="", model=model,
                 provider="codex_subscription", protocol="codex", model_profile=profile,
@@ -71,6 +85,10 @@ class Settings:
         deepseek = e.get("CAD_AGENT_PROVIDER", "deepseek") == "deepseek"
         return cls(
             data_dir=Path(e.get("CAD_AGENT_DATA_DIR", str(ROOT / ".data"))).resolve(),
+            subscription_budget_policy=e.get("CAD_SUBSCRIPTION_BUDGET_POLICY", "adaptive_v1"),
+            stable_subscription_prefix=e.get("CAD_STABLE_SUBSCRIPTION_PREFIX", "1") == "1",
+            siwc_max_concurrency=int(e.get("CAD_SIWC_MAX_CONCURRENCY", "1")),
+            siwc_queue_timeout_seconds=float(e.get("CAD_SIWC_QUEUE_TIMEOUT_SECONDS", "600")),
             agent_timeout_seconds=int(e.get("CAD_AGENT_TIMEOUT_SECONDS","180")),
             agent_max_tool_calls=int(e.get("CAD_AGENT_MAX_TOOL_CALLS","16")),
             agent_max_rounds=int(e.get("CAD_AGENT_MAX_ROUNDS","8")),

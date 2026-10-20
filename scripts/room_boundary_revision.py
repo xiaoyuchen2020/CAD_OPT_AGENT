@@ -4,6 +4,7 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT,Settings
 from cad_agent.service import Workspace
 from cad_agent.extensions.table_recovery.bundle import digest,encoded
@@ -29,7 +30,7 @@ def fresh_baseline(w,b):
 def workspace():
     w=Workspace(replace(Settings.load(),data_dir=OUT/'data'))
     b=read('input.json');sid=b['snapshot_id']
-    if not (OUT/'data/drawings'/sid).exists():shutil.copytree(OLD/'data/drawings'/sid,OUT/'data/drawings'/sid)
+    if not (OUT/'data/drawings'/sid).exists():copy_artifact_tree(OLD/'data/drawings'/sid,OUT/'data/drawings'/sid)
     c=sqlite3.connect(f'file:{OLD}/data/index.sqlite3?mode=ro',uri=True)
     drawing=json.loads(c.execute("select data from records where kind='drawing' and id=?",(sid,)).fetchone()[0]);c.close();w.store.put('drawing',sid,drawing)
     return w
@@ -72,9 +73,9 @@ def prepare():
     assert not OUT.exists(),'Use a fresh artifact root, never overwrite a run.'
     OUT.mkdir();(OUT/'data').mkdir()
     for name in ['input.json','source.svg','source.png','render-provenance.json','source-audit.json','baseline-overlay.svg','baseline-overlay.png']:
-        shutil.copy2(OLD/name,OUT/name)
-    for name in ['adaptation-runtime.json','table-recovery-runtime.json']:shutil.copy2(OLD/'data'/name,OUT/'data'/name)
-    v=validator();shutil.copy2(OLD/'validator-v2.py',OUT/'validator-frozen.py');dump(OUT/'contract.json',v.CONTRACT)
+        copy_artifact(OLD/name,OUT/name)
+    for name in ['adaptation-runtime.json','table-recovery-runtime.json']:copy_artifact(OLD/'data'/name,OUT/'data'/name)
+    v=validator();copy_artifact(OLD/'validator-v2.py',OUT/'validator-frozen.py');dump(OUT/'contract.json',v.CONTRACT)
     b=read('input.json');view,mapping=compact(b);dump(OUT/'model-view.json',view);dump(OUT/'id-map.json',mapping)
     old_projection=json.loads((OLD/'prompt-1.json').read_text())[1]['content'];old_body=json.loads(old_projection)
     dump(OUT/'compression-audit.json',dict(segments_before=len(b['segments']),segments_after=len(view['segments']),texts_before=len(b['texts']),texts_after=len(view['texts']),

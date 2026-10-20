@@ -1,5 +1,5 @@
 """Independent public-client SIWC authorization. Never reads Codex credentials."""
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit, parse_qs
@@ -8,6 +8,7 @@ import base64
 import fcntl
 import hashlib
 import json
+import math
 import os
 import secrets
 import tempfile
@@ -31,7 +32,10 @@ def fail(code, message):
 
 
 class SiwcAccount:
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, max_concurrency=1):
+        if type(max_concurrency) is not int or not 1 <= max_concurrency <= 2:
+            raise ValueError("订阅并发上限只支持 1 或 2。")
+        self.max_concurrency = max_concurrency
         self.home = Path(data_dir).resolve() / "siwc-subscription"
         self.lock = threading.RLock()
         self.pending = None
@@ -44,12 +48,14 @@ class SiwcAccount:
         return httpx.Client(timeout=20, follow_redirects=False, trust_env=False)
 
     @contextmanager
-    def storage(self):
+    def storage(self, blocking=True):
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.home.chmod(0o700)
         fd = os.open(self.home / "storage.lock", os.O_CREAT | os.O_RDWR, 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            try: fcntl.flock(fd, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except BlockingIOError:
+                raise fail("BUSY", "账号存储正在更新，等待可用名额。") from None
             yield
         finally:
             os.close(fd)
@@ -76,7 +82,8 @@ class SiwcAccount:
                     "accounts": [{"id": k, "label": v["label"], "connected": bool(v.get("access_token"))}
                                  for k, v in data["accounts"].items()],
                     "login_pending": bool(self.pending), "last_error": self.last_error,
-                    "active_runs": self.active_runs, "billing": "subscription",
+                    "active_runs": self._active_slots(), "max_concurrency": self._capacity(),
+                    "configured_concurrency": self.max_concurrency, "billing": "subscription",
                     "model_access_verified": False}
 
     def _stop_listener(self):
@@ -94,8 +101,7 @@ class SiwcAccount:
             self._stop_listener()
 
     def login(self, account_id=None):
-        with self.lock, self.storage():
-            if self.active_runs: raise ValueError("请等待订阅问答完成后再切换账户。")
+        with self.lock, self.storage(), self.identity_change():
             data = self.load()
             if account_id and account_id not in data["accounts"]: raise ValueError("未知账户。")
             record = data["accounts"].get(account_id, {})
@@ -176,7 +182,7 @@ class SiwcAccount:
             "scopes": scopes, "expires_at": time.time()+expires}
 
     def callback(self, args):
-        with self.lock, self.storage():
+        with self.lock, self.storage(), self.identity_change():
             p = self.pending
             if not p or p["expires"] < time.time() or not secrets.compare_digest(args.get("state", ""), p["state"]):
                 raise fail("STATE", "登录状态校验失败或已过期。")
@@ -233,27 +239,124 @@ class SiwcAccount:
         except ModelError: raise
         except Exception: raise fail("CATALOG_FAILED", "订阅模型目录读取失败；未调用模型。") from None
 
+    def _capacity(self):
+        path = self.home / "concurrency.json"
+        value = json.loads(path.read_text())["max_concurrency"] if path.exists() else 1
+        if type(value) is not int or not 1 <= value <= 2:
+            raise fail("CONFIG_CONFLICT", "账号并发配置无效。")
+        return value
+
+    def _active_slots(self):
+        # Called under storage(), so acquisition cannot race this snapshot.
+        count = 0
+        for slot in range(2):
+            fd = os.open(self.home / f"run-slot-{slot}.lock", os.O_CREAT | os.O_RDWR, 0o600)
+            try:
+                try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError: count += 1
+            finally: os.close(fd)
+        return count
+
+    @contextmanager
+    def identity_change(self):
+        # Retain run.lock: old exclusive-lock clients cannot overlap new shared
+        # leases. This gate also fences OAuth callback, logout and configuration.
+        fd = os.open(self.home / "run.lock", os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise fail("BUSY", "请等待所有订阅问答完成后再修改账户。") from None
+            yield
+        finally: os.close(fd)
+
+    def configure_concurrency(self, capacity):
+        """Explicit account-wide change; never silently reconcile two processes."""
+        if type(capacity) is not int or not 1 <= capacity <= 2:
+            raise ValueError("订阅并发上限只支持 1 或 2。")
+        with self.lock, self.storage(), self.identity_change():
+            path = self.home / "concurrency.json"
+            fd, name = tempfile.mkstemp(dir=self.home, prefix=".concurrency-")
+            try:
+                with os.fdopen(fd, "w") as handle:
+                    json.dump({"max_concurrency": capacity}, handle)
+                    handle.flush(); os.fsync(handle.fileno())
+                os.replace(name, path)
+            finally:
+                if os.path.exists(name): os.unlink(name)
+            self.max_concurrency = capacity
+
+    @contextmanager
+    def lease_guard(self):
+        # Waiting for a refresh must also respect queue cancellation/timeout.
+        if not self.lock.acquire(blocking=False):
+            raise fail("BUSY", "账号正在更新，等待可用名额。")
+        try:
+            with self.storage(blocking=False): yield
+        finally: self.lock.release()
+
     @contextmanager
     def lease(self):
-        with self.lock:
-            if self.active_runs: raise fail("BUSY", "已有直接订阅问答运行，请等待完成。")
-            if not self.status()["connected"]: raise fail("LOGIN_REQUIRED", "请先完成独立的 Sign in with ChatGPT 授权。")
-            fd = os.open(self.home / "run.lock", os.O_CREAT | os.O_RDWR, 0o600)
+        gate = slot_fd = None
+        with self.lease_guard():
+            if self._capacity() != self.max_concurrency:
+                raise fail("CONFIG_CONFLICT", "进程与账号并发上限不一致，请显式配置同一账号上限。")
+            data = self.load()
+            record = data["accounts"].get(data["active"], {})
+            if not record.get("access_token") or PLAN_SCOPE not in record.get("scopes", []):
+                raise fail("LOGIN_REQUIRED", "请先完成独立的 Sign in with ChatGPT 授权。")
+            gate = os.open(self.home / "run.lock", os.O_CREAT | os.O_RDWR, 0o600)
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                os.close(fd)
-                raise fail("BUSY", "另一个进程正在运行直接订阅问答。") from None
+                fcntl.flock(gate, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                for slot in range(self.max_concurrency):
+                    candidate = os.open(self.home / f"run-slot-{slot}.lock", os.O_CREAT | os.O_RDWR, 0o600)
+                    try: fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError: os.close(candidate)
+                    else:
+                        slot_fd = candidate
+                        break
+                if slot_fd is None: raise BlockingIOError()
+            except BaseException as error:
+                if slot_fd is not None: os.close(slot_fd)
+                os.close(gate)
+                if isinstance(error, BlockingIOError):
+                    raise fail("BUSY", "订阅账号并发额度已满，等待可用名额。") from None
+                raise
             self.active_runs += 1
-        try: yield
+        try: yield {"slot": slot, "max_concurrency": self.max_concurrency}
         finally:
             with self.lock:
                 self.active_runs -= 1
-                os.close(fd)
+                os.close(slot_fd)
+                os.close(gate)
+
+    @contextmanager
+    def queued_lease(self, timeout_seconds, check_cancelled=None, diagnostics=None):
+        """Bounded queue distinct from inference time; never retries requests."""
+        if not math.isfinite(timeout_seconds) or timeout_seconds < 0:
+            raise ValueError("排队超时必须是有限的非负数。")
+        started = time.monotonic()
+        if diagnostics is not None:
+            diagnostics.update(max_concurrency=self.max_concurrency, queue_timeout_seconds=timeout_seconds, acquired=False)
+        with ExitStack() as stack:
+            while True:
+                if diagnostics is not None:
+                    diagnostics["queue_seconds"] = time.monotonic()-started
+                if check_cancelled: check_cancelled()
+                try:
+                    metadata = stack.enter_context(self.lease())
+                    break
+                except ModelError as error:
+                    if error.code != "SIWC_BUSY": raise
+                    if time.monotonic() - started >= timeout_seconds:
+                        raise fail("QUEUE_TIMEOUT", "订阅并发名额排队超时，未发送推理请求。") from None
+                    time.sleep(min(.05, max(0, timeout_seconds - (time.monotonic()-started))))
+            if check_cancelled: check_cancelled()
+            result = dict(metadata or {}, queue_seconds=time.monotonic()-started)
+            if diagnostics is not None: diagnostics.update(result, acquired=True)
+            yield result
 
     def logout(self):
-        with self.lock, self.storage():
-            if self.active_runs: raise ValueError("请等待问答完成后再断开连接。")
+        with self.lock, self.storage(), self.identity_change():
             self.pending = None; self._stop_listener()
             data = self.load(); key = data["active"]; record = data["accounts"].get(key, {})
             revoked = not bool(record.get("refresh_token"))

@@ -6,6 +6,7 @@ from pathlib import Path
 from shapely import set_precision,STRtree
 from shapely.geometry import LineString,Point,Polygon,box
 from shapely.ops import unary_union,polygonize
+from cad_agent.artifact_storage import copy_artifact, copy_artifact_tree
 from cad_agent.config import ROOT,Settings
 from cad_agent.service import Workspace
 from cad_agent.analysis.general import DrawingIndex
@@ -30,10 +31,10 @@ def workspace():return Workspace(replace(Settings.load(),data_dir=OUT/'data'))
 def prepare():
     assert not OUT.exists();OUT.mkdir();(OUT/'data').mkdir()
     dump(OUT/'history-before.json',history())
-    for n in ['adaptation-runtime.json','table-recovery-runtime.json']:shutil.copy2(PRIOR/'data'/n,OUT/'data'/n)
-    shutil.copy2(PRIOR/'candidate-local-v2.py',OUT/'candidate-new.py')
-    shutil.copy2(ROOT/'artifacts/dynamic-room-support-repair-20261016/candidate-4.py',OUT/'candidate-old.py')
-    shutil.copy2(PRIOR/'validator-frozen.py',OUT/'validator-frozen.py');assert sha(OUT/'validator-frozen.py')==VALIDATOR_SHA
+    for n in ['adaptation-runtime.json','table-recovery-runtime.json']:copy_artifact(PRIOR/'data'/n,OUT/'data'/n)
+    copy_artifact(PRIOR/'candidate-local-v2.py',OUT/'candidate-new.py')
+    copy_artifact(ROOT/'artifacts/dynamic-room-support-repair-20261016/candidate-4.py',OUT/'candidate-old.py')
+    copy_artifact(PRIOR/'validator-frozen.py',OUT/'validator-frozen.py');assert sha(OUT/'validator-frozen.py')==VALIDATOR_SHA
     dump(OUT/'production-before.json',{str(p.relative_to(ROOT)):sha(p) for folder in ['cad_agent','web'] for p in (ROOT/folder).rglob('*') if p.is_file() and '__pycache__' not in p.parts})
     c=sqlite3.connect(f'file:{SOURCE}/data/index.sqlite3?mode=ro',uri=True)
     records=[json.loads(s) for s, in c.execute("select data from records where kind='drawing'")];c.close()
@@ -58,7 +59,7 @@ def load_drawing(w,pid):
     # never delete diagnostics or alter a snapshot's metadata.
     d,srcroot=min(options,key=lambda item:sum(x.get('code') in ['ENTITY_LIMIT','UNLOCATED_GEOMETRY','BLOCK_CYCLE','TEXT_READ_FAILED'] for x in item[0]['diagnostics']))
     sid=d['id']
-    if not (OUT/'data/drawings'/sid).exists():shutil.copytree(srcroot/'drawings'/sid,OUT/'data/drawings'/sid)
+    if not (OUT/'data/drawings'/sid).exists():copy_artifact_tree(srcroot/'drawings'/sid,OUT/'data/drawings'/sid)
     w.store.put('drawing',sid,d);assert sha(w.store.artifact(sid,'source.dxf'))==d['sha256']
     return d
 
@@ -134,7 +135,7 @@ def pilot_locals():
     source=ROOT/'artifacts/dynamic-room-support-repair-20261016';original=json.loads((source/'input.json').read_text());sid=original['snapshot_id']
     w=workspace()
     try:
-        if not (OUT/'data/drawings'/sid).exists():shutil.copytree(source/'data/drawings'/sid,OUT/'data/drawings'/sid)
+        if not (OUT/'data/drawings'/sid).exists():copy_artifact_tree(source/'data/drawings'/sid,OUT/'data/drawings'/sid)
         c=sqlite3.connect(f'file:{source}/data/index.sqlite3?mode=ro',uri=True);d=json.loads(c.execute("select data from records where kind='drawing' and id=?",(sid,)).fetchone()[0]);c.close();w.store.put('drawing',sid,d)
     finally:w.close()
     rows=[];seen=[]

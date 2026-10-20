@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 import time
 
+from cad_agent.artifact_storage import copy_artifact
 from cad_agent.config import Settings
 from cad_agent.service import Workspace
 from cad_agent.components.service import ComponentService
@@ -84,7 +85,7 @@ def main():
         try:
             folder=w.store.artifact_dir(sid)
             for filename in ("source.dxf","scene.json","entities.json","regions.json"):
-                shutil.copy2(origin/filename,folder/filename)
+                copy_artifact(origin/filename,folder/filename)
             w.store.put("drawing",sid,d)
             lid=next(l["layout_id"] for l in d["layouts"] if l["name"]=="Model")
             service=ComponentService(w,sid)
