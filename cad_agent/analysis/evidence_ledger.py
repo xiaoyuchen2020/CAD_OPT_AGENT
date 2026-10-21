@@ -119,6 +119,23 @@ def register_observation(self, name, result):
 
 
 
+def numbered_continuations(peers, target):
+    if not target.text.rstrip().endswith(('：', ':')):
+        return []
+    ordered = sorted(peers, key=lambda r: (-r.bbox[3], r.bbox[0], r.region_id))
+    rows = []
+    expected = 1
+    for row in ordered[ordered.index(target)+1:]:
+        match = re.match(r'\s*(\d+)[）)]', row.text)
+        if not match or int(match[1]) != expected:
+            break
+        rows.append(row)
+        expected += 1
+        if expected > 24:
+            break
+    return rows
+
+
 def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, bounded=False):
     """Only source-derived IDs/spans/boxes; never infer scope from proximity."""
     drawing = workspace.store.get("drawing", snapshot_id)
@@ -145,6 +162,10 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
         and by_id[rid].frame_id == target.frame_id
     ]
     candidates = [(target, "target")] + [(r, "parser_context") for r in related[:4]]
+    # An introductory colon followed by an ordered list is a source continuation,
+    # not an arbitrary sibling/nearest-title attribution. Read its entries before
+    # unrelated same-section siblings consume the bounded response.
+    candidates += [(row, 'numbered_list_continuation') for row in numbered_continuations(peers, target)]
     if is_heading(target.text):
         candidates += [
             (r, "section_child")
@@ -235,7 +256,7 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
     unit_candidates = []
     from cad_agent.analysis.text_units import read_elevation_annotation
     elevation_annotation = read_elevation_annotation(target)
-    if re.search(r'\d\s*(?:mm|cm|m)\s*(?:$|\n)', target.text):
+    if re.search(r'\d\s*(?:(?:kg|g)\s*/\s*)?(?:mm|cm|m)(?![A-Za-z])', target.text):
         from cad_agent.analysis.general import DrawingIndex
         from cad_agent.analysis.text_units import read_unit_candidates
         unit_candidates = read_unit_candidates(DrawingIndex(workspace, snapshot_id), target)
@@ -244,12 +265,25 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
         "region_id": rid, "neighbors": 0, "start": 0}} for rid in omitted[:4]]
     if omitted:
         next_actions.append({"tool": "read_assembly", "arguments": {"region_id": region_id, "offset": 0, "limit": 12}})
+    # Reading a thickness can discover a unit convention without changing the
+    # numerical source quote. The model must explicitly bind this evidence ID.
+    default_units = []
+    if re.search(r'\d+\s*厚|厚度|长度|宽度|高度', target.text):
+        from cad_agent.analysis.general import DrawingIndex
+        from cad_agent.analysis.default_units import candidates as unit_clauses
+        idx = DrawingIndex(workspace, snapshot_id)
+        clauses = unit_clauses(idx, target)
+        for row in clauses[:3]:
+            default_units.append(dict(evidence=idx.evidence(row),
+                applicability='requires_explicit_unit_evidence_binding',
+                next_action=dict(tool='read_source_context', arguments=dict(region_id=row.region_id, neighbors=0))))
     return {
         "snapshot_id": snapshot_id,
         "target_region_id": region_id,
         "items": items,
         "omitted_context_region_count": len(omitted),
         "unit_candidates": unit_candidates,
+        "default_unit_clauses": default_units,
         "elevation_annotation": elevation_annotation,
         "has_more": bool(next_actions),
         "next_actions": next_actions,

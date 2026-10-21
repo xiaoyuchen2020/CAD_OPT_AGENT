@@ -40,12 +40,14 @@ class ResponsesTransport:
                 cached_tokens=cached, cache_hit=(cached > 0 if type(cached) is int else None),
                 source="usage.input_tokens_details.cached_tokens")
 
-    def request(self, session, payload):
-        """At most one retry of an explicit pre-stream service rejection.
+    def request(self, session, payload, *, max_attempts=2):
+        """At most one reconnect before sending, or explicit service-rejection retry.
 
         Unknown billing is a reservation, never reported usage. Retry attempts
         consume the same request budget and deadline; partial SSE is not replayed.
         """
+        if type(max_attempts) is not int or max_attempts not in (1, 2):
+            raise ValueError('max_attempts must be 1 or 2')
         runtime = getattr(session, 'runtime_diagnostics', None)
         if runtime is None:
             runtime = session.runtime_diagnostics = {}
@@ -55,7 +57,7 @@ class ResponsesTransport:
         entry = requests[-1]
         attempts = entry.setdefault('transport_attempts', [])
         controls = CodexSubscriptionRuntime()
-        for attempt_no in range(2):
+        for attempt_no in range(max_attempts):
             session._remaining()
             preflight(session, payload, entry)
             # Estimates reserve UNKNOWN failed-attempt usage only. They must
@@ -84,13 +86,17 @@ class ResponsesTransport:
                 return result
             except ModelError as error:
                 diagnostic.update(status='failed', failure_code=error.code)
-                retryable = (attempt_no == 0 and diagnostic.get('http_status') == 503
+                unsent = diagnostic.get('request_dispatch_state') == 'not_sent'
+                service_rejection = (diagnostic.get('http_status') == 503
                     and diagnostic.get('body_shape') == 'json_object'
                     and not diagnostic.get('body_truncated')
                     and error.code == 'SIWC_HTTP_ERROR'
                     and diagnostic.get('error_code_from_body') == 'server_error'
                     and not set(diagnostic.get('recognized_fields', [])) & {'output','usage','status','object'}
                     and not diagnostic['output_started'] and not image_input)
+                retryable = attempt_no + 1 < max_attempts and (unsent or service_rejection)
+                if retryable:
+                    diagnostic['retry_reason'] = 'connection_failed_before_send' if unsent else 'explicit_service_rejection'
                 # Reserve the failed attempt before evaluating the retry below.
                 diagnostic['retry_candidate'] = retryable
                 if not retryable:
@@ -109,14 +115,33 @@ class ResponsesTransport:
                 diagnostic['usage_status'] = ('reported' if len(session.usage) > usage_count else
                     'unknown' if diagnostic['request_started'] else 'not_requested')
                 entry['transport'] = diagnostic
-            if (session._remaining() < 15 or charged_tokens(session)+input_reserve+output_reserve >= controls.total_budget(session)):
+            retry_reserve = 0 if diagnostic.get('request_dispatch_state') == 'not_sent' else input_reserve+output_reserve
+            if (session._remaining() < 15 or charged_tokens(session)+retry_reserve >= controls.total_budget(session)):
                 diagnostic['retry_blocked'] = 'remaining_time_or_token_budget'
                 raise fail('HTTP_ERROR', '订阅服务暂时不可用，剩余预算不足以重试。')
             diagnostic['retry_scheduled'] = True
             runtime['automatic_retries'] = runtime.get('automatic_retries',0)+1
+            # Bounded, cancellable backoff shares the original absolute deadline.
+            diagnostic['retry_delay_seconds'] = 1.0
+            until = time.monotonic() + 1.0
+            while time.monotonic() < until:
+                time.sleep(min(.05, session._remaining(), max(0, until-time.monotonic())))
         raise fail('HTTP_ERROR', '订阅服务暂时不可用，有限重试已结束。')
 
     def _request_once(self, session, payload, diagnostic):
+        # HTTP core trace info contains request headers and socket objects. Keep
+        # only known event names/times, and snapshot on return so a late I/O
+        # worker cannot mutate already-published diagnostics after cancellation.
+        network_events = []
+        started = time.monotonic()
+        def trace(name, info):
+            phase, _, state = name.rpartition('.')
+            if phase in {'connection.connect_tcp', 'connection.start_tls',
+                         'http11.send_request_headers', 'http11.send_request_body',
+                         'http11.receive_response_headers', 'http11.receive_response_body',
+                         'http11.response_closed'} and state in {'started', 'complete', 'failed'}:
+                if len(network_events) < 32:
+                    network_events.append({'event': name, 'elapsed_seconds': round(time.monotonic()-started, 3)})
         try:
             with DeadlineIO(session._remaining, diagnostic) as io:
                 token = io.call(self.account.access_token, "authentication")
@@ -124,9 +149,11 @@ class ResponsesTransport:
                     read=min(120, session._remaining()), write=min(120, session._remaining()),
                     pool=min(15, session._remaining())) if for_session(session) else session._remaining())
                 c = io.enter(self.client(timeout), "client_open")
+                diagnostic['configured_timeout_seconds'] = httpx.Timeout(timeout).as_dict()
                 diagnostic['request_started'] = True
                 response = io.enter(c.stream("POST", RESOURCE + "/responses", headers={"Authorization": "Bearer " + token,
-                    "Content-Type": "application/json", "Accept": "text/event-stream"}, json=payload), "response_headers", response=True)
+                    "Content-Type": "application/json", "Accept": "text/event-stream"}, json=payload,
+                    extensions={'trace': trace}), "response_headers", response=True)
                 diagnostic.update(response_metadata(response))
                 requests = getattr(session, "runtime_diagnostics", {}).get("model_requests", [])
                 if requests:
@@ -230,8 +257,38 @@ class ResponsesTransport:
                             raise fail("RESPONSE_FAILED", "订阅事件流返回错误；未重试或回退。")
                 raise fail("STREAM_INCOMPLETE", "订阅事件流在完成事件前中断；未重试。")
         except ModelError: raise
-        except (httpx.HTTPError, ValueError, TypeError):
-            raise fail("TRANSPORT_ERROR", "订阅请求连接或数据格式异常；未重试或回退。") from None
+        except (httpx.HTTPError, ValueError, TypeError) as error:
+            # Never stringify errors: proxy URLs, tokens or user data may occur
+            # in exception messages. Preserve a closed set of useful types.
+            diagnostic['exception_type'] = next((kind.__name__ for kind in (
+                httpx.ConnectTimeout, httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout,
+                httpx.ConnectError, httpx.ReadError, httpx.WriteError,
+                httpx.RemoteProtocolError, httpx.LocalProtocolError, httpx.ProxyError,
+                httpx.DecodingError, httpx.HTTPError, ValueError, TypeError)
+                if isinstance(error, kind)), 'other')
+            # A trace-confirmed TCP/TLS failure precedes all HTTP request bytes.
+            # Missing traces, writes, reads and partial SSE remain ambiguous and
+            # must never be replayed. Certificate failures need configuration repair.
+            import ssl
+            cause, certificate_failure = error, False
+            for _ in range(8):
+                if isinstance(cause, ssl.SSLCertVerificationError):
+                    certificate_failure = True
+                cause = getattr(cause, '__cause__', None)
+                if cause is None: break
+            names = [event['event'] for event in network_events]
+            if (isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout))
+                    and not certificate_failure and names
+                    and names[-1] in {'connection.connect_tcp.failed', 'connection.start_tls.failed'}
+                    and not any(name.startswith('http11.') for name in names)):
+                diagnostic.update(request_dispatch_state='not_sent', request_started=False,
+                                  network_failure_phase=names[-1].removesuffix('.failed'))
+            else:
+                diagnostic['request_dispatch_state'] = 'unknown'
+            diagnostic['certificate_verification_failed'] = certificate_failure
+            raise fail("TRANSPORT_ERROR", "订阅请求连接或数据格式异常；不会回退模型，详情见传输诊断。") from None
+        finally:
+            diagnostic['network_events'] = list(network_events)
 
 
 class ResponsesSubscriptionRuntime:
@@ -330,6 +387,11 @@ class ResponsesSubscriptionRuntime:
                         requirement_ids=[p["id"] for p in session.task.parts],
                         remaining_tool_calls=session.w.settings.agent_max_tool_calls-session.calls,
                         latest_failure=next((t.get("error") for t in reversed(session.trace) if t.get("status") == "failed"), None))
+                    from cad_agent.analysis.calculation_workflow import execution_reviews
+                    reviews = execution_reviews(session.task.data)
+                    if reviews:
+                        state['required_calculation_review'] = {k:reviews[0][k] for k in
+                            ('tool','task_ids','required_operations','reason')}
                     messages.append({"role": "developer", "content": "当前执行状态（数据）：" + dumps(state)})
                 definitions = stable_tools.definitions if stable else session.offered_tools(planning_only=True)
                 tools = [] if final_only and not stable else [{"type": "namespace", "name": "cad",

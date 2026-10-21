@@ -286,3 +286,15 @@ Codex在第4个工具调用后已读齐6个来源，下一模型轮直接作答�
 相对上一轮同题，自定义从38,274 Token但未发布答案变为43,283 Token成功，Codex从47,138 Token校验失败变为39,322 Token成功。旧结果没有可验收答案，不能作为等质量节省基线。本次Codex比自定义少9.15% Token、应用耗时少13.42%，但仅一次问题、一次运行，提示、读取路径和缓存不同，不据此更换默认或宣布稳定排名。合计新增82,605订阅Token，不代表订阅额度百分比或美元费用。
 
 运行ID：自定义 `chat_ccfd4f65c49748abb0715826d4ebaf16`，Codex `chat_a42dc608807744bfaa1017ba067cd9b8`。保存于 `artifacts/siwc-subscription-20261015/complex-grounding-fixed/`；`comparison.json`含逐项人工核对及前后对比，`verification.json`含逐条原始来源核验。两次提交后再次确认代码哈希未变化，订阅连接有效、活动运行0。
+
+## 2026-10-21：TLS 发送前故障与批量失败保护
+
+本次最小真实探测复现 `ConnectError`：TCP 完成后 TLS 握手约 5.1 秒失败，配置超时约 30 秒，HTTP 请求尚未发送。现有网络经 Shadowrocket TUN/Fake-IP 转发；后续未调整网络配置便恢复。只能确认网络/TLS 阶段，不能据此断言具体代理节点或上游故障。历史 37 次相同耗时的连接错误缺少旧阶段日志，保留原记录，不反向改记为零用量；另有 HTTP 520 与 SSE error 不合并归因。
+
+`ResponsesTransport` 现在保留白名单网络事件、耗时、配置超时及异常类型，不保存异常原文、认证头或 trace info。只有 TCP/TLS 阶段明确失败且没有任何 HTTP 发送事件，才标记 `request_dispatch_state=not_sent`，不预留未知模型用量，并在原总截止时间内退避 1 秒、最多重连 1 次。证书校验失败、无阶段证据、HTTP 发送后故障及部分 SSE 均不会按此逻辑重放。原有明确 503 服务拒绝的有限重试共享同一个最多两次尝试上限。
+
+最小探测补全预算会话字段并强制 `max_attempts=1`，失败返回非零退出码；可直接运行 `.venv/bin/python scripts/check_siwc_transport.py --data-dir ACCOUNT_DATA --output NEW_DIRECTORY --execute`，输出目录不得复用。批量脚本连续 3 题订阅链路失败后停止派发新题，已有活动题正常收尾，剩余题目保留未执行状态；恢复需显式重新执行脚本，不自动重放历史尝试。
+
+真实验证：连续 3 次最小探测完成，随后保持原题、原预算的 Q02 在 43.666 秒内完成 4 轮模型响应、工具读取与答案发布；99,675 Token，`fallback_used=false`，无未知用量预留。三次最小探测另计 45 Token。此次真实运行未再次触发重连分支，该分支由故障注入测试验证。主回归 130 通过、2 项可选外部 CLI 测试未启用，另有 3 项补充测试通过（去重共 133）。这不是全部 20 题重跑或重新评分。
+
+报告与逐请求记录：`artifacts/subscription-link-repair-20261021/report.html`、`verification.json`；真实运行 `chat_1fd6055414dd444593d972d571332d6f`。产品源文件哈希与真实验证时的冻结版本一致。

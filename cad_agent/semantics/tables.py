@@ -5,7 +5,7 @@ from statistics import median
 
 from cad_agent.contracts import stable_id
 
-TABLE_VERSION = 'table-semantics-v1.5'
+TABLE_VERSION = 'table-semantics-v1.6-ordinal-barrier'
 HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目|性能|耐火|适用|部位|类型')
 UNITS = re.compile(r'(?<![A-Za-z])(?:mm[²2]?|cm[²2]?|m[²2]?|MPa|kN|kPa|kg/m[³3]|毫米|厘米|平方米|㎡|米|个|樘|扇)(?![A-Za-z])')
 
@@ -33,7 +33,7 @@ FIELD_LABELS = {
     'code': r'(?:设计|构造|做法|类型)?编号|型号',
     'ordinal': r'序号',
     'name': r'(?:构造|做法|材料|项目)?名称|项目|类别|类型',
-    'applicability': r'(?:适用|使用|应用)?(?:部位|位置|范围)|房间(?:名称)?|楼层',
+    'applicability': r'(?:适用|使用|应用)?(?:部位|位置|范围)(?:名称)?|房间(?:名称)?|楼层',
     'layers': r'(?:构造|材料|具体|建筑)?做法|构造层次|材料及做法',
     'notes': r'备注|说明',
 }
@@ -232,6 +232,11 @@ def read_semantic_table(index,args):
         header_rows=[]
         for r in range(min(4,n)):
             row=[c for c in cells if c['row_index']==r]
+            ordinal_headers = [c for c in cells if c['row_index'] in header_rows
+                               and re.fullmatch(r'\s*序\s*号\s*', c['text'])]
+            if any(c['column_index'] == h['column_index'] and re.fullmatch(r'\s*\d+\s*', c['text'])
+                   for c in row for h in ordinal_headers):
+                break
             words=[c for c in row if HEADER_WORDS.search(c['text'])]
             values=[c for c in row if re.fullmatch(r'\s*[+\-]?\d+(?:\.\d+)?\s*',c['text'])]
             if words and (not values or (len(words)>=3 and len(words)*2>=len(row))) and (len(words)>=2 or (len(row)==1 and row[0]['column_span']==m)):
@@ -321,7 +326,7 @@ def read_semantic_table(index,args):
         arguments=dict(table_id=table['table_id'],row_offset=next_offset,row_limit=args.row_limit)
         if args.header_rows is not None:arguments['header_rows']=args.header_rows
         actions.append(dict(tool='read_table_semantics',arguments=arguments))
-    return dict(snapshot_id=index.snapshot,table_id=table['table_id'],layout_id=table['layout_id'],bbox=table['bbox'],
+    result = dict(snapshot_id=index.snapshot,table_id=table['table_id'],layout_id=table['layout_id'],bbox=table['bbox'],
                 version=TABLE_VERSION,row_count=n,column_count=m,header_rows=header_rows,
                 header_state='user_selected' if args.header_rows is not None else 'candidate' if header_rows else 'unresolved',
                 items=rows,records=records,instance_links=links,diagnostics=sorted(set(diagnostics)),coverage='partial',
@@ -330,3 +335,11 @@ def read_semantic_table(index,args):
                             header_relation='candidate' if header_rows else 'unresolved',object_completeness='unverified'),
                 has_more=args.row_offset+args.row_limit<n,row_offset=args.row_offset,
                 note='表头关系和编号关联为候选；合并格保留同一 cell_id 与跨度，空白不向下填充。单位仅来自明确表头或单元格，不采用 DWG 绘图单位。')
+
+    from cad_agent.analysis.efficiency import compact, dumps
+    if len(dumps(compact(result))) > 38000 and len(rows) > 1:
+        smaller = read_semantic_table(index, args.model_copy(update={'row_limit': len(rows)-1}))
+        smaller['requested_row_limit'] = args.row_limit
+        return smaller
+    result['effective_row_limit'] = len(rows)
+    return result

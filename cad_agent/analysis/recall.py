@@ -10,6 +10,16 @@ from cad_agent.analysis.typed_requirements import is_source_fact, accepts_source
 
 VERSION = 'source-recall-v1'
 
+def _call_key(tool, args):
+    from cad_agent.analysis.tool_registry import TOOL_SPECS
+    values = {k:v for k,v in args.items() if k != 'task_ids'}
+    try:
+        values = TOOL_SPECS[tool][0].model_validate(values).model_dump()
+    except (KeyError, ValueError):
+        # Historical/incomplete feedback is not an executable continuation.
+        return None
+    return json.dumps([tool, values], sort_keys=True)
+
 
 def terms(query='', keywords=None, alternatives=None):
     if len(alternatives or []) > 8:
@@ -39,6 +49,7 @@ def page(index, result, tool, arguments, *, pool_complete=True):
     scope = {k: args.get(k) for k in ('layout_id','frame_id','section_id','bbox','layer','kind') if args.get(k)}
     identity = json.dumps([VERSION, index.snapshot, index.drawing['sha256'], tool, args],
                           ensure_ascii=False, sort_keys=True)
+    if result.get('ranking_context'):identity += result['ranking_context']
     query_id = stable_id('recall', identity)
     from cad_agent.analysis.retrieval import source_context_path
     for item in result.get('items', []):
@@ -103,7 +114,7 @@ def record(session, tool, args, result):
     current = data.get('source_recall', {})
     if current and current.get('context') != context:
         current = {}
-    source_reads = {'read_source_context', 'read_assembly', 'read_table_semantics', 'read_project_sources', 'get_evidence'}
+    source_reads = {'read_source_context', 'read_assembly', 'read_table_semantics', 'read_project_sources', 'get_evidence', 'read_requirement_sources'}
     if tool not in ({'search_sources', 'query_entities'} | source_reads) and not current:
         return {}
     if not current and not result.get('query_id') and tool not in source_reads:
@@ -131,6 +142,7 @@ def record(session, tool, args, result):
                 region_ids=item.get('source_region_ids', [item['region_id']] if item.get('region_id') else []),
                 start=item.get('snippet_start',0), matched_terms=item.get('matched_terms',[]),
                 source_preview=(item.get('snippet') or item.get('text') or '')[:900],
+                assembly_heading=item.get('assembly_heading'),
                 source_context_path=deepcopy(item.get('source_context_path', [])),
                 source_spans=deepcopy(item.get('source_spans') or ([dict(region_id=item['region_id'],
                     text_span=[item.get('snippet_start',0),item.get('snippet_start',0)+len(item.get('snippet',''))])]
@@ -139,6 +151,8 @@ def record(session, tool, args, result):
                 layout_id=item.get('layout_id'), frame_id=item.get('frame_id'),
                 location_state='source_coordinates_only' if item.get('bbox') else 'source_region_only',
                 floor_state='not_checked', axis_state='not_checked', identity_state='candidate')
+    if tool=='read_assembly':
+        ledger.setdefault('assembly_reads', {})[args['region_id']] = True
     read_ids = set()
     def visit(value):
         if isinstance(value, dict):
@@ -168,6 +182,25 @@ def record(session, tool, args, result):
         elif isinstance(value, list):
             for v in value: visit(v)
     visit(result)
+    if tool == 'read_requirement_sources':
+        data.setdefault('requirement_source_reads', {}).setdefault(result['requirement_id'], []).append(
+            dict(query_id=result['query_id'], offset=result['offset'], has_more=result['has_more']))
+    # Persist executable continuations rather than losing them in a tool reply.
+    # Keep only source reads, never auto-execute operations or infer ownership.
+    continuations = ledger.setdefault('continuations', {})
+    executed = _call_key(tool, args)
+    continuations.pop(executed, None)
+    for call in result.get('next_actions', []):
+        if call.get('tool') not in ('read_source_context', 'read_assembly', 'read_requirement_sources'):
+            continue
+        key = _call_key(call['tool'], call['arguments'])
+        if key is None or key == executed:
+            continue
+        prior = continuations.get(key, {})
+        continuations[key] = dict(call, task_ids=sorted(set(task_ids) | set(prior.get('task_ids', []))))
+    # Retain recent executable cursors without growing the task ledger forever.
+    while len(continuations) > 128:
+        continuations.pop(next(iter(continuations)))
     for entry in ledger['queries'].values():
         for candidate in entry['candidates'].values():
             candidate['read_state'] = 'read' if candidate['region_ids'] and not unread_spans(candidate,ledger) else 'unread'
@@ -203,12 +236,25 @@ def pending_calls(data):
     Only an explicit query or a parser parent of an actual read, owned by a
     runnable requirement, queues work. Stopped requirements do not enumerate CAD.
     """
+    from cad_agent.analysis.scheduling import execution_state
     ledger = data.get('source_recall', {})
     if ledger and (ledger.get('context', {}).get('snapshot_id') != data.get('snapshot_id') or ledger.get('context', {}).get('source_sha256') != data.get('source_sha256')):
         return []
     active = {s['id'] for s in data['subtasks'] if s['status'] in ('pending','running')
-              and s.get('calls',0)<12 and s.get('stalled',0)<2 and accepts_source_prerequisites(s)}
-    pending = []
+              and execution_state(data, s['id'])['executable'] and accepts_source_prerequisites(s)}
+    from cad_agent.analysis.requirement_sources import pending as requirement_pending
+    pending = requirement_pending(data)
+    for call in ledger.get('continuations', {}).values():
+        ids = sorted(active & set(call['task_ids']))
+        if not ids:continue
+        args = call['arguments']
+        if call['tool'] == 'read_source_context':
+            region = args['region_id']
+            start = args.get('start', 0)
+            if any(a <= start < b for a,b in ledger['read_spans'].get(region, [])):
+                continue
+        pending.append(dict(call, task_ids=ids, operation='source_recall_next', blocking=False,
+                            priority=15 if call['tool']=='read_requirement_sources' else 3, coverage_gaps=[], reason='source_read_continuation'))
     queries = list(ledger.get('queries', {}).values())
     # Propose a bounded literal search for each explicit unresolved pair. These
     # are task-owned lower bounds, not a generated domain checklist. Returned
@@ -225,14 +271,17 @@ def pending_calls(data):
             scope = next(({k:q['arguments'][k] for k in ('layout_id','frame_id','section_id')
                            if q['arguments'].get(k)} for q in reversed(owned)
                           if _related(q['arguments'].get('query', ''), obj)), {})
-            if not exact:
-                args = dict(query=obj,keywords=[field],match='all',limit=3,**scope)
-            elif all(q['total']==0 for q in exact) and not any(q['arguments'].get('query')==obj and
-                    not q['arguments'].get('keywords') for q in owned):
+            object_queries = [q for q in owned if q['arguments'].get('query') == obj
+                              and not q['arguments'].get('keywords')]
+            object_read = any(step['id'] in record.get('task_ids', []) and obj in record.get('quote', '')
+                              for record in ledger.get('source_records', {}).values())
+            if not object_queries and not object_read:
                 args = dict(query=obj,limit=3,**scope)
+            elif not exact:
+                args = dict(query=obj,keywords=[field],match='all',limit=3,**scope)
             else:continue
             pending.append(dict(operation='source_recall_next',tool='search_sources',arguments=args,
-                task_ids=[step['id']],blocking=True,priority=20,reason='explicit_object_field_gap',object=obj,field=field,
+                task_ids=[step['id']],blocking=not object_read,priority=20,reason='explicit_object_field_gap',object=obj,field=field,
                 coverage_gaps=[dict(requirement_id=step['id'],object=obj,field=field,
                                    gap_kind=cell.get('gap_kind','unread_source'))]))
     # A parsed parent belongs to the actual source record, not to every nearby
@@ -276,14 +325,18 @@ def pending_calls(data):
                 g['object'] in candidate.get('source_preview', '') or
                 any(_related(term, g['object']) for term in candidate.get('matched_terms', []))]
             if targeted and not candidate_gaps:continue
+            if candidate.get('assembly_heading') and any(r in ledger.get('assembly_reads', {}) for r in candidate['region_ids']):continue
             if candidate['read_state'] == 'unread' and candidate['region_ids']:
                 unread = unread_spans(candidate,ledger)
                 if not unread: continue
-                pending.append(dict(operation='source_recall_next',tool='read_source_context',
-                    arguments=unread[0] | {'neighbors':0},
+                pending.append(dict(operation='source_recall_next',tool='read_assembly' if candidate.get('assembly_heading') else 'read_source_context',
+                    arguments=dict(region_id=unread[0]['region_id'],view='record',offset=0,limit=5) if candidate.get('assembly_heading') else unread[0] | {'neighbors':0},
                     task_ids=sorted({g['requirement_id'] for g in candidate_gaps}) if candidate_gaps else ids,
                     query_id=query['query_id'],blocking=False,
-                    priority=10,coverage_gaps=candidate_gaps,reason='read_returned_source_before_more_candidates'))
+                    priority=1,coverage_gaps=candidate_gaps,
+                    source_preview=candidate.get('source_preview', '')[:500],
+                    matched_terms=candidate.get('matched_terms', []),
+                    reason='read_returned_source_before_more_candidates'))
         offset = query['first_unread_offset']
         if offset is not None and (not targeted or query_gaps):
             pending.append(dict(operation='source_recall_next',tool=query['tool'],
@@ -303,7 +356,17 @@ def pending_calls(data):
             unique[key]['priority'] = min(unique[key]['priority'],call['priority'])
         else:
             unique[key] = call
-    return sorted(unique.values(),key=lambda c:c['priority'])[:12]
+    # Rank already-returned candidates by their owning question, not insertion order.
+    # The preview is a navigation hint only; it does not grant evidence credit.
+    from cad_agent.analysis.retrieval import lexical_rank
+    reads = [c for c in unique.values() if c.get('source_preview')]
+    ranks = {}
+    for step in data['subtasks']:
+        owned = [c for c in reads if step['id'] in c['task_ids']]
+        if not owned:continue
+        for rank, (i, _) in enumerate(lexical_rank([{'index_text': c['source_preview'], 'text': c['source_preview'], 'chunk_id': str(i)} for i,c in enumerate(owned)], step['requirement'])):
+            ranks[id(owned[i])] = min(rank, ranks.get(id(owned[i]), rank))
+    return sorted(unique.values(),key=lambda c:(c['priority'],ranks.get(id(c),999)))[:12]
 
 
 def _related(word, obj):

@@ -1,5 +1,6 @@
 """CAD tool execution and result bookkeeping."""
 import json
+import re
 from copy import deepcopy
 import time
 from cad_agent.contracts import ExtractionRequest
@@ -52,6 +53,9 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.scope_workflow import bind_scope_call
     args = bind_scope_call(self, name, args)
     snapshot = self.request.snapshot_id
+    if name == 'read_requirement_sources':
+        from cad_agent.analysis.requirement_sources import read
+        return self._register_tree(read(self, args))
     if name == 'search_similar_objects':
         from cad_agent.analysis.similarity_search import search_similar_objects
         return search_similar_objects(self.w, snapshot, args)
@@ -169,16 +173,28 @@ def execute(self, name, raw_args, *, bounded=False):
         service = SemanticService(self.w, snapshot, self.index)
         method = {'query_annotations': service.query, 'locate_by_axes': service.locate,
                   'trace_detail': service.trace, 'read_table_semantics': service.table}[name]
-        return self._register_tree(method(args))
+        result = method(args)
+        if name == 'locate_by_axes' and result.get('boundary'):
+            self.highlight_action = dict(mode='replace', kind='geometry', snapshot_id=snapshot,
+                scope=dict(layout_id=args.layout_id, bbox=result['bbox']), paths=[result['boundary']],
+                regions=[], object_ids=list(args.axis_ids))
+            self.task.data['highlight_action'] = self.highlight_action
+            public = {k: result[k] for k in ('snapshot_id', 'layout_id', 'state', 'boundary', 'bbox', 'unit', 'diagnostics')}
+            public.update(kind='axis_region', tool=name, axis_ids=list(args.axis_ids), spatial_fact_scope='candidate_axis_region')
+            rows = self.task.data.setdefault('spatial_results', [])
+            rows[:] = [row for row in rows if row.get('axis_ids') != list(args.axis_ids)]
+            rows.append(public)
+            result['operation_receipts'] = [dict(operation='highlight', fulfilled=True)]
+        return self._register_tree(result)
     if name in ("get_drawing_context", "read_dimensions", "query_building_relations", "get_component_evidence"):
         service = ComponentService(self.w, snapshot)
         if name == "get_component_evidence":
-            return service.page(service.get(args.record_id), args.view, args.offset, args.limit,
-                page_call_budget=component_page_call_budget(self))
+            return self._register_tree(service.page(service.get(args.record_id), args.view, args.offset, args.limit,
+                page_call_budget=component_page_call_budget(self)))
         kind = {"get_drawing_context":"context", "read_dimensions":"dimensions", "query_building_relations":"relations"}[name]
         record = service.build(kind, args)
-        return service.page(record, getattr(args, "view", "dimensions"), args.offset, args.limit,
-            page_call_budget=component_page_call_budget(self))
+        return self._register_tree(service.page(record, getattr(args, "view", "dimensions"), args.offset, args.limit,
+            page_call_budget=component_page_call_budget(self)))
     if name in ('render_region', 'bind_visual_objects'):
         if self.w.settings.provider != 'responses_subscription' or self.request.runtime not in ('responses_subscription', 'codex'):
             raise ValueError('当前通道尚未支持图片输入。')
@@ -210,7 +226,7 @@ def execute(self, name, raw_args, *, bounded=False):
             from cad_agent.analysis.evidence_store import save_session
             result["full_geometry_record"] = save_session(self, "full_geometry",
                 dict(snapshot_id=snapshot, source_sha256=self.drawing['sha256'],
-                     items=geometry.records(args.entity_ids), unit=self.drawing["unit"],
+                     items=geometry.records([item["entity_id"] for item in result["items"]]), unit=self.drawing["unit"],
                      note="完整源几何记录；曲线仍按解析器细分，单位及对象身份规则不变。"))
             return result
         if name == "query_spatial":
@@ -258,7 +274,8 @@ def execute(self, name, raw_args, *, bounded=False):
     if name == "search_sources":
         if any(len(k) > 150 for k in args.keywords):
             raise ValueError("关键词过长")
-        result = self.index.search(**args.model_dump(), mode=self.request.retrieval_mode)
+        result = self.index.search(**args.model_dump(), mode=self.request.retrieval_mode,
+            prioritize_headings=bool(re.search('做法|构造|面层|砂浆|层次', self.request.question)))
         if result.get("retrieval"):
             self.retrieval_usage.append(result["retrieval"])
         return result
@@ -273,9 +290,7 @@ def execute(self, name, raw_args, *, bounded=False):
         from cad_agent.analysis.evidence_store import save_session
         result["original_source_record"] = save_session(self, "original_source",
             self.index.by_id[args.region_id].model_dump())
-        for item in result["items"]:
-            item["evidence"] = self._register(item["evidence"])
-        return result
+        return self._register_tree(result)
     if name == "extract_facts":
         if args.extractor_ref != "building.masonry@1":
             data = extract_general(self.index, args.extractor_ref, args.frame_ids)
@@ -441,10 +456,20 @@ def invoke_tool(self, name, raw_args):
             # do not reject the whole operation because of that redundant tag.
             active=[i for i in task_ids if any(s['id']==i and not (s['status']=='completed' and s['delivered']) for s in self.task.data['subtasks'])]
             if active:task_ids=active
+        if self.focused_enabled and name not in CONTROL and name != 'calculate_facts':
+            from cad_agent.analysis.calculation_workflow import execution_reviews
+            reviews = execution_reviews(self.task.data)
+            if reviews:
+                raise ValueError('CALCULATION_REVIEW_REQUIRED：'+dumps(reviews[0]))
+        if self.focused_enabled and name in ('search_sources', 'query_entities'):
+            from cad_agent.analysis.requirement_sources import required_reviews
+            source_reviews = required_reviews(self.task.data)
+            if source_reviews:
+                raise ValueError('SOURCE_REQUIREMENT_REVIEW_REQUIRED：'+dumps(source_reviews[0]))
         if name not in CONTROL:
             if not self.task.complex:self.task.auto_plan()
             task_ids = task_ids or ([self.task.parts[0]['id']] if not self.task.complex else [])
-            self.task.start(task_ids)
+            self.task.select(task_ids)
         entry["task_ids"] = task_ids or []
         batch_allowed = getattr(self, '_batch_read_allowed_tools', None)
         if batch_allowed is not None and name not in batch_allowed:
@@ -470,6 +495,17 @@ def invoke_tool(self, name, raw_args):
             if call_scope is not None:
                 # A cached observation belongs to its requirement owners.
                 cache_key += ':' + call_scope['scope_id'] + ':' + ','.join(sorted(task_ids or []))
+        if name == 'read_assembly' and self.focused_enabled:
+            prior = [o for o in self.observations.values() if o.get('tool')=='read_assembly'
+                and o.get('data',{}).get('target_region_id')==args.get('region_id')
+                and o['data'].get('view')==args.get('view','record')
+                and o['data'].get('offset',0)==args.get('offset',0)
+                and (o['data'].get('has_more') is False or
+                     len(o['data'].get('items',[]))>=args.get('limit',5))]
+            if prior:
+                raise ValueError('SOURCE_PAGE_ALREADY_READ：此构造页已返回；复用 observation_id='+prior[-1]['observation_id']+'，补读 next_offset 或其他未读对象，不要改变页大小重读同一页。')
+        if name not in CONTROL:
+            self.task.start(task_ids, action_key=self.policy.key(name, args))
         from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
         revalidates_source = SPATIAL_METHODS | {
             'bind_spatial_object', 'get_spatial_object', 'resolve_drawing_scope',
@@ -575,8 +611,21 @@ def invoke_tool(self, name, raw_args):
             result['error']['message']=self.validation_issue
             if getattr(self,'scope_recovery_feedback',None):
                 result['recovered_batches']=self.scope_recovery_feedback
-        elif name in ('inspect_scope_objects','read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','request_toolset','prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces','prepare_room_boundaries','select_room_boundaries','analyze_measurements','get_analysis_results','check_dimension_chain','inspect_enclosure','render_region','bind_visual_objects','get_drawing_context','query_building_relations','discover_rooms','read_dimensions','measure_geometry','get_room_contours','measure_room_area'):
+        elif name in ('inspect_scope_objects','read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','request_toolset','prepare_space_connections','review_space_connections','prepare_discovery_review','review_discovered_spaces','prepare_room_boundaries','select_room_boundaries','analyze_measurements','get_analysis_results','check_dimension_chain','inspect_enclosure','render_region','bind_visual_objects','get_drawing_context','query_building_relations','discover_rooms','read_dimensions','measure_geometry','get_room_contours','measure_room_area') and not str(error).startswith(('SOURCE_PAGE_ALREADY_READ','CALCULATION_REVIEW_REQUIRED')):
             result['error']['message']=str(error)[:400]
+        elif str(error).startswith('SOURCE_PAGE_ALREADY_READ'):
+            result['error']['code']='SOURCE_PAGE_ALREADY_READ'
+            result['error']['message']=str(error)
+            from cad_agent.analysis.recall import pending_calls
+            result['next_source_actions']=pending_calls(self.task.data)[:4]
+        elif str(error).startswith('SOURCE_REQUIREMENT_REVIEW_REQUIRED'):
+            result['error']['code']='SOURCE_REQUIREMENT_REVIEW_REQUIRED'
+            result['error']['message']='继续扩大检索前，先补读问题中明确要求但尚未读取的条件条款。'
+            result['next_source_actions']=source_reviews[:2]
+        elif str(error).startswith('CALCULATION_REVIEW_REQUIRED'):
+            result['error']['code']='CALCULATION_REVIEW_REQUIRED'
+            result['error']['message']='已有可用单位和来源数值。先调用 calculate_facts 明确执行或 missing_operands；之后继续其他来源读取。'
+            result['required_calculation_review']=reviews[0]
         elif name=='plan_task':
             from cad_agent.analysis.planning import plan_error_feedback
             result['error']=plan_error_feedback(error)
@@ -663,7 +712,7 @@ def invoke_tool(self, name, raw_args):
             if name=='resolve_room_units' or (batch and batch.get('unit_resolution')):
                 task_ids=list(set(task_ids)|{s['id'] for s in self.task.data['subtasks'] if s['kind']=='constraint'})
             self.task.record(task_ids,name,full_result,
-                {eid:self.evidence[eid] for eid in evidence_ids(full_result) if eid in self.evidence},self.observations,batch,duplicate)
+                {eid:self.evidence[eid] for eid in evidence_ids(full_result) if eid in self.evidence},self.observations,batch,duplicate, action_key=self.policy.key(name, args))
             self.focus.record(name,task_ids,full_result)
             if self.policy.stop_reason=='no_new_information' and self.task.runnable():
                 self.policy.stop_reason=None

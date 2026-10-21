@@ -22,7 +22,7 @@ class ComponentScope(Record):
 
 
 class ContextQuery(ComponentScope):
-    title: str = Field(default="",max_length=150,description="可按子图标题文字筛选；保留同名歧义，不用标题框代替范围。")
+    title: str = Field(default="",max_length=150,description="可按子图标题、图签图号或字段值筛选；保留同名歧义，不用标题框代替范围。")
     view: Literal["frames", "subframes"] = "subframes"
 
 

@@ -43,7 +43,15 @@ class GeometryService:
 
     def read(self, args):
         items = []
-        for rec in self.records(args.entity_ids):
+        ids = args.entity_ids
+        if args.entity_paths:
+            if args.layout_id not in {l['layout_id'] for l in self.drawing['layouts']}:
+                raise ValueError('布局不属于当前快照。')
+            ids = [stable_id('ent', self.sid, args.layout_id, '/'.join(h.upper() for h in p))
+                   for p in args.entity_paths]
+        for rec in self.records(ids):
+            if args.entity_paths and rec['layout_id'] != args.layout_id:
+                raise ValueError('原生路径不属于选定布局。')
             item = compact_record(rec)
             # Full native geometry lives in geometry.json, with bounded excerpts
             # for model calls so a spline cannot exhaust the conversation budget.

@@ -22,8 +22,8 @@ class UserInputValidationError(ValueError):
 
 def user_values(refs, question, state, text):
     if not refs:return set()
-    if state != 'derived':
-        raise UserInputValidationError('state', 'USER_INPUT_REQUIRES_DERIVED', '用户输入须作为 derived 条件，不能冒充图纸事实；保留有效的 user_inputs 引用。')
+    if state not in ('derived', 'unknown'):
+        raise UserInputValidationError('state', 'USER_INPUT_REQUIRES_DERIVED', '用户输入须作为 derived 条件或 unknown 缺口说明，不能冒充图纸事实；保留有效的 user_inputs 引用。')
     if not re.search('用户|题设|给定|假设|参考|条件', text):
         raise UserInputValidationError('text', 'USER_CONDITION_NOT_LABELED', '正文须明确标注用户给定或参考条件；保留有效的 user_inputs 引用。')
     for index, ref in enumerate(refs):
@@ -48,6 +48,7 @@ class Quantity(Record):
     value: str = Field(pattern=r'^-?\d{1,12}(?:\.\d{1,8})?$')
     unit: Literal['','mm','cm','m','mm2','cm2','m2','count','ratio','percent','m2/count'] = ''
     evidence_id: str = ''
+    unit_evidence_id: str = Field(default='', description='原文数值省略单位时引用已读默认线性尺寸单位条款。同快照/布局；跨图框须有本工程施工图或单体建筑设计的明确适用声明。仅适用厚度/长度/宽度/高度，不用于坐标、标高、面积。')
     question_quote: str = Field(default='',max_length=300)
     observation_id: str = ''
     measurement_ref: str = ''
@@ -67,6 +68,7 @@ class CalculateFacts(Record):
     operation: Literal['sum','subtract','multiply','divide','mean','ceil','floor','rank']
     quantities: list[Quantity] = Field(default_factory=list,max_length=20)
     calculation_key: str = Field(default='',max_length=120,description='同一目标算式的稳定标识；缺项补齐时沿用，不得用另一对象算式覆盖。')
+    review_group_id: str = Field(default='', max_length=160, description='required_calculation_review 提供的候选组标识；显式计算或记录该组缺项时原样回传，仅表示检查范围，不证明对象归属。')
     target: str = Field(default='',max_length=160,description='本算式所针对对象/分区/做法；要求列明多个对象时逐字填写其中一个对象名，口径放在操作数label中。')
     coverage_scope: Literal['single','aggregate'] = 'single'
     operand_relation: Literal['independent','same_object','same_scope'] = Field(default='independent', description='独立数值计算保留语义未确认；要求同对象/范围时须核验来源身份。缺项只阻止本算式，不影响其他完整算式。')
@@ -100,7 +102,8 @@ def calculation_tokens(quote):
         identifier=identifier or bool(re.match(r'[A-Za-z_]',tail) and not unit)
         if not unit and re.search(r'(?:比例|比值|系数)\s*[:：=]?\s*$',before):unit='ratio'
         role_match=re.search(r'(面积|停车数|车位数|数量|厚度|长度|宽度|净宽|标高)\s*(?:为|[:：=])?\s*(?:约)?\s*$',before)
-        role=role_match[1] if role_match else ''
+        role=role_match[1] if role_match else '厚度' if re.match(r'\s*厚(?!度)',tail) else ''
+        identifier = identifier or bool(re.match(r'\s*[、．.]',tail) and not role)
         status='identifier' if identifier else 'unit_unconfirmed' if not unit else 'available_numeric'
         if role=='面积' and unit and UNITS[unit][0]!='area':status='unit_conflict'
         yield dict(value=token['value'],unit=unit,role=role,status=status,number_span=token['text_span'],
@@ -123,6 +126,8 @@ def calculate_facts(s,args):
                 raise ValueError('calculation_key 已绑定另一目标、运算或口径；不能用其他算式消除缺项。')
     if not args.quantities and not args.missing_operands:raise ValueError('至少提供已绑定操作数或明确 missing_operands；不能猜操作数。')
     for q in args.quantities:
+        if q.unit_evidence_id and q.origin != 'source':
+            raise ValueError('独立默认单位依据仅允许原文操作数使用。')
         value=Decimal(q.value); basis='source_text'; quote='';source_approximate=False
         record={};lineage=None;upstream={};candidate=False
         if q.source_quote and q.origin not in ('source','user_input'):raise ValueError('source_quote 仅用于原文或用户原句。')
@@ -201,6 +206,7 @@ def calculate_facts(s,args):
         if lineage is None:lineage=[deepcopy(binding)]
         original_quote=quote
         number_evidence=[]
+        unit_binding=None
         if q.source_quote:
             if q.source_quote not in quote or not contains_number(q.source_quote,q.value):raise ValueError('source_quote 必须是含该数值的已读原文片段。')
             quote=q.source_quote
@@ -223,8 +229,12 @@ def calculate_facts(s,args):
                 detected=next((u for u in unit_order if re.match(r'\s*(?:'+UNIT_TEXT[u]+r')(?![A-Za-z²0-9])',tail,re.I)), '')
                 if not detected and re.search(r'(?:比例|比值|系数)\s*[:：=]?\s*$',quote[:token['number_span'][0]]):detected='ratio'
                 bound_units.append(detected)
+            if q.unit_evidence_id:
+                from cad_agent.analysis.default_units import resolve
+                unit_binding = resolve(s, q, record, quote, tokens)
             if q.unit and q.unit not in bound_units:
-                raise ValueError('该数值没有直接绑定所填单位；原文未明确该单位，不能借用其他数字的单位或截断复合单位。')
+                if any(bound_units) or not unit_binding:
+                    raise ValueError('该数值没有直接绑定所填单位；须读取并绑定明确默认单位条款，不能借用其他数字的单位或截断复合单位。')
             if not q.unit and any(bound_units):
                 raise ValueError('原文数值带有单位；不能省略单位将工程量当作无量纲数字。')
             # Spans are always relative to the unchanged full evidence quote.
@@ -232,20 +242,27 @@ def calculate_facts(s,args):
             number_evidence=[dict(raw=t['raw'],value=t['value'],interpretation=t['interpretation'],
                                   text_span=t['number_span'])
                              for t in calculation_tokens(original_quote)
-                             if t['status']!='identifier' and t['unit']==q.unit
+                             if t['status']!='identifier' and (t['unit']==q.unit or (unit_binding and not t['unit']))
                              and re.fullmatch(r'-?\d+(?:\.\d+)?',t['value'])
                              and Decimal(t['value'])==Decimal(q.value)
                              and t['number_span'][1]>offset and t['number_span'][0]<offset+len(quote)]
         approximate=approximate or source_approximate
         dim,factor=UNITS[q.unit]
+        if unit_binding:
+            binding['unit_basis'] = unit_binding
+            # Keep the clause identity through chained calculations without
+            # changing the immutable numerical source's quote or object identity.
+            for leaf in lineage:
+                if leaf.get('reference') == q.evidence_id:
+                    leaf['unit_basis'] = unit_binding
         resolved.append(dict(**q.model_dump(),basis=basis,normalized_value=str(value*factor),dimension=dim,
                              quote=original_quote,approximate=source_approximate,binding=binding,lineage=lineage,
                              unit_status='explicit' if q.unit else 'numeric_only_unit_unconfirmed',candidate=candidate,
-                             number_evidence=number_evidence,**upstream))
+                             number_evidence=number_evidence,unit_binding=unit_binding,**upstream))
     for plan in task_data.get('calculation_workflows',{}).values():
         if plan['calculation_key']!=key or not set(plan['task_ids'])&set(owners):continue
         prior=plan.get('inputs',[])
-        identity_fields=('origin','evidence_id','observation_id','measurement_ref','field','value','unit','object_id','scope_id')
+        identity_fields=('origin','evidence_id','unit_evidence_id','observation_id','measurement_ref','field','value','unit','object_id','scope_id')
         identity_changed=any(any(old.get(k,'')!=new.get(k,'') for k in identity_fields)
                              for old,new in zip(prior,resolved))
         known_object_changed=any(any(old.get('binding',{}).get(k) and
@@ -254,9 +271,23 @@ def calculate_facts(s,args):
                                  for old,new in zip(prior,resolved))
         if len(resolved)<len(prior) or known_object_changed or (plan['status']=='calculated' and identity_changed):
             raise ValueError('calculation_key 已绑定操作数来源、顺序和对象；补齐未知单位/来源可沿用，不能换成另一已知对象。已执行算式修改须用新 calculation_key。')
+    if args.review_group_id:
+        from cad_agent.analysis.calculation_workflow import operand_groups
+        group = next((g for owner in owners for g in operand_groups(task_data, task_data.get('calculation_inputs', {}).get(owner, {}))
+                      if g['review_group_id'] == args.review_group_id), None)
+        if group is None:
+            raise ValueError('review_group_id 不属于当前分项已读的候选组。')
+        physical = [r for r in resolved if r['origin'] != 'user_input']
+        if group['kind'] == 'calculated_subtotal':
+            matches = all(r['origin'] == 'calculation' and r.get('observation_id') in group['observation_ids'] for r in physical)
+        else:
+            leaves = [leaf for r in physical for leaf in r['lineage'] if leaf['origin'] != 'user_input']
+            matches = all(leaf['origin'] == 'source' and leaf.get('reference') in group['evidence_ids'] for leaf in leaves)
+        if not matches:
+            raise ValueError('操作数不属于该 review_group_id，不能用另一组计算消除当前检查。')
     relation,gaps=calculation_binding(args,resolved,s.request.question)
     metadata=dict(calculation_key=args.calculation_key or args.operation+':'+args.target,
-                  target=args.target,coverage_scope=args.coverage_scope,
+                  target=args.target,coverage_scope=args.coverage_scope,review_group_id=args.review_group_id,
                   missing_operands=[v.model_dump() for v in args.missing_operands]+gaps,approximate=approximate,
                   candidate_inputs=any(r['candidate'] for r in resolved),**relation)
     if metadata['missing_operands']:
@@ -310,7 +341,9 @@ def calculate_facts(s,args):
     return dict(**metadata,status='calculated',operation=op,inputs=resolved,value=str(result),unrounded_value=unrounded_value,unit=unit,state='derived',
                 conditional=conditional or any(q.origin=='user_input' for q in args.quantities),
                 applicability='unverified',note=('输入含约数，输出小数位仅为计算显示精度；' if approximate else '')+'仅计算已绑定数值；对象一致性、集合覆盖及输入适用关系待核对，不作优化或合规判断。',
-                operation_receipts=[dict(operation='arithmetic',fulfilled=True,calculation_operation=op)])
+                operation_receipts=[dict(operation='arithmetic',fulfilled=True,calculation_operation=op)] +
+                    ([dict(operation='units', fulfilled=True, basis='validated_calculation_operands')]
+                     if resolved and all(r['unit_status']=='explicit' for r in resolved) else []))
 
 
 class ReadAssembly(Record):
@@ -322,7 +355,12 @@ class ReadAssembly(Record):
 
 def read_assembly(s,args):
     from cad_agent.analysis.assembly import read
-    return read(s.index,args)
+    result = read(s.index,args)
+    from cad_agent.analysis.default_units import candidates
+    result['default_unit_clauses'] = [
+        dict(evidence=s.index.evidence(r), applicability='requires_explicit_unit_evidence_binding')
+        for r in candidates(s.index, s.index.by_id[args.region_id])[:3]]
+    return result
 
 
 class ResolveScope(Record):

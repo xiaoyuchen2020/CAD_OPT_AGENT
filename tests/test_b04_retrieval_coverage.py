@@ -57,8 +57,8 @@ def test_explicit_transform_grammar_retains_special_objects_and_fields():
 
 def test_first_work_is_targeted_and_empty_read_queue_is_not_completion():
     d=data(); work=pending_calls(d)
-    assert len(work)==4
-    assert all(c['arguments']['match']=='all' and c['coverage_gaps'] for c in work)
+    assert len(work)==2
+    assert all(not c['arguments'].get('keywords') and len(c['coverage_gaps'])==2 for c in work)
     assert all(c['blocking'] is True for c in work)
 
 
@@ -115,7 +115,7 @@ def test_field_only_query_does_not_enumerate_whole_drawing_for_every_object():
 def test_same_read_is_deduplicated_without_losing_requirement_gaps():
     d=data(); second=deepcopy(d['subtasks'][0]);second['id']='q2';d['subtasks'].append(second)
     work=pending_calls(d)
-    assert len(work)==4
+    assert len(work)==2
     assert all(w['task_ids']==['q1','q2'] for w in work)
     assert all({g['requirement_id'] for g in w['coverage_gaps']}=={'q1','q2'} for w in work)
 

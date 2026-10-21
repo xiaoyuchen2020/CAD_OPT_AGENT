@@ -13,6 +13,7 @@ ANSWER_CONTRACT = {
     'user_inputs': '独立条件登记数组 [{quote:本轮问题的逐字片段,value:该片段内的数值或完整数字短语}]；不是原图事实，不授予任何要求完成状态。',
     'source_delivery': 'read_assembly的source_bound确认来源内标题/表行与层次归属，按已读完整原文逐字段交付；object_instance_state或engineering_applicability_state未确认只限制工程实例适用性。已读但未整理须标validation_failed，不能称unread_source；原文摘录和工具完成均不算主体答案。',
     'structured_fields': '交付包的delivery_fields提供来源内已绑定字段及claim_template，可按实际问题选择并填写question_part_ids；candidate_requirement_ids不是完成证明。模板不替代分页、单位、实例适用性、数值与最终逐项校验；不要把全部已读source机械标fulfilled。',
+    'calculation_delivery': 'calculate_facts 返回 calculated 后，正文单列 evidence_basis=tool_observation、observation_ids=[计算观测ID]、state=derived，并保留用户条件及小计/完整合计边界；不要用 calculations 重复声明工具运算，不混入 source evidence_ids。每个算式口径只交付一次。原文层次摘要另列，比较用户标签须 derived。',
     'repair': '只修正 field_issues 指定字段；保留 validated_claims 和 validated_user_inputs。未知枚举不得猜成 source；缺证据或数值不匹配须回查，不能只换标签。',
 }
 

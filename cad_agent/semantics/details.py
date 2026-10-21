@@ -27,7 +27,7 @@ def detail_catalog(index):
         frames=[f for f in index.drawing['frames'] if f['layout_id']==lid and f['method']!='layout_fallback']
         context=build_context(index,lid,frames)
         for f in context['frames']:
-            if f.get('boundary_basis')=='layout_fallback':continue
+            if f.get('boundary_basis')=='layout_fallback' or f.get('kind')=='titleblock_fields':continue
             borders.append(dict(id=f['object_id'],layout_id=lid,bbox=f['bbox'],entity_ids=f.get('entity_ids',[])))
         segments=[]
         for line in index.scene['lines']:

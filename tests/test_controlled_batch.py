@@ -181,3 +181,26 @@ def test_prepare_only_cli_and_frozen_plan_tamper(tmp_path, workspace, demo_bytes
     plan = json.loads(frozen_plan.read_text()); plan['cases'][0]['caps']['seconds'] += 100
     batch.dump(frozen_plan, plan)
     with pytest.raises(ValueError, match='Plan differs'): batch.prepare(args)
+
+
+def test_subscription_link_failures_stop_new_dispatch_and_preserve_pending(tmp_path, workspace, demo_bytes, monkeypatch):
+    from cad_agent.analysis.session import CadAgentSession
+    from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
+    for klass, name in [(CadAgentSession, '__init__'), (CadAgentSession, 'round_limit'),
+                        (CodexSubscriptionRuntime, 'exploration_budget'), (CodexSubscriptionRuntime, 'total_budget')]:
+        monkeypatch.setattr(klass, name, getattr(klass, name))
+    monkeypatch.setattr(batch, 'STOP', False)
+    args, manifest, _ = setup_batch(tmp_path, workspace, demo_bytes, 1)
+    calls = []
+    def broken(req):
+        calls.append(req)
+        raise httpx.ReadTimeout('fixture ambiguous request')
+    monkeypatch.setattr(ResponsesTransport, 'client', lambda self, timeout: httpx.Client(
+        transport=httpx.MockTransport(broken), timeout=timeout, trust_env=False))
+    batch.execute(args, manifest)
+    summary = json.loads((args.output/'summary.json').read_text())
+    assert len(calls) == 3 and summary['attempts'] == 3 and summary['pending'] == 1
+    assert summary['stopped'] and summary['stop_reason'] == 'consecutive_subscription_link_failures'
+    assert not (args.output/'attempts/Q04-A').exists()
+    results = json.loads((args.output/'results.json').read_text())
+    assert all(r['error']['code'] == 'SIWC_TRANSPORT_ERROR' for r in results)

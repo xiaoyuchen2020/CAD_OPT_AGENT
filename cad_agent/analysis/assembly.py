@@ -402,6 +402,11 @@ def read(index, args):
         source_field_binding=binding['state'] if binding else 'unresolved',
         layer_order=binding.get('layer_order','source_reading_order_only') if binding else 'source_reading_order_only',
         units='per_fragment_explicit_only',object_completeness='unverified')
+    from cad_agent.analysis.default_units import candidates as unit_clauses, declaration
+    default_unit_clauses = [dict(unit=declaration(row.text), evidence=index.evidence(row),
+        applicability='source_declared_linear_dimensions_only',
+        excludes=['elevations', 'coordinates', 'areas', 'material_grades'])
+        for row in unit_clauses(index, target)[:3]]
     target_headings=list(HEADING.finditer(target.text))
     title_start=target_headings[0].start() if len(target_headings)==1 else 0
     title_end=target.text.find('\n',title_start) if target_headings else len(target.text)
@@ -411,6 +416,7 @@ def read(index, args):
         related_record_count=len(catalog),
         title_evidence=index.evidence(target,title_start,min(title_end,title_start+1800)),row_structure=band,
         unit_candidates=read_unit_candidates(index,target),
+        default_unit_clauses=default_unit_clauses,
         source_binding=binding,reference_reads=references,repair_reads=repair_reads,items=items,table_candidates=table_candidates,table_catalog_state='loaded' if cached_tables is not None else 'not_loaded',
         total=len(segments),offset=args.offset,
         has_more=more,next_offset=next_offset,next_actions=actions,checks=checks,

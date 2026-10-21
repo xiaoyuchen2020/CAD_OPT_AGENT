@@ -302,12 +302,15 @@ class TaskLedger:
                 raise ValueError('TASK_NOT_EXECUTABLE：'+json.dumps(dict(task_id=key,**state),ensure_ascii=False)+'；继续 runnable 中的独立要求，或通过 plan_task 修正不必要依赖；预算耗尽须部分交付。')
         return [by_id[k] for k in ids]
 
-    def start(self, ids):
-        for s in self.select(ids):
+    def start(self, ids, action_key=None):
+        selected = self.select(ids)
+        if action_key and any(s.get('repeated_actions', {}).get(action_key, 0) >= REPETITION_LIMIT for s in selected):
+            raise ValueError('REPEATED_SOURCE_ACTION：此操作已重复且无新进展；读取未读目标或执行尚未完成的计算。')
+        for s in selected:
             s.update(status='running',calls=s['calls']+1)
         self.save()
 
-    def record(self, ids, name, result, evidence, observations, batch=None, duplicate=False):
+    def record(self, ids, name, result, evidence, observations, batch=None, duplicate=False, action_key=None):
         self.data['evidence'].update(deepcopy(evidence))
         self.data['observations'].update(deepcopy(observations))
         eid=set(evidence); oid=result.get('observation_id')
@@ -316,11 +319,19 @@ class TaskLedger:
         record_calculation(self.data,ids,name,result)
         for s in self.data['subtasks']:
             if s['id'] not in ids: continue
+            new_evidence = eid-set(s['evidence_ids'])
             s['evidence_ids']=sorted(set(s['evidence_ids'])|eid)
             if oid and oid not in s['observation_ids']:s['observation_ids'].append(oid)
             s['stalled']=s['stalled']+1 if duplicate else 0
+            if action_key:
+                s['action_progress_tracking'] = True
+                repeats = s.setdefault('repeated_actions', {})
+                repeats[action_key] = repeats.get(action_key, 0)+1 if duplicate else 0
+            if not duplicate and (new_evidence or result.get('items') or batch or
+                    any(r.get('fulfilled') for r in receipts(name, result))):
+                s['progress_call'] = s['calls']
             s['status']='pending'
-            if s['stalled']>=REPETITION_LIMIT or s['calls']>=SUBTASK_CALL_LIMIT:
+            if not execution_state(self.data, s['id'])['executable']:
                 s.update(status='partial',reason='subtask_tool_budget_or_repetition',gap_kind='budget_exhausted')
         for s in self.data['subtasks']:
             if s['id'] in ids:

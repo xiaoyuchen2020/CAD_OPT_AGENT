@@ -28,6 +28,7 @@ from cad_agent.geometry.spatial_relations import MeasureSpatialRelation, Inspect
 from cad_agent.geometry.spatial_sections import MeasureSpatialSections, MeasureElevationRelation
 from cad_agent.analysis.door_schedule import ReadDoorScheduleTable, TraceDoorSchedule
 from cad_agent.analysis.similarity_search import SimilarObjectSearch
+from cad_agent.analysis.requirement_sources import RequirementSources
 
 class SearchArgs(Record):
     alternatives: list[str] = Field(default_factory=list,max_length=8,description='显式替代查询词（每词至多150字符），与query按OR匹配并强制字面分页；是待核候选词，不确认同义或对象功能。match=all时该组仍须与各keywords同时命中。')
@@ -93,6 +94,7 @@ class TableArgs(Record):
 
 
 class EntityArgs(Record):
+    spatial_relation: Literal['bbox_intersects', 'insertion_point_inside'] = 'bbox_intersects'
     alternatives: list[str] = Field(default_factory=list,max_length=8,description='至多8个显式替代文字查询词，每词至多150字符，与query按OR匹配；按实体ID去重，不合并独立同名实体。')
     layout_id: str = ""
     frame_id: str = ""
@@ -152,6 +154,9 @@ class FinalAnswer(Record):
 
 
 TOOL_SPECS = {
+    "read_requirement_sources": (
+        RequirementSources,
+        "按当前 requirement_id 的原始问题跨条款补读原文（有界、本地字面排序），用于通则、特殊条件、不同目标漏读。返回可引用原文及续读入口；排名不证明对象归属，不替代完整表行核查。"),
     "query_property_evidence": (PropertyEvidenceQuery, "查看本任务已读取对象的字段证据；按对象和属性筛选，分别保留表列值、标注值、几何测量、计算、单位和冲突。仅整理已读记录，不增加读取覆盖或确认对象身份；field_id可用于最终字段断言。"),
     "measure_spatial_sections": (MeasureSpatialSections, "按绑定源对象的闭合区域或显式对边，沿原生边支持的轴做局部截面并扣除已绑定障碍。轴和断面参数必须核对源几何；返回所采样截面宽度，不等于全路径最小通行净宽，不假定障碍枚举完整。"),
     "measure_elevation_relation": (MeasureElevationRelation, "核查绑定源标签的两个标高原文、单位、共同基准和视图，再计算条件成立的差值。用户假设必须逐字来自本轮问题；不同完成面/结构面、视图或基准未证实不能把相邻负标高直接认作层高。"),
@@ -201,7 +206,7 @@ TOOL_SPECS = {
     "select_room_boundaries": (SelectBoundaries, "逐项绑定已收到的局部图轮廓候选，本地校验几何/家具排除/重叠后保存高亮；选择只表示视觉候选，开口和净边界仍待核查。不接受新坐标或面积。"),
     "render_region": (RenderRegion, "读取局部PNG图像并在下一轮发送给模型；WCS bbox来自用户选择/已读图元/区域。返回E编号与实体对应、坐标映射和证据链接。最多两图，不以像素猜尺寸。仅订阅自定义/Codex桥支持。"),
     "bind_visual_objects": (BindVisualObjects, "把已收到图像中的候选对象绑定到该图像提供的实体ID，记录候选视觉解释。身份仍待核查；返回binding_id供后续几何测量引用。"),
-    "read_geometry": (GeometryRead, "读取当前快照图元的计算几何、原始参数与块来源；大数组有截断标记。ID 来自 query_entities 或 query_spatial。"),
+    "read_geometry": (GeometryRead, "读取当前快照图元的计算几何、原始参数与块来源；大数组有截断标记。ID 来自 query_entities 或 query_spatial。用户已选原生句柄但旧索引缺失时，传layout_id和entity_paths（逐级句柄数组）直接核验源DXF；与entity_ids二选一。"),
     "query_spatial": (SpatialQuery, "按布局和 WCS bbox 查询实际线形相交或完全包含关系，曲线使用有界细分。返回几何实体 ID。"),
     "measure_geometry": (GeometryMeasure, "测量两个图元最短距离或单图元长度/闭合面积。跨布局、无单位和无效轮廓拒绝；结果不证明房间净面积。"),
     "measure_room": (RoomMeasure, "房间净边界与净面积试点：提供房间文字 region_id 或 layout_id+seed。以成对墙面与门垛证据寻找局部边界，返回测量状态、证据ID及预览。无可靠边界时只返回候选/待复核，不执行优化规则。"),

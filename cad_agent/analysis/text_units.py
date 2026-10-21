@@ -8,7 +8,8 @@ import math
 
 from cad_agent.contracts import stable_id
 
-VERSION = 'source-superscript-v2-native-audit'
+VERSION = 'source-superscript-v3-compound-units'
+UNIT_END = r'\d\s*(?:(?:kg|g)\s*/\s*)?(?:mm|cm|m)\s*$'
 
 
 def native_text_metadata(index, text):
@@ -54,7 +55,7 @@ def read_unit_candidates(index, target):
     and INSERT ancestry, a smaller elevated 2/3 beside an estimated unit end.
     Ambiguity is retained. A recovered m² never establishes area ownership.
     """
-    if not re.search(r'\d\s*(?:mm|cm|m)\s*(?:$|\n)',target.text):
+    if not re.search(r'\d\s*(?:(?:kg|g)\s*/\s*)?(?:mm|cm|m)(?![A-Za-z])',target.text):
         return []
     ids = set(getattr(target, 'entity_ids', None) or [])
     if not ids:
@@ -62,7 +63,7 @@ def read_unit_candidates(index, target):
         # their unit incomplete; proximity alone cannot create provenance.
         return []
     anchors = [t for t in index.scene['texts'] if t['entity_id'] in ids
-               and t.get('kind') == 'TEXT' and re.search(r'\d\s*(?:mm|cm|m)\s*$', t['text'])]
+               and t.get('kind') == 'TEXT' and re.search(UNIT_END, t['text'])]
     results = []
     for anchor in anchors[:12]:
         h = anchor.get('height', 0)
@@ -78,7 +79,7 @@ def read_unit_candidates(index, target):
             ratio = other.get('height',0)/h
             dx = (other['origin'][0]-anchor['bbox'][2])/h
             dy = (other['origin'][1]-anchor['origin'][1])/h
-            if not (.3 <= ratio <= .7 and -.9 <= dx <= .65 and .35 <= dy <= 1.2):
+            if not (.3 <= ratio <= .7 and -1.25 <= dx <= .65 and .35 <= dy <= 1.2):
                 continue
             # Any available native metadata must agree; missing values are
             # explicitly unverified instead of being treated as equality.
@@ -96,7 +97,7 @@ def read_unit_candidates(index, target):
             if native_pair:
                 metadata={k:'matched_native_dxf' for k in ('owner','style')}
             exp = other['text'].strip()
-            unit = re.search(r'(mm|cm|m)\s*$',anchor['text'])[1] + exp
+            unit = re.search(r'((?:(?:kg|g)\s*/\s*)?(?:mm|cm|m))\s*$',anchor['text'])[1] + exp
             results.append(dict(candidate_id=stable_id('unit',index.snapshot,VERSION,anchor['entity_id'],other['entity_id']),
                 version=VERSION,state='candidate',normalized_text_candidate=anchor['text'].rstrip()+('²' if exp=='2' else '³'),
                 native_relation_evidence=[dict(entity_id=t['entity_id'],entity_path=t['entity_path'],**n)
@@ -116,13 +117,13 @@ def read_unit_candidates(index, target):
         competitors=[]
         for t in index.scene['texts']:
             height=t.get('height',0)
-            if t.get('kind')!='TEXT' or not height or not re.search(r'\d\s*(?:mm|cm|m)\s*$',t['text']):continue
+            if t.get('kind')!='TEXT' or not height or not re.search(UNIT_END,t['text']):continue
             if any(t.get(k)!=exponent.get(k) for k in ('layout_id','layer')):continue
             if t.get('entity_path',[])[:-1]!=exponent.get('entity_path',[])[:-1]:continue
             if abs(t.get('rotation',0))>.01 or abs(exponent.get('rotation',0)-t.get('rotation',0))>.01:continue
             if any(t.get(k) and exponent.get(k) and t[k]!=exponent[k] for k in ('owner','style')):continue
             if (.3<=exponent.get('height',0)/height<=.7 and
-                -.9<=(exponent['origin'][0]-t['bbox'][2])/height<=.65 and
+                -1.25<=(exponent['origin'][0]-t['bbox'][2])/height<=.65 and
                 .35<=(exponent['origin'][1]-t['origin'][1])/height<=1.2):competitors.append(t['entity_id'])
         result['competing_anchor_count']=len(set(competitors))
         result['competing_anchor_entity_ids']=sorted(set(competitors))

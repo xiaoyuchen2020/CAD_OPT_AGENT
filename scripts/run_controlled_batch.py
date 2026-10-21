@@ -34,6 +34,13 @@ PROFILES = {
 }
 
 
+def infrastructure_failure_streak(previous, entry):
+    """Stop dispatching after three consecutive link failures; retain pending cases."""
+    code = (entry.get('error') or {}).get('code')
+    return previous + 1 if code in {'SIWC_TRANSPORT_ERROR', 'SIWC_HTTP_ERROR',
+        'SIWC_STREAM_INCOMPLETE', 'SIWC_STREAM_FORMAT', 'SIWC_RESPONSE_FAILED'} else 0
+
+
 def case_configuration(plan, case):
     profile = case.get('model_profile', plan.get('model_profile'))
     if profile not in PROFILES:
@@ -195,6 +202,8 @@ def execute(args, manifest):
                     raise ValueError(f'Previous attempt may still be running: {cid}')
     pending = [c for c in plan['cases'] if c['id'] not in attempted or c['id'] in retry]
     active = {}; submitted_at = time.monotonic()
+    link_failures = 0
+    stop_reason = None
     settings_path = out / ('resume-settings-'+str(time.time_ns())+'.json' if (out / 'execution-settings.json').exists() else 'execution-settings.json')
     dump(settings_path, dict(runtime=plan['runtime'], model=plan['model'], fallback=False,
          case_configurations={c['id']:case_configuration(plan,c) for c in plan['cases']},
@@ -257,6 +266,11 @@ def execute(args, manifest):
                 dump(out / 'results.json', sorted(results, key=lambda r:(r['id'], r['attempt'])))
                 w.close(); del active[rid]
                 print('DONE', entry['id'], entry['status'], 'tokens', entry['tokens'], flush=True)
+                link_failures = infrastructure_failure_streak(link_failures, entry)
+                if link_failures >= 3:
+                    STOP = True
+                    stop_reason = 'consecutive_subscription_link_failures'
+                    print('STOP', stop_reason, 'pending', len(pending), flush=True)
                 if (entry.get('error') or {}).get('code') in ('SIWC_LOGIN_REQUIRED', 'SIWC_REFRESH_FAILED',
                      'SIWC_AUTH_EXPIRED', 'SIWC_ACCESS_DENIED', 'SIWC_USAGE_LIMIT', 'SIWC_CONFIG_CONFLICT'):
                     STOP = True
@@ -266,6 +280,7 @@ def execute(args, manifest):
             w.cancel_chat(rid); w.close()
         account.close()
         dump(out / 'summary.json', dict(attempts=len(results), pending=len(pending), stopped=STOP,
+             stop_reason=stop_reason,
              tokens=sum(r['tokens'] for r in results), real_server_throughput_verified=False,
              frozen_unchanged=hashes(out / 'frozen-code') == manifest['code']))
 

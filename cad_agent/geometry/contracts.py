@@ -6,7 +6,19 @@ from cad_agent.contracts import Record
 
 
 class GeometryRead(Record):
-    entity_ids: list[str] = Field(min_length=1, max_length=12)
+    entity_ids: list[str] = Field(default_factory=list, max_length=12)
+    layout_id: str = ''
+    entity_paths: list[list[str]] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode='after')
+    def source_selection(self):
+        import re
+        if bool(self.entity_ids) == bool(self.entity_paths):
+            raise ValueError('提供 entity_ids 或明确的原生 entity_paths，二选一。')
+        if self.entity_paths and (not self.layout_id or any(not p or len(p)>20 or
+                any(not re.fullmatch(r'[0-9A-Fa-f]+', h) for h in p) for p in self.entity_paths)):
+            raise ValueError('原生路径需要当前 layout_id 和有效的逐级 DXF 句柄。')
+        return self
 
 
 class SpatialQuery(Record):

@@ -7,6 +7,7 @@ source reads. No counters or acceptance receipts are changed by this module.
 from cad_agent.analysis.tool_metadata import OPERATION_TOOLS
 
 SUBTASK_CALL_LIMIT = 12
+SUBTASK_PROGRESS_RESERVE = 4
 REPETITION_LIMIT = 2
 PLAN_REVISION_LIMIT = 2
 
@@ -15,9 +16,12 @@ def execution_state(data, task_id, visiting=None):
     nodes={s['id']:s for s in data['subtasks']}
     step=nodes[task_id]
     result={'executable':True,'blocked_reason':None,'gap_kind':None}
-    if step.get('calls',0)>=SUBTASK_CALL_LIMIT:
+    if step.get('calls',0)>=SUBTASK_CALL_LIMIT and not (
+            step.get('progress_call', 0) >= step.get('calls', 0)-1 and
+            step.get('progress_call', 0) > 0 and
+            step.get('calls', 0) < SUBTASK_CALL_LIMIT + SUBTASK_PROGRESS_RESERVE):
         return result|{'executable':False,'blocked_reason':'subtask_tool_budget','gap_kind':'budget_exhausted'}
-    if step.get('stalled',0)>=REPETITION_LIMIT:
+    if step.get('stalled',0)>=REPETITION_LIMIT and not step.get('action_progress_tracking'):
         return result|{'executable':False,'blocked_reason':'repeated_no_progress','gap_kind':'budget_exhausted'}
     if step['status'] in ('blocked_capability','partial') and step.get('reason')=='subtask_tool_budget_or_repetition':
         return result|{'executable':False,'blocked_reason':'legacy_budget_or_repetition','gap_kind':'budget_exhausted'}
@@ -51,6 +55,10 @@ def route_tools(session, item):
     if op=='read_requested_fact':return {'search_sources','read_source_context'}
     if op=='boundary_review':return {'prepare_room_boundaries','select_room_boundaries'}
     if op=='resolve_units':return {'resolve_room_units'}
+    if op=='units' and not session.room_batches and any(
+            'arithmetic' in s.get('operations', []) and s['id'] in item.get('task_ids', [])
+            for s in session.task.data['subtasks']):
+        return {'calculate_facts', 'read_source_context'}
     if op=='units' and not session.room_batches:
         # A room-only unit resolver requires a batch. General geometry checks
         # expose drawing units first and obtain applied-unit receipts on measure.

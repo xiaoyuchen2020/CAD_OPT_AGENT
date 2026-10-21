@@ -69,7 +69,13 @@ class SemanticService:
             else:status='unresolved';diagnostics.append('DEGENERATE_AXIS_REGION')
         else:status='unresolved';diagnostics.append('SELECT_TWO_CROSSING_OR_FOUR_PAIRED_PARALLEL_AXES')
         if any(a['alternative_line_ids'] for a in axes):diagnostics.append('MULTIPLE_AXIS_LINE_CANDIDATES')
+        bbox = list(MultiPoint(points).bounds) if boundary else None
+        next_actions = ([dict(tool='query_entities', arguments=dict(layout_id=args.layout_id, bbox=bbox,
+            spatial_relation='insertion_point_inside', kind='TEXT', limit=20)),
+            dict(tool='render_region', arguments=dict(layout_id=args.layout_id, bbox=bbox))] if bbox else [])
         return dict(snapshot_id=self.sid,layout_id=args.layout_id,state=status,point=point,boundary=boundary,
+                    result_kind='axis_region' if boundary else 'axis_intersection' if point else 'unresolved',
+                    bbox=bbox, geometry_available=bool(boundary or point), next_actions=next_actions,
                     coordinate_space='dxf_wcs',unit=self.index.drawing['unit'],axes=axes,
                     evidence=[e for a in axes for e in self.evidence(a)],diagnostics=diagnostics,
                     note='由候选轴线的无限延长线求交；不确认子图归属，也不以轴间距作为房间净尺寸。')

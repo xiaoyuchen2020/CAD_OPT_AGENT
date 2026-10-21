@@ -2,9 +2,11 @@
 import argparse
 import json
 import time
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cad_agent.adapters.model import ModelError
 from cad_agent.adapters.siwc import SiwcAccount
 from cad_agent.runtimes.responses_subscription import ResponsesTransport
@@ -37,12 +39,13 @@ def main():
         return seconds
     account = SiwcAccount(args.data_dir)
     session = SimpleNamespace(w=SimpleNamespace(settings=SimpleNamespace(model=PAYLOAD["model"])),
+        task=SimpleNamespace(data={'subtasks': []}), system_prompt='',
         _remaining=remaining, usage=[], trace=[], progress=lambda **kwargs: None,
         runtime_diagnostics={"model_requests": [{"round": 1, "probe": True}]})
     result = {"status": "not_started", "tool_calls": 0, "paid_api_fallback": False}
     try:
         with account.lease():
-            response = ResponsesTransport(account).request(session, PAYLOAD)
+            response = ResponsesTransport(account).request(session, PAYLOAD, max_attempts=1)
         result.update(status="completed", model=response["model"], model_access_verified=True)
     except ModelError as error:
         result.update(status="failed", error={"code": error.code, "message": error.message})
@@ -52,7 +55,8 @@ def main():
         (args.output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
         print(json.dumps(result, ensure_ascii=False, indent=2))
         account.close()
+    return 0 if result['status'] == 'completed' else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

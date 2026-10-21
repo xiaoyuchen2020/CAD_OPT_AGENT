@@ -104,6 +104,7 @@ class DrawingIndex:
         limit=8,
         mode="keyword",
         alternatives=None,
+        prioritize_headings=False,
     ):
         from cad_agent.analysis.recall import terms as recall_terms, matched, page
         groups = recall_terms(query, keywords, alternatives)
@@ -155,7 +156,17 @@ class DrawingIndex:
                     "parser_context_region_ids": r.context_region_ids,
                 }
             )
-        hits.sort(key=lambda item: item['region_id'])
+        if prioritize_headings:
+            from cad_agent.analysis.assembly import HEADING
+            for item in hits:
+                region = self.by_id[item['region_id']]
+                for heading in HEADING.finditer(region.text):
+                    end = region.text.find('\n', heading.start())
+                    title = region.text[heading.start():end if end >= 0 else len(region.text)]
+                    if any(term.casefold() in title.casefold() for term in item['matched_terms']):
+                        item['assembly_heading'] = title
+                        break
+        hits.sort(key=lambda item: (not bool(item.get('assembly_heading')), item['region_id']))
         result = {
             "items": hits[offset : offset + limit],
             "total": len(hits),
@@ -163,6 +174,8 @@ class DrawingIndex:
             "has_more": offset + limit < len(hits),
             "note": "仅检索已解析文字；章节筛选基于解析器关系，零命中不证明原图未注明。",
         }
+        if prioritize_headings:
+            result['ranking_context'] = 'explicit_assembly_heading_first_v1'
         if alternatives:
             result['retrieval'] = dict(requested_mode=requested_mode,effective_mode='keyword',
                 fallback_reason='explicit_alternatives_literal_enumeration', score_is_confidence=False)
@@ -416,6 +429,7 @@ class DrawingIndex:
 
     def entities(
         self,
+        spatial_relation='bbox_intersects',
         layout_id="",
         frame_id="",
         bbox=None,
@@ -461,6 +475,10 @@ class DrawingIndex:
                 continue
             if bbox is not None and not intersects(box, bbox):
                 continue
+            if bbox is not None and spatial_relation == 'insertion_point_inside':
+                origin = e.get('origin')
+                if origin is None or not (bbox[0] <= origin[0] <= bbox[2] and bbox[1] <= origin[1] <= bbox[3]):
+                    continue
             if frame_box is not None and not intersects(box, frame_box):
                 continue
             if layer and e.get("layer") != layer:
@@ -481,6 +499,7 @@ class DrawingIndex:
                         "layer",
                         "entity_path",
                         "block_name",
+                        "origin",
                         "text",
                     )
                 }
@@ -509,7 +528,7 @@ class DrawingIndex:
             "note": "几何相交只表示空间邻近，不证明构件或引线关联。旧快照的几何元数据可能为空；重新导入可获取新版本。未做工程量测算。",
         }
         return page(self,result,'query_entities',dict(query=query,alternatives=alternatives or [],
-            layout_id=layout_id,frame_id=frame_id,bbox=bbox,layer=layer,kind=kind,offset=offset,limit=limit))
+            layout_id=layout_id,frame_id=frame_id,bbox=bbox,layer=layer,kind=kind,offset=offset,limit=limit,spatial_relation=spatial_relation))
 
     def inspect(self, region_id, padding=1.0):
         r = self.by_id.get(region_id)

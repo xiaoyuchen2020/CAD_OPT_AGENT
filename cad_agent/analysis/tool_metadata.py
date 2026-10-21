@@ -10,6 +10,8 @@ GROUPS = {
 }
 READS = {'read_assembly','read_project_sources','read_source_context','read_table','get_evidence','read_table_semantics'}
 READS.add('read_door_schedule_table')
+READS.add('read_requirement_sources')
+GROUPS['sources'].add('read_requirement_sources')
 GROUPS['semantics'].update({'read_door_schedule_table', 'trace_door_schedule'})
 GROUPS['components'].update({'read_door_schedule_table', 'trace_door_schedule'})
 GROUPS['geometry'].add('search_similar_objects')

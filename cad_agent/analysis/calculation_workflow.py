@@ -120,12 +120,28 @@ def record_calculation(data, ids, name, result):
     if name != 'calculate_facts' or result.get('error'):
         return
     plans = data.setdefault('calculation_workflows', {})
+    attempts = data.setdefault('calculation_review_attempts', {})
+    for owner in ids:
+        key = owner + ':' + result['operation']
+        history = attempts.setdefault(key, [])
+        signature = operand_signature(data.get('calculation_inputs', {}).get(owner, {}))
+        if signature not in history:
+            history.append(signature)
+    if result.get('review_group_id'):
+        gid = result['review_group_id']
+        for owner in ids:
+            context = data.get('calculation_inputs', {}).get(owner, {})
+            group = next((g for g in operand_groups(data, context) if g['review_group_id'] == gid), None)
+            if group:
+                history = data.setdefault('calculation_group_reviews', {}).setdefault(owner + ':' + gid + ':' + result['operation'], [])
+                sig = operand_signature({'operands': group['operands']})
+                if sig not in history:history.append(sig)
     for owner in ids:
         key = owner + ':' + result['calculation_key']
         plans[key] = dict(task_ids=[owner], **{k: deepcopy(result[k]) for k in
             ('calculation_key', 'operation', 'target', 'coverage_scope', 'status', 'inputs',
              'missing_operands', 'value', 'unit', 'observation_id', 'operand_relation',
-             'relation_status', 'target_binding_status', 'lineage') if k in result})
+             'relation_status', 'target_binding_status', 'lineage', 'review_group_id') if k in result})
 
 
 def outstanding(data, step):
@@ -178,7 +194,7 @@ def outstanding(data, step):
 
 def pending_calculations(data):
     refresh_calculation_inputs(data)
-    pending=[]
+    pending=execution_reviews(data)
     for step in data['subtasks']:
         if step['status'] in ('waiting_input', 'blocked_capability'):
             continue
@@ -196,10 +212,11 @@ def pending_calculations(data):
 def calculation_input_context(context):
     """Small model-facing view; persisted inventory retains exact source refs."""
     return {key:deepcopy(context[key]) for key in ('status','required_operations','missing_operands','operand_count','inventory_truncated')} | {
-        'operands':[{key:deepcopy(row[key]) for key in ('value','unit','role','status','quantity','reference','target_binding_status') if key in row}
+        'operands':[{key:deepcopy(row[key]) for key in ('value','unit','role','status','quantity','reference','target_binding_status','default_unit_candidates','unit_binding','source_task_ids','reuse_status') if key in row}
                     | {'quote':row.get('quote','')[:160]} for row in context['operands'][:12]],
         'omitted_operands':max(0,len(context['operands'])-12),
         'automatic_join':False,
+        'execution_instruction':'单位已验证的 quantity 可直接用于 calculate_facts。先明确目标与所取层次，执行来源数值与用户值的算术；部分层次只作有条件小计，不冒充完整构造。多个面层口径须分别标明，不因另一对象未读而跳过独立算式。',
     }
 
 
@@ -231,14 +248,49 @@ def refresh_calculation_inputs(data):
         # explicit single-subject record for the requested target.
         eids.update(eid for eid,e in evidence.items() if any(
             source_target_matches(e.get('quote',''),target,question) for target in targets))
+        # Independent read requirements can supply a later arithmetic requirement
+        # without an artificial dependency. Expose printed dimensions only as
+        # candidates with their original owners; never grant a target binding.
+        shared_eids = set()
+        linear_roles = {'厚度','长度','宽度','高度','净宽'}
+        if (re.search(r'各套|两种.{0,15}做法|分别.{0,12}(?:求|计算)', question)
+                or not any(t['role'] in linear_roles for eid in eids
+                           for t in calculation_tokens(evidence[eid].get('quote','')))):
+            shared_eids = {eid for sibling in data.get('subtasks', [])
+                for eid in sibling.get('evidence_ids', []) if eid in evidence and eid not in eids
+                and any(t['role'] in linear_roles for t in calculation_tokens(evidence[eid].get('quote','')))}
+            eids.update(shared_eids)
+        # A computed subtotal can be selected by a later independent requirement.
+        # Exposure retains lineage and never establishes object identity.
+        oids.update(oid for oid, obs in observations.items()
+                    if obs.get('tool') == 'calculate_facts' and obs.get('data', {}).get('status') == 'calculated')
         rows=[]
         for eid in sorted(eids):
             e=evidence.get(eid,{})
             quote=e.get('quote','')
             for token in calculation_tokens(quote):
                 quantity=dict(origin='source',evidence_id=eid,value=token['value'],unit=token['unit'])
+                from cad_agent.analysis.default_units import declaration, applicable
+                unit_options = []
+                unit_binding = None
+                if not token['unit'] and token['role'] in ('厚度','长度','宽度','高度','净宽'):
+                    for uid, other in evidence.items():
+                        unit = declaration(other.get('quote', ''))
+                        if not unit or not applicable(e, other):continue
+                        proposal = quantity | dict(unit=unit, unit_evidence_id=uid)
+                        try:
+                            checked = calculate_facts(session, CalculateFacts(operation='sum', quantities=[proposal]))
+                        except (ValueError, KeyError, TypeError):continue
+                        unit_options.append(dict(unit=unit, unit_evidence_id=uid))
+                        unit_binding = checked['inputs'][0]['unit_binding']
+                if unit_options and len({u['unit'] for u in unit_options}) == 1:
+                    quantity.update(unit_options[0])
+                    token = token | dict(unit=quantity['unit'], status='available_numeric')
                 rows.append(dict(**token,quantity=quantity,reference=eid,
                     binding=operand_binding(e,'source',eid),quote=quote[:500],
+                    default_unit_candidates=unit_options[:3], unit_binding=unit_binding,
+                    source_task_ids=[owner['id'] for owner in data.get('subtasks', []) if eid in owner.get('evidence_ids', [])],
+                    reuse_status='shared_read_requires_selection' if eid in shared_eids else 'owned_read_requires_selection',
                     target_binding_status='unconfirmed',automatic_join=False))
         # Only explicitly labelled user conditions become inventory inputs.
         # Preserve clause text including comparators/ranges; never choose an
@@ -284,6 +336,9 @@ def refresh_calculation_inputs(data):
                 rows.append(dict(value=quantity['value'],unit=quantity['unit'],role=quantity.get('field','value'),
                     status='candidate_numeric' if operand['candidate'] else 'available_numeric',quantity=quantity,
                     reference=oid,binding=operand['binding'],target_binding_status='unconfirmed',automatic_join=False))
+        # Put usable operands and user references ahead of section numbers and grades.
+        rows.sort(key=lambda r:(r['status'] not in ('available_numeric','candidate_numeric'),
+                               r['quantity']['origin']!='user_input', not bool(r.get('role'))))
         required=required_operations(step['requirement'])
         calls=[]
         # Strict and reachable fast path: area/count or length/width in one
@@ -321,3 +376,126 @@ def refresh_calculation_inputs(data):
             missing_operands=gaps[:12],next_calls=calls)
     data['calculation_inputs']=inventories
     return inventories
+
+
+def operand_signature(context):
+    from cad_agent.analysis.efficiency import dumps
+    from hashlib import sha256
+    operands = sorted(dumps(r['quantity']) for r in context.get('operands', [])
+                      if r['status'] == 'available_numeric')
+    return sha256(dumps(operands).encode()).hexdigest()
+
+
+def execution_reviews(data):
+    """A bounded explicit model decision before spending more source calls.
+
+    Available dimensions are not a semantic join. The model must either select
+    a stated basis and execute, or record missing operands in calculate_facts.
+    No numbers, target identity, or calculation receipts are inferred here.
+    """
+    from cad_agent.analysis.scheduling import execution_state
+    reviews = []
+    for step in data.get('subtasks', []):
+        if not execution_state(data, step['id'])['executable']:continue
+        context = data.get('calculation_inputs', {}).get(step['id'], {})
+        required = set(context.get('required_operations', [])) & {'sum', 'subtract'}
+        plans = [p for p in data.get('calculation_workflows', {}).values()
+                 if step['id'] in p.get('task_ids', [])]
+        done = {p['operation'] for p in plans if p['status'] == 'calculated'}
+        signature = operand_signature(context)
+        attempts = data.get('calculation_review_attempts', {})
+        remaining = []
+        for op in sorted(required-done):
+            history = attempts.get(step['id'] + ':' + op, [])
+            # Legacy records have no revision receipt: one fresh decision is allowed.
+            if signature not in history and len(history) < 3:
+                remaining.append(op)
+        if not remaining:continue
+        rows = [r for r in context.get('operands', []) if r['status']=='available_numeric']
+        source_units = {r['unit'] for r in rows if r['quantity']['origin'] in ('source','calculation')
+                        and r['unit'] in ('mm','cm','m')}
+        user_rows = [r for r in rows if r['quantity']['origin']=='user_input'
+                     and r['unit'] in source_units
+                     and (r['quantity']['question_quote'] in step['requirement']
+                          or step['requirement'].rstrip('。；;') in r['quantity']['question_quote'])]
+        if not source_units or not user_rows:continue
+        reviews.append(dict(operation='calculation_review', tool='calculate_facts',
+            task_ids=[step['id']], blocking=True, priority=0,
+            required_operations=remaining, input_context=calculation_input_context(context),
+            reason='已读线性数值和本分项用户参照均有单位；继续读取前先显式检查算式。选择明确层次并实际计算；已知层小计可作为 origin=calculation 继续减用户参照，必须标为条件小计，不能代替含未知层的整套总厚度。完整口径缺项另用 missing_operands 记录；不得自动配对。'))
+    return grouped_execution_reviews(data) + reviews
+
+
+def operand_groups(data, context):
+    """Read record membership and calculated subtotal identity, not layer joins."""
+    from cad_agent.contracts import stable_id
+    from cad_agent.analysis.efficiency import dumps
+    rows = [r for r in context.get('operands', []) if r['status'] == 'available_numeric']
+    groups = {}
+    for oid, obs in data.get('observations', {}).items():
+        d = obs.get('data', {})
+        if obs.get('tool') == 'read_assembly' and d.get('view') == 'record' and d.get('record_id'):
+            gid = d['record_id']
+            group = groups.setdefault(gid, dict(review_group_id=gid, kind='assembly_candidate',
+                title=d.get('title_evidence', {}).get('quote', ''), evidence_ids=set(), operands=[]))
+            for item in d.get('items', []):
+                for e in [item.get('evidence', {}), *[f.get('evidence', {}) for f in item.get('fragments', [])]]:
+                    if e.get('evidence_id'):group['evidence_ids'].add(e['evidence_id'])
+        if obs.get('tool') == 'calculate_facts' and d.get('status') == 'calculated' and d.get('operation') == 'sum':
+            refs = sorted(dumps({k:i.get(k) for k in ('origin','evidence_id','observation_id','value','unit','unit_evidence_id','measurement_ref','object_id','scope_id')}) for i in d.get('inputs', []))
+            gid = stable_id('subtotal-review', *refs)
+            values = [r for r in rows if r['quantity'].get('observation_id') == oid]
+            if values and gid not in groups:
+                groups[gid] = dict(review_group_id=gid, kind='calculated_subtotal', title=d.get('target', ''),
+                    evidence_ids=set(), operands=values, observation_ids=[])
+            if gid in groups:groups[gid]['observation_ids'].append(oid)
+    for group in groups.values():
+        if group['kind'] == 'assembly_candidate':
+            group['operands'] = [r for r in rows if r['quantity']['origin'] == 'source'
+                                  and r['reference'] in group['evidence_ids'] and r.get('role') == '厚度']
+        group['evidence_ids'] = sorted(group['evidence_ids'])
+    return [g for g in groups.values() if g['operands']]
+
+
+def grouped_execution_reviews(data):
+    """One completed object/basis cannot consume another object's arithmetic."""
+    from cad_agent.analysis.scheduling import execution_state
+    result = []
+    for step in data.get('subtasks', []):
+        if not execution_state(data, step['id'])['executable']:continue
+        context = data.get('calculation_inputs', {}).get(step['id'], {})
+        if 'subtract' not in context.get('required_operations', []):continue
+        users = [r for r in context.get('operands', []) if r['status'] == 'available_numeric'
+                 and r['quantity']['origin'] == 'user_input' and r['unit'] in ('mm','cm','m')
+                 and (r['quantity']['question_quote'] in step['requirement']
+                      or step['requirement'].rstrip('。；;') in r['quantity']['question_quote'])]
+        if not users:continue
+        plans = list(data.get('calculation_workflows', {}).values())
+        for group in operand_groups(data, context):
+            gid = group['review_group_id']
+            if group['kind'] == 'assembly_candidate':
+                if not re.search(r'各套|两种.{0,15}做法|分别.{0,12}(?:求|计算)', data.get('question', '')):continue
+                if len(group['operands']) < 2:continue
+                # A selected pair is review evidence, not proof that the assembly
+                # is complete. Unknown layers and excluded materials stay explicit.
+                sources = set(group['evidence_ids'])
+                def covers(p):
+                    refs = {leaf.get('reference') for leaf in p.get('lineage', []) if leaf.get('origin') == 'source'}
+                    return p.get('status') == 'calculated' and len(refs) >= 2 and refs <= sources
+                if any(p['operation'] == 'subtract' and covers(p) for p in plans):continue
+                op = 'subtract' if any(p['operation'] == 'sum' and covers(p) for p in plans) else 'sum'
+            else:
+                if any(p.get('status') == 'calculated' and p['operation'] == 'subtract'
+                       and any(i.get('origin') == 'calculation' and i.get('observation_id') in group['observation_ids'] for i in p.get('inputs', [])) for p in plans):continue
+                op = 'subtract'
+            signature = operand_signature({'operands': group['operands']})
+            history = data.get('calculation_group_reviews', {}).get(step['id'] + ':' + gid + ':' + op, [])
+            if signature in history or len(history) >= 2:continue
+            result.append(dict(operation='calculation_review', tool='calculate_facts', task_ids=[step['id']],
+                blocking=True, priority=0, required_operations=[op], review_group_id=gid,
+                candidate_title=group['title'], group_kind=group['kind'],
+                input_context=calculation_input_context(dict(operands=group['operands']+users,
+                    status='needs_binding', required_operations=[op], missing_operands=[], next_calls=[],
+                    operand_count=len(group['operands'])+len(users), inventory_truncated=False)),
+                reason='此候选做法/已执行小计尚未完成本项算术检查，另一做法或另一口径不能代替。回传 review_group_id，显式选择材料并执行，或记录该组 missing_operands（含未选用/口径缺失原因）。未知层不得补零；条件小计及差值不能代替整套总厚度。'))
+    return result[:6]

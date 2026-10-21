@@ -113,6 +113,25 @@ def working_result(value, ref, limit=18000):
     out.update(evidence_record=ref, result_excerpt=True, original_result_chars=len(dumps(value)),
                next_read=dict(tool="read_evidence_record", arguments=dict(record_id=ref["record_id"], start=0)),
                note="大结果已完整保存在证据存储。按需分页回读；未读内容不能作为已核对事实。")
+    # A context page is a structured field list, not a prefix of arbitrary JSON.
+    # Keep its complete visible page when duplicate evidence is the only bulk.
+    if value.get('kind') == 'context' and 'items' in value:
+        from cad_agent.analysis.efficiency import compact
+        packet = compact(value)
+        if len(dumps(packet)) <= 45000:
+            return packet | {'evidence_record': ref}
+    # Structured tables retain usable cells and whole quotes once, with field
+    # references instead of duplicating every cell in a second records tree.
+    if 'header_rows' in value and 'records' in value and 'items' in value:
+        from cad_agent.analysis.efficiency import compact
+        packet = dict(value)
+        packet['records'] = [dict(r, fields=[{'cell_id': f['cell_id']} for f in r['fields']])
+                             for r in value['records']]
+        packet = compact(packet)
+        packet.update(evidence_record=ref, cell_reference_basis='items.cells',
+                      original_result_chars=len(dumps(value)))
+        if len(dumps(packet)) <= 45000:
+            return packet
     # A bounded prefix assists navigation without silently claiming completeness.
     out["preview_json"] = dumps(value)[:4000]
     # Whole source quotes are retained whenever the projected packet is used.

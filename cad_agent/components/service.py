@@ -11,7 +11,7 @@ from .context import build_context
 from .dimensions import read_dimensions, DIMENSION_VERSION
 from .relations import refine_discovery, enrich_openings
 
-COMPONENT_VERSION = "drawing-components-v1.6-native-viewports"
+COMPONENT_VERSION = "drawing-components-v1.8-field-evidence"
 COLLECTIONS = {"context": ("frames", "subframes"), "dimensions": ("dimensions",),
                "relations": ("rooms", "walls", "openings", "relations")}
 
@@ -56,7 +56,8 @@ class ComponentService:
                 exact=[s for s in data['subframes'] if same_plan_title(s['title'],args.title)]
                 data['subframes']=exact or [s for s in data['subframes'] if args.title in s['title']]
                 owners={fid for s in data['subframes'] for fid in s['frame_ids']}
-                data['frames']=[f for f in data['frames'] if f.get('frame_id') in owners or f['object_id'] in {s.get('parent_border_id') for s in data['subframes']}]
+                data['frames']=[f for f in data['frames'] if f.get('frame_id') in owners or f['object_id'] in {s.get('parent_border_id') for s in data['subframes']}
+                    or any(args.title in v['value'] for field in f.get('metadata',{}).values() for v in field.get('values',[]))]
             if bounds:
                 from shapely.geometry import box
                 for collection in COLLECTIONS[kind]:
@@ -137,4 +138,10 @@ class ComponentService:
             requested_limit=limit,effective_limit=len(page),next_offset=offset+len(page) if offset+len(page)<len(items) else None,
             has_more=offset+len(page)<len(items),counts={k:len(record[k]) for k in COLLECTIONS[record["kind"]]},
             claim_contract="工具观测只证明提取/推导结果；对象与关系身份待确认。候选解释标 derived/unknown，不得宣称已确认设计事实。")
+        if record['kind']=='context' and len(page)>1:
+            from cad_agent.analysis.efficiency import compact, dumps
+            if len(dumps(compact(result))) > 38000:
+                smaller=ComponentService.page(record,view,offset,len(page)-1,page_call_budget=page_call_budget)
+                smaller['requested_limit']=limit
+                return smaller
         return result

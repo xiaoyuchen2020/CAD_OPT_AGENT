@@ -2,7 +2,7 @@
 import json
 import re
 from cad_agent.analysis.boundary_context import numeric_evidence
-from cad_agent.analysis.grounding import numbers, contains_number, verify_calculations
+from cad_agent.analysis.grounding import numbers, contains_number, contains_numeric_phrase, verify_calculations
 from cad_agent.analysis.fact_tools import user_values
 from cad_agent.analysis.assembly_delivery import ownership_issues
 from cad_agent.analysis.spatial_delivery import is_spatial_fact, spatial_claim_issues, spatial_numeric_evidence, spatial_measurement_issues, spatial_numeric_claim_text
@@ -35,9 +35,9 @@ def validate_answer(self, content):
     if parsed.user_inputs:
         user_values(parsed.user_inputs,self.request.question,'derived','用户给定条件')
     for claim in parsed.claims:
-        if claim.state=='derived' and re.search('用户|题设|给定|假设|参考|条件',claim.text):
+        if claim.state in ('derived', 'unknown') and re.search('用户|题设|给定|假设|参考|条件',claim.text):
             own={(r.quote,r.value) for r in claim.user_inputs}
-            claim.user_inputs.extend(r for r in parsed.user_inputs if any(contains_number(claim.text,n) for n in numbers(r.value)) and (r.quote,r.value) not in own)
+            claim.user_inputs.extend(r for r in parsed.user_inputs if contains_numeric_phrase(claim.text, r.value) and (r.quote,r.value) not in own)
     claims, citations, positions = [], [], {}
     issues = [f"{e['path']} [{e['code']}]：{e['message']}" for e in parts.field_issues]
     validated_claims = []
@@ -213,6 +213,14 @@ def validate_answer(self, content):
         raise AnswerValidationError(issues, validated_claims, [c.model_dump() for c in parsed.claims],
             field_issues=fields, validated_user_inputs=parts.validated_user_inputs,
             targets=repair_targets(parts.raw, fields))
+    from cad_agent.analysis.delivery_recovery import same_calculation_delivery
+    unique_claims = []
+    for claim in claims:
+        if any(same_calculation_delivery(old, claim, self.observations) for old in unique_claims):
+            parts.normalizations.append(dict(action='deduplicate_calculation_receipts', text=claim['text']))
+        else:
+            unique_claims.append(claim)
+    claims = unique_claims
     prefixes = {
         "observed": "",
         "derived": "【模型推断，待核查】",
