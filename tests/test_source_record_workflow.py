@@ -18,6 +18,21 @@ def routing(text,**kw):
     return NS(request=request,task=NS(parts=natural_parts(text)),w=NS(settings=NS(source_record_workflow=True)))
 
 
+def test_default_configuration_routes_sources_and_preserves_explicit_opt_out(monkeypatch,tmp_path):
+    from cad_agent import config
+    monkeypatch.setattr(config,'local_env',lambda:{})
+    s=routing('帮我找下外墙做法')
+    for settings in (config.Settings(data_dir=tmp_path),config.Settings.load()):
+        s.w.settings=settings
+        assert route(s)['route']=='source_records'
+    s.request=s.request.model_copy(update={'source_record_mode':'agent'})
+    assert route(s)['route']=='agent'
+    s.request=s.request.model_copy(update={'source_record_mode':'auto'})
+    monkeypatch.setattr(config,'local_env',lambda:{'CAD_SOURCE_RECORD_WORKFLOW':'0'})
+    s.w.settings=config.Settings.load()
+    assert route(s)['route']=='agent'
+
+
 @pytest.mark.parametrize('question', ['帮我找下外墙做法','列出外墙1做法', '提取内墙和屋面做法', '筛选含“岩棉”的外墙做法', '列出包含“防水”的做法', '列出外墙做法；再列出屋面做法'])
 def test_explicit_source_routes_keep_original_requirements(question):
     s=routing(question);plan=route(s)

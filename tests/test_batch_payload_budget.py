@@ -146,7 +146,9 @@ def test_frozen_dxf_adaptive_pages_recover_the_full_original_sequence(workspace,
     dest=workspace.store.root/'drawings'/sid;dest.mkdir(parents=True,exist_ok=True)
     for filename in ('regions.json','entities.json','scene.json'):
         shutil.copy2(FROZEN/'data/drawings'/sid/filename,dest/filename)
-    s=AgentRunner(workspace,ChatRequest(snapshot_id=sid,question='读取外墙构造原文。',mode='agent',source_read_batching=True));s._index=index
+    # Use the production index over the copied immutable inputs so the default
+    # source-page cache exercises its real file/version signature contract.
+    s=AgentRunner(workspace,ChatRequest(snapshot_id=sid,question='读取外墙构造原文。',mode='agent',source_read_batching=True))
     monkeypatch.setattr(workspace,'regions',lambda _:index.regions)
     rid='region_69f7a246408d77f73036bd92'
     expected=assembly_read(index,ReadAssembly(region_id=rid,limit=12))

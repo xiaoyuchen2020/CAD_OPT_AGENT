@@ -79,12 +79,19 @@ def test_real_q17_source_relation_keeps_both_original_quotes_and_no_area_equival
     assert [hashlib.sha256(p.read_bytes()).hexdigest() for p in paths]==hashes
 
 
-def test_real_q17_compound_reading_is_available_through_public_context_and_assembly():
+def test_real_q17_compound_reading_is_available_through_public_context_and_assembly(workspace):
     from cad_agent.analysis.evidence_ledger import source_context
     from cad_agent.analysis.fact_tools import read_assembly, ReadAssembly
+    from cad_agent.analysis.session import CadAgentSession
+    from cad_agent.contracts import ChatRequest
+    from scripts.test_source_record_workflow import seed
     index=q17_index()
     context=source_context(index.w,SID,RID,neighbors=0)
-    assembly=read_assembly(SimpleNamespace(index=index),ReadAssembly(region_id=RID))
+    # Public tools require an authorized session and a writable derived cache;
+    # keep the frozen source store read-only and exercise a temporary copy.
+    seed(Q17,workspace,SID)
+    session=CadAgentSession(workspace,ChatRequest(snapshot_id=SID,question='读取面积单位原文。'))
+    assembly=read_assembly(session,ReadAssembly(region_id=RID))
     for result in (context,assembly):
         assert result['unit_candidates'][0]['normalized_unit_candidate']=='m2'
         assert {e['quote'] for e in result['unit_candidates'][0]['source_evidence']}=={'面积154.05m','2'}

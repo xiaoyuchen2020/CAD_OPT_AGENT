@@ -27,8 +27,11 @@ def replay(workspace, monkeypatch, batching, assembly=False):
         # temporary replay copy when the second run uses the same workspace.
         (target / name).unlink(missing_ok=True)
         shutil.copy2(FROZEN / 'data/drawings' / snapshot / name, target / name)
-    s = AgentRunner(workspace, ChatRequest(snapshot_id=snapshot, question='读取外墙构造原文。', mode='agent', source_read_batching=batching))
-    s._index = index
+    # This benchmark compares the original Agent's sequential/batched tools,
+    # not the default automatic source-record route.
+    s = AgentRunner(workspace, ChatRequest(snapshot_id=snapshot, question='读取外墙构造原文。', mode='agent', source_record_mode='agent', source_read_batching=batching))
+    # Keep FrozenIndex as the independent source oracle; the runner builds its
+    # production index and cache signature from these copied fixture files.
     monkeypatch.setattr(s.w, 'regions', lambda sid: index.regions if sid == snapshot else [])
     rids = ['region_69f7a246408d77f73036bd92', 'region_66fe4f4f916d6216811c8851']
     reads = [read(rid, tool='read_assembly', limit=1) if assembly else read(rid, neighbors=0) for rid in rids]
