@@ -42,6 +42,9 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
     args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    if self.journal.tool_stack:
+        self.journal.section(self.journal.tool_stack[-1], 'execution', args.model_dump(),
+                             '工具执行入口参数（含已验证默认值）')
     if name == 'read_evidence_record':
         from cad_agent.analysis.evidence_store import read
         return read(self, args)
@@ -473,6 +476,8 @@ def invoke_tool(self, name, raw_args):
         entry["task_ids"] = task_ids or []
         batch_allowed = getattr(self, '_batch_read_allowed_tools', None)
         if batch_allowed is not None and name not in batch_allowed:
+            if name not in CONTROL:
+                self.task.start(task_ids, action_key=self.policy.key(name, args))
             raise ValueError('此批次开始时该读取工具尚未开放。')
         from cad_agent.analysis.scope_workflow import bind_scope_call, record_scope_call, selected_for_call
         call_scope = selected_for_call(self, name)
@@ -487,7 +492,7 @@ def invoke_tool(self, name, raw_args):
             # Apply the same defaults advertised to the model.
             args = dict(args)
             if "limit" in TOOL_SPECS[name][0].model_fields:
-                args.setdefault("limit", 12 if name=="analyze_room_batch" else 5)
+                args.setdefault("limit", 12 if name in {"analyze_room_batch", "read_assembly"} else 5)
             args = TOOL_SPECS[name][0].model_validate(args, strict=True).model_dump()
             cache_key = self.policy.key(name, args)
             if result_view != 'auto' or name in PROJECTABLE_TOOLS:
@@ -496,14 +501,10 @@ def invoke_tool(self, name, raw_args):
                 # A cached observation belongs to its requirement owners.
                 cache_key += ':' + call_scope['scope_id'] + ':' + ','.join(sorted(task_ids or []))
         if name == 'read_assembly' and self.focused_enabled:
-            prior = [o for o in self.observations.values() if o.get('tool')=='read_assembly'
-                and o.get('data',{}).get('target_region_id')==args.get('region_id')
-                and o['data'].get('view')==args.get('view','record')
-                and o['data'].get('offset',0)==args.get('offset',0)
-                and (o['data'].get('has_more') is False or
-                     len(o['data'].get('items',[]))>=args.get('limit',5))]
+            from cad_agent.analysis.read_context import matching_read_page
+            prior = matching_read_page(self.observations, args)
             if prior:
-                raise ValueError('SOURCE_PAGE_ALREADY_READ：此构造页已返回；复用 observation_id='+prior[-1]['observation_id']+'，补读 next_offset 或其他未读对象，不要改变页大小重读同一页。')
+                raise ValueError('SOURCE_PAGE_ALREADY_READ：此构造页已返回；复用 observation_id='+prior['observation_id']+'，补读 next_offset 或其他未读对象，不要改变页大小重读同一页。')
         if name not in CONTROL:
             self.task.start(task_ids, action_key=self.policy.key(name, args))
         from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
@@ -662,7 +663,9 @@ def invoke_tool(self, name, raw_args):
             archive_ref = result['evidence_record']
         else:
             archive_ref = save_session(self, name, result)
-            result = working_result(result, archive_ref) if self.stable_prefix_enabled and result_view != 'full' else result | {"evidence_record": archive_ref}
+            result = working_result(result, archive_ref,
+                assembly_pages=getattr(self.w.settings, 'model_context_codec', True)
+                ) if self.stable_prefix_enabled and result_view != 'full' else result | {"evidence_record": archive_ref}
     before_chars = len(json.dumps(result, ensure_ascii=False))
     visible = set(self.policy.seen_evidence)
     encoded = dumps(compact(result, visible)) if self.policy.enabled else json.dumps(result, ensure_ascii=False)
@@ -712,7 +715,16 @@ def invoke_tool(self, name, raw_args):
             if name=='resolve_room_units' or (batch and batch.get('unit_resolution')):
                 task_ids=list(set(task_ids)|{s['id'] for s in self.task.data['subtasks'] if s['kind']=='constraint'})
             self.task.record(task_ids,name,full_result,
-                {eid:self.evidence[eid] for eid in evidence_ids(full_result) if eid in self.evidence},self.observations,batch,duplicate, action_key=self.policy.key(name, args))
+                {eid:self.evidence[eid] for eid in evidence_ids(full_result) if eid in self.evidence},self.observations,batch,duplicate, action_key=self.policy.key(name, args),
+                track_progress=self.policy.enabled, defer_stall=batch_allowed is not None)
+            deltas = [s['last_progress'] for s in self.task.data['subtasks'] if s['id'] in task_ids and s.get('last_progress')]
+            if deltas and self.policy.enabled and batch_allowed is None:
+                entry['requirement_progress'] = deltas
+                self.policy.stalled = min(d['stalled'] for d in deltas)
+                if all(d['kind'] == 'no_progress' and d['stalled'] >= 3 for d in deltas) and not self.task.runnable():
+                    self.policy.stop_reason = 'no_requirement_progress'
+                elif self.policy.stop_reason == 'no_new_information':
+                    self.policy.stop_reason = None
             self.focus.record(name,task_ids,full_result)
             if self.policy.stop_reason=='no_new_information' and self.task.runnable():
                 self.policy.stop_reason=None
@@ -740,6 +752,7 @@ def invoke_tool(self, name, raw_args):
             "stalled_calls": self.policy.stalled, "stop_reason": self.policy.stop_reason,
         }
     entry["elapsed_seconds"] = round(time.monotonic() - tick, 3)
+    self.journal.tool_result(args, full_result or result, encoded, entry, archive_ref)
     if self.request.adaptation_policy_id and not duplicate and entry['status']=='completed':
         # Only the finalized normal read is visible to the Agent. Generated
         # proposals, diagnostics and candidates remain in separate audit records.

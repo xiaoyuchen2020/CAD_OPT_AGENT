@@ -92,7 +92,7 @@ def test_repeated_no_progress_forces_answer_not_more_tools(workspace, demo_bytes
     monkeypatch.setattr(workspace.gateway, "chat_turn", turn)
     result = s.run()
     assert rounds == [True, True, True, False]
-    assert result["efficiency"]["stop_reason"] == "no_new_information"
+    assert result["efficiency"]["stop_reason"] == "no_requirement_progress"
     assert result["efficiency"]["duplicate_calls"] == 2
 
 

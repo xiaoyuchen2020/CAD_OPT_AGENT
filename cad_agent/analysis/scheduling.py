@@ -21,6 +21,8 @@ def execution_state(data, task_id, visiting=None):
             step.get('progress_call', 0) > 0 and
             step.get('calls', 0) < SUBTASK_CALL_LIMIT + SUBTASK_PROGRESS_RESERVE):
         return result|{'executable':False,'blocked_reason':'subtask_tool_budget','gap_kind':'budget_exhausted'}
+    if step.get('quality_progress', {}).get('stalled', 0) >= 3:
+        return result|{'executable':False,'blocked_reason':'no_requirement_progress','gap_kind':'unread_source'}
     if step.get('stalled',0)>=REPETITION_LIMIT and not step.get('action_progress_tracking'):
         return result|{'executable':False,'blocked_reason':'repeated_no_progress','gap_kind':'budget_exhausted'}
     if step['status'] in ('blocked_capability','partial') and step.get('reason')=='subtask_tool_budget_or_repetition':

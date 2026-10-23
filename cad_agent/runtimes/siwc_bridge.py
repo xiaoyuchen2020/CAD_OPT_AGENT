@@ -9,6 +9,7 @@ import time
 from cad_agent.adapters.siwc import fail
 from cad_agent.adapters.model import ModelError
 from cad_agent.analysis.efficiency import dumps, compact
+from cad_agent.analysis.model_context import encode_messages
 from cad_agent.runtimes.responses_subscription import ResponsesTransport
 from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
 from cad_agent.runtimes.vision import attach_images, mark_images_sent
@@ -62,9 +63,10 @@ class SiwcBridge:
         instructions, inputs = self.inputs(messages)
         if final:
             text = dumps(s.final_context(self.controls, s.policy.stop_reason or 'exploration_budget'))
-            if len(text) > self.controls.FINAL_CONTEXT_CHARS:
-                raise fail('CONTEXT_BUDGET', '最终上下文超过本地上限。')
             inputs = [{'role': 'user', 'content': text}]
+            inputs = encode_messages(s, inputs)
+            if sum(len(m.get('content', '')) for m in inputs) > self.controls.FINAL_CONTEXT_CHARS:
+                raise fail('CONTEXT_BUDGET', '最终上下文超过本地上限。')
         choice = 'none' if final else 'required' if not completed_tool else 'auto'
         definitions = [] if not tools else [{'type': 'namespace', 'name': 'cad',
             'description': '当前图纸的只读 CAD 检索、上下文与证据工具。',
@@ -86,7 +88,8 @@ class SiwcBridge:
         payload = attach_images(s, payload, entry)
         try:
             with s.metrics.measure("model_wait"):
-                result = self.transport.request(s, payload)
+                result = s.journal.model_call(payload, lambda: self.transport.request(s, payload),
+                    capture_level='wire_payload', title='桥接模型请求', image_inputs=entry.get('image_inputs'))
             mark_images_sent(s, entry)
         except ModelError as error:
             entry.update(status='failed', error_code=error.code, elapsed_seconds=round(time.monotonic()-tick, 3))

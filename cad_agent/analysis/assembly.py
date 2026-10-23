@@ -6,9 +6,9 @@ from cad_agent.contracts import stable_id
 from cad_agent.analysis.text_units import read_unit_candidates
 from cad_agent.semantics.tables import explicit_units, local_assembly_headers
 
-VERSION = 'assembly-source-v5'
-FAMILY = re.compile(r'楼地面|内墙面|外墙面|内墙|外墙|顶棚|屋面|地面|墙面|踢脚|顶板|(?:架空|保温|地下室|室外|室内){0,3}楼板|雨篷|雨蓬|散水|台阶|坡道|墙裙')
-HEADING = re.compile(r'^[ \t]*(楼地面|内墙面|外墙面|内墙|外墙|顶棚|屋面|地面|墙面|踢脚|顶板|(?:架空|保温|地下室|室外|室内){0,3}楼板|雨篷|雨蓬|散水|台阶|坡道|墙裙)[ \t]*(?P<code>[A-Za-z]?[0-9０-９]+[A-Za-z]?)[^\S\n]*(?:[:：（(]|(?=\n|$))', re.MULTILINE)
+VERSION = 'assembly-source-v7-numbers'
+from cad_agent.cad.numbers import evidence_readings, format_numbered_text, without_claim_list_markers, ordinals
+from cad_agent.cad.assembly_headings import FAMILY, HEADING
 
 
 SECTION_BREAK = re.compile(r'^[ \t]*[一二三四五六七八九十]+[、．.][^\n]{1,80}', re.MULTILINE)
@@ -125,19 +125,30 @@ def _fragments(index, region, start, end):
         if re.search(r'改为|改用|替代|代替|或采用|或者|\b或\b|或[0-9]',quote): roles.append('alternative')
         if re.search(r'型号|耐火|等级|极限|性能',quote): roles.append('model_or_performance')
         if re.search(r'由表及里|由上[至及]下|由下[至及]上|由内[至及]外|由外[至及]内',quote): roles.append('order_basis')
-        thicknesses=[dict(text=m.group(),value=m['before'] or m['after'],unit='mm' if m['unit_before'] or m['unit_after'] else None,
-                          unit_state='explicit' if m['unit_before'] or m['unit_after'] else 'unknown')
-                     for m in re.finditer(r'(?P<before>\d+(?:\.\d+)?)\s*(?P<unit_before>mm|毫米)?\s*厚|厚\s*(?P<after>\d+(?:\.\d+)?)\s*(?P<unit_after>mm|毫米)?',quote)]
-        marker=re.match(r'\s*(?:(\d+)[、．.]|([-•]))',quote)
+        evidence = index.evidence(region,lo,hi)
+        atoms = evidence_readings(evidence)
+        markers = [t for t in atoms if t['kind']=='ordinal']
+        marker = next((t for t in markers if not quote[:t['text_span'][0]].strip()), None)
+        thicknesses = []
+        for token in atoms:
+            if token['kind'] not in ('quantity','ambiguous') or token.get('role')!='厚度': continue
+            tail = quote[token['text_span'][1]:]
+            unit = re.match(r'\s*(mm|毫米)',tail)
+            suffix = re.match(r'\s*(?:mm|毫米)?\s*厚',tail)
+            stop = token['text_span'][1]+(suffix.end() if suffix else 0)
+            thicknesses.append(dict(text=quote[token['text_span'][0]:stop], value=token['value'],
+                unit='mm' if unit else None,unit_state='explicit' if unit else 'unknown',
+                quantity_id=token['number_id'],state=token['status'],text_span=token['text_span']))
         fragments.append(dict(text=quote,roles=roles or ['unclassified'],state='candidate',thickness_candidates=thicknesses,
-            source_layer_marker=marker[0].strip() if marker else None,
-            layer_number=int(marker[1]) if marker and marker[1] else None,
+            source_layer_marker=marker['raw'].strip() if marker else None,
+            layer_number=int(marker['value']) if marker else None,
+            display_text=format_numbered_text(quote, atoms),
             continuation_state='explicit_layer_start' if marker else 'source_line_only',
             branch_state='nonadditive_alternative' if 'alternative' in roles else 'not_classified',
             explicit_units=explicit_units(quote),unit_state='explicit' if explicit_units(quote) else 'unknown',
             parentheses_present=bool(re.search('[（(）)]',quote)),
-            thickness_tokens=[m.group() for m in re.finditer(r'\d+(?:\.\d+)?\s*(?:mm|毫米)?\s*厚|厚\s*\d+(?:\.\d+)?\s*(?:mm|毫米)?',quote)],
-            evidence=index.evidence(region,lo,hi)))
+            thickness_tokens=[t['text'] for t in thicknesses],
+            evidence=evidence))
     return fragments
 
 
@@ -191,7 +202,7 @@ def _section_binding(index,target,sources,stop):
         if any(getattr(region, name, None) != getattr(target, name, None)
                for name in ('layout_id', 'frame_id', 'column_key')):
             diagnostics.append('SECTION_SOURCE_SCOPE_MISMATCH')
-        numbers.extend(int(m[1]) for m in re.finditer(r'^\s*(\d+)[、．.]',region.text[start:end],re.MULTILINE))
+        numbers.extend(int(t['value']) for t in evidence_readings(index.evidence(region,start,end)) if t['kind']=='ordinal')
         if not region.parts:diagnostics.append('SECTION_SOURCE_GEOMETRY_UNAVAILABLE')
         if previous and previous.region_id!=region.region_id:
             heights=[p.bbox[3]-p.bbox[1] for p in previous.parts+region.parts if p.bbox[3]>p.bbox[1]]
@@ -302,7 +313,7 @@ def read(index, args):
     else:
         rows = index.scope(target.layout_id,target.frame_id,target.region_id)
         basis = 'parser_descendants'
-        if len(rows) == 1:
+        if len(rows) == 1 or (HEADING.search(target.text) and target.column_key is not None):
             rows = sorted([r for r in index.scope(target.layout_id,target.frame_id) if r.column_key == target.column_key],
                           key=lambda r:(-r.bbox[3],r.bbox[0],r.region_id))
             # Keep the remaining column pageable; never wrap its bottom to its top.
@@ -318,6 +329,10 @@ def read(index, args):
             # A bounded numbered section does not need a ruled-table envelope.
             if binding['state']=='source_bound':
                 diagnostics=[d for d in diagnostics if d not in ('ROW_ENVELOPE_UNRESOLVED','ROW_GEOMETRY_UNAVAILABLE')]
+        else:
+            # An unresolved neighbor queue is not a construction record.
+            sources = [(target, 0, len(target.text), None, 'target')]
+            diagnostics.append('SOURCE_OWNERSHIP_UNRESOLVED')
     if binding:diagnostics += binding['diagnostics']
     references=_reference_reads(index,target,sources) if args.view=='record' else []
     # Character paging shares the same executable cursor as row paging.
@@ -412,6 +427,7 @@ def read(index, args):
     title_end=target.text.find('\n',title_start) if target_headings else len(target.text)
     if title_end<0:title_end=len(target.text)
     return dict(snapshot_id=index.snapshot,target_region_id=target.region_id,version=VERSION,
+        source_scope=dict(layout_id=target.layout_id, frame_id=target.frame_id, frame_name=getattr(target, "frame_name", ""), basis="parser_frame_metadata_not_engineering_identity"),
         record_id=stable_id('assembly',index.snapshot,target.region_id,VERSION),view=args.view,relation_basis=basis,
         related_record_count=len(catalog),
         title_evidence=index.evidence(target,title_start,min(title_end,title_start+1800)),row_structure=band,

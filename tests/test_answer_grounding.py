@@ -114,7 +114,9 @@ def test_soft_stop_reads_pending_source_once_in_shared_final_context(workspace, 
         assert bool(payload["tools"]) is (runtime == "custom")
         context = json.loads(payload["input"][0]["content"])
         assert not context["evidence_coverage"]["pending_source_reads"]
-        assert any(x["region_id"] == rid for x in context["evidence"])
+        from cad_agent.analysis.model_context import codec
+        assert any(codec(s).reverse.get(line.split('] ', 1)[0].split()[1]) == rid
+                   for group in context['source_groups'] for line in group['text'].splitlines())
         return answer(final(next(e for e in s.evidence if e != "old")))
     monkeypatch.setattr(ResponsesTransport, "request", request)
     if runtime == "custom": result = s.run()

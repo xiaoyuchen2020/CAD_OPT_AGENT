@@ -229,6 +229,7 @@ def refresh_calculation_inputs(data):
     """
     from types import SimpleNamespace
     from cad_agent.analysis.fact_tools import calculation_tokens, CalculateFacts, calculate_facts
+    from cad_agent.cad.numbers import evidence_readings
     evidence=data.get('evidence',{})
     observations=data.get('observations',{})
     question=data.get('question','')
@@ -255,10 +256,10 @@ def refresh_calculation_inputs(data):
         linear_roles = {'厚度','长度','宽度','高度','净宽'}
         if (re.search(r'各套|两种.{0,15}做法|分别.{0,12}(?:求|计算)', question)
                 or not any(t['role'] in linear_roles for eid in eids
-                           for t in calculation_tokens(evidence[eid].get('quote','')))):
+                           for t in calculation_tokens(evidence[eid].get('quote',''), evidence_readings(evidence[eid])))):
             shared_eids = {eid for sibling in data.get('subtasks', [])
                 for eid in sibling.get('evidence_ids', []) if eid in evidence and eid not in eids
-                and any(t['role'] in linear_roles for t in calculation_tokens(evidence[eid].get('quote','')))}
+                and any(t['role'] in linear_roles for t in calculation_tokens(evidence[eid].get('quote',''), evidence_readings(evidence[eid])))}
             eids.update(shared_eids)
         # A computed subtotal can be selected by a later independent requirement.
         # Exposure retains lineage and never establishes object identity.
@@ -268,8 +269,8 @@ def refresh_calculation_inputs(data):
         for eid in sorted(eids):
             e=evidence.get(eid,{})
             quote=e.get('quote','')
-            for token in calculation_tokens(quote):
-                quantity=dict(origin='source',evidence_id=eid,value=token['value'],unit=token['unit'])
+            for token in calculation_tokens(quote, evidence_readings(e)):
+                quantity=dict(origin='source',evidence_id=eid,quantity_id=token['number_id'],value=token['value'],unit=token['unit'])
                 from cad_agent.analysis.default_units import declaration, applicable
                 unit_options = []
                 unit_binding = None
@@ -299,7 +300,7 @@ def refresh_calculation_inputs(data):
             if not re.search(r'用户(?:给定|提供|参考)|题设|假设|给定(?:值|数值|参考)',clause):continue
             if len(clause)>300:continue
             for token in calculation_tokens(clause):
-                rows.append(dict(**token,quantity=dict(origin='user_input',question_quote=clause,value=token['value'],unit=token['unit']),
+                rows.append(dict(**token,quantity=dict(origin='user_input',question_quote=clause,quantity_id=token['number_id'],value=token['value'],unit=token['unit']),
                     reference='current_question',quote=clause,conditional=True,
                     target_binding_status='user_condition_only',automatic_join=False))
         for oid in sorted(oids):

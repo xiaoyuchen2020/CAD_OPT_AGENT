@@ -145,7 +145,8 @@ def test_subtask_repetition_does_not_exhaust_independent_task(workspace):
     r,_=session(workspace);r.task.plan(plan(r))
     args={'query':'nothing-matches','task_ids':['q4']}
     for _ in range(3):r.invoke_tool('search_sources',args)
-    assert r.task.data['subtasks'][3]['status']=='pending'
+    assert r.task.data['subtasks'][3]['status']=='partial'
+    assert r.task.data['subtasks'][3]['reason']=='no_requirement_progress'
     assert json.loads(r.invoke_tool('search_sources',args)).get('error')
     assert r.task.data['subtasks'][3]['calls']==3
     assert r.task.data['subtasks'][3].get('gap_kind') != 'budget_exhausted'

@@ -52,11 +52,12 @@ class NativeRuntime:
                 usage=session.usage,
             )
             with session.metrics.measure("model_wait"):
-                msg, usage = session.w.gateway.chat_turn(
-                    session.model_messages(messages, final_only),
-                    [] if final_only else session.offered_tools(planning_only=True),
-                    timeout=session._remaining(),
-                )
+                model_messages = session.model_messages(messages, final_only)
+                offered = [] if final_only else session.offered_tools(planning_only=True)
+                msg, usage = session.journal.model_call(
+                    {'messages': model_messages, 'tools': offered},
+                    lambda: session.w.gateway.chat_turn(model_messages, offered, timeout=session._remaining()),
+                    title=f'模型请求 · 第 {round_no+1} 轮')
             session.usage.append(usage)
             session._remaining()
             messages.append(msg)

@@ -151,7 +151,11 @@ def test_prefix_is_stable_through_repair_and_records_actual_cache(workspace, dem
     assert payloads[-1]["tool_choice"] == "none"
     assert result["cache_usage"]["cached_input_tokens"] == 240
     assert len({r["prefix_sha256"] for r in result["model_requests"]}) == 1
-    assert payloads[1]["input"][:len(payloads[0]["input"])] == payloads[0]["input"]
+    # Static instructions/schema remain stable; v2 replaces the dynamic tail.
+    assert payloads[1]["input"][0] == payloads[0]["input"][0]
+    assert sum(m.get("role") == "developer" and str(m.get("content", "")).startswith("当前执行状态（数据）：")
+               for m in payloads[1]["input"]) == 1
+    assert any(m.get("type") == "function_call_output" for m in payloads[1]["input"])
 
 
 def test_full_geometry_is_readable_beyond_model_excerpt(workspace):
@@ -194,14 +198,16 @@ def test_stable_catalog_excludes_unneeded_families_and_only_appends(workspace, d
     assert tools.definitions[-1]["function"]["name"] == "render_region"
 
 
-def test_exploration_admission_failure_uses_reserved_finalization(workspace, demo_bytes, monkeypatch):
+@pytest.mark.parametrize('failure', ['token', 'context'])
+def test_exploration_admission_failure_uses_reserved_finalization(workspace, demo_bytes, monkeypatch, failure):
     s = make_session(workspace, demo_bytes)
     connected_lease(workspace, monkeypatch)
     rid = workspace.regions(s.request.snapshot_id)[0].region_id
     payloads = []
     for module in ("budget_policy", "responses_subscription"):
         monkeypatch.setattr(f"cad_agent.runtimes.{module}.estimate_input",
-                            lambda p: (50000, "test_bound"))
+                            lambda p: (120000 if failure == 'context' and s.evidence and p['tool_choice'] != 'none'
+                                       else 50000, "test_bound"))
 
     def request(self, session, payload):
         payloads.append(payload)
@@ -209,7 +215,8 @@ def test_exploration_admission_failure_uses_reserved_finalization(workspace, dem
             r = response([{"type": "function_call", "namespace": "cad",
                            "name": "read_source_context",
                            "arguments": json.dumps({"region_id": rid}), "call_id": "read"}])
-            r["usage"].update(input_tokens=829900, output_tokens=100, total_tokens=830000)
+            used = 830000 if failure == 'token' else 50000
+            r["usage"].update(input_tokens=used-100, output_tokens=100, total_tokens=used)
         else:
             r = response([{"type": "message", "content": [{
                 "type": "output_text", "text": final(next(iter(s.evidence))),
@@ -222,10 +229,12 @@ def test_exploration_admission_failure_uses_reserved_finalization(workspace, dem
     assert result["citations"] and len(payloads) == 2
     assert payloads[-1]["tool_choice"] == "none"
     assert len(result["model_requests"]) == 2
-    assert result["model_requests"][-1]["stop_reason"] == "finalization_request_reserve"
+    assert result["model_requests"][-1]["stop_reason"] == (
+        "finalization_request_reserve" if failure == 'token' else "context_input_limit")
     rejection = s.runtime_diagnostics["admission_rejections"][0]
     assert rejection["sent"] is False
-    assert rejection["budget_preflight"]["charged_before"] == 830000
+    assert rejection["budget_preflight"]["charged_before"] == (830000 if failure == 'token' else 50000)
+    assert rejection['error_code'] == ('SIWC_TOKEN_BUDGET' if failure == 'token' else 'SIWC_CONTEXT_BUDGET')
 
 
 def test_large_spatial_packet_keeps_exact_bounded_continuations(workspace, demo_bytes):

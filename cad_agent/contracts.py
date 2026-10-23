@@ -93,6 +93,7 @@ class Evidence(Record):
     precision: Literal["entity", "region", "cell"] = "entity"
     binding_method: str = "exact_source_span"
     verification_status: str = "source_bound"
+    numeric_readings: dict = Field(default_factory=dict, exclude_if=lambda value: not value)
 
 
 class FactValue(Record):

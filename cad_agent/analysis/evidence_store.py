@@ -70,7 +70,7 @@ def read_task_record(workspace, task, allowed_snapshots, args):
                 note="完整本地记录的字符分页；不是整图覆盖证明，也不新增测量或引用资格。")
 
 
-def working_result(value, ref, limit=18000):
+def working_result(value, ref, limit=18000, *, assembly_pages=True):
     """Keep small packets intact; large results have an honest readback cursor."""
     if len(dumps(value)) <= limit:
         return value | {"evidence_record": ref}
@@ -120,6 +120,30 @@ def working_result(value, ref, limit=18000):
         packet = compact(value)
         if len(dumps(packet)) <= 45000:
             return packet | {'evidence_record': ref}
+    # Assembly pages must not become a truncated JSON prefix: that loses the
+    # ownership boundary/units and repeats quotes inside an escaped string.
+    if assembly_pages and str(value.get('version', '')).startswith('assembly-source-') and 'items' in value:
+        from cad_agent.analysis.delivery_context import assembly_observation
+        from cad_agent.analysis.evidence_ledger import compact_evidence
+        sources = {}
+        def collect_sources(v):
+            if isinstance(v, dict):
+                if 'evidence_id' in v and 'quote' in v and 'snapshot_id' in v:
+                    sources[v['evidence_id']] = compact_evidence(v)
+                for child in v.values():
+                    collect_sources(child)
+            elif isinstance(v, list):
+                for child in v:
+                    collect_sources(child)
+        collect_sources(value)
+        packet = assembly_observation({'tool': 'read_assembly', 'data': value})['data']
+        packet.update({k: value[k] for k in ('observation_id', 'snapshot_id', 'version') if k in value})
+        # Mixed tasks/calculators still need the typed per-layer operands.
+        packet['items'] = [dict(item, **{k: original[k] for k in ('fragments',) if k in original})
+                           for item, original in zip(packet['items'], value['items'])]
+        packet.update(evidence=list(sources.values()), evidence_record=ref,
+                      result_projection='assembly_page', original_result_chars=len(dumps(value)))
+        return packet
     # Structured tables retain usable cells and whole quotes once, with field
     # references instead of duplicating every cell in a second records tree.
     if 'header_rows' in value and 'records' in value and 'items' in value:

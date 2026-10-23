@@ -1,4 +1,6 @@
+import {publishedCitations} from './evidence-selection.mjs';
 import {spatialRows,spatialHighlightBounds} from './spatial-results.mjs';
+import {RunInspector} from './run-inspector.mjs';
 import {propertyRows} from './property-evidence.mjs';
 import {selectionBox, similarityScope, similarityPath} from './similarity-selection.mjs';
 import {PanBuffer} from "./pan-buffer.mjs";
@@ -129,6 +131,7 @@ async function refreshDrawings() {
 }
 async function selectDrawing(id) {
   if (!id) return;
+  runInspector.reset(id);
   const gen = ++S.generation;
   cancelSimilaritySelection();
   S.roomPick = false;
@@ -143,6 +146,7 @@ async function selectDrawing(id) {
   ]);
   if (gen !== S.generation) return;
   S.drawing = drawing;
+  $("reindex-drawing").disabled = false;
   S.scene = scene;
   const fetchPacket = async (url, options) => {
     const r = await fetch(url, {...options, cache: new URLSearchParams(location.search).has('loadPerf') ? 'no-store' : 'default'});
@@ -723,7 +727,41 @@ async function extractCurrent() {
   }
 }
 const welcome = $("chat-messages").innerHTML;
+const runInspector = new RunInspector({
+  workspace: document.querySelector('.workspace'), api,
+  onError: toast,
+  onOpen: run => {
+    if(S.chatBusy||run.snapshot_id!==S.drawing?.id)return;
+    const result=run.result,answer=node('div','message');
+    answer.append(node('div','message-label','✳ 已保存的模型问答'),
+      node('p',null,result?.answer||run.error?.message||run.stage),runDetailsButton(run.id));
+    for(const {source:c,number} of publishedCitations(result||{})){const b=node('button','citation',`[${number}] ${c.quote}`);b.type='button';
+      b.append(node('small',null,`${c.source_context?.frame_name ? c.source_context.frame_name+'（解析图框） · ' : ''}${c.label||''} · 定位原文 ↗`));
+      b.onclick=attempt(async()=>{const source=await api(c.evidence_url);if(source.snapshot_id===S.drawing?.id)showSource(source);});answer.append(b);}
+    if(result?.missing_information?.length)answer.append(node('p','answer-note',result.missing_information.join('；')));
+    $('chat-messages').replaceChildren(node('div','message user',run.request.question),answer);
+    $('chat-messages').scrollTop=$('chat-messages').scrollHeight;
+    S.parentRun=run.status==='completed'?run.id:null;
+  },
+  onCancel: id => post(`/api/chat-runs/${encodeURIComponent(id)}/cancel`, {}),
+  onEvidence: async source => {
+    if(source.snapshot_id!==S.drawing?.id) {
+      toast('此证据属于关联图纸，请先在图纸列表中打开该图纸。');return;
+    }
+    showSource(source);
+  },
+  onImage: async (sid,id) => {
+    const record=await api(`/api/drawings/${encodeURIComponent(sid)}/images/${encodeURIComponent(id)}`);
+    if(sid===S.drawing?.id)locate(record);
+    const picture=node('img');picture.src=record.image_url;picture.alt='实际发送给模型的局部图像';picture.style.maxWidth='100%';
+    showDialog('模型输入图像',[picture,node('p',null,'图像中的辅助编号与高亮不是原图标注。')]);
+  },
+});
+function runDetailsButton(runId) {
+  const b=node('button','ri-open-run','查看运行详情 ↗');b.type='button';b.onclick=()=>runInspector.open(runId);return b;
+}
 function clearChat(invalidate = true) {
+  runInspector.close();
   S.parentRun = null;
   if (invalidate) S.generation++;
   $("chat-messages").innerHTML = welcome;
@@ -778,6 +816,7 @@ async function ask(question, resumeTask=null) {
     let run;
     if (mode === "agent") {
       run = await post("/api/chat-runs", payload);
+      await runInspector.open(run);
       S.activeChatRun = run.id;
       $("cancel-chat-button").hidden = false;
       $("cancel-chat-button").disabled = false;
@@ -785,13 +824,14 @@ async function ask(question, resumeTask=null) {
       while (["queued", "running"].includes(run.status)) {
         if (gen !== S.generation) return;
         answer.replaceChildren(node("div", "message-label", "✳ 模型 · 工具问答"),
-          node("p", null, run.stage), renderTrace(run.trace));
+          node("p", null, run.stage), runDetailsButton(run.id));
         await new Promise((resolve) => setTimeout(resolve, 900));
         run = await api(`/api/chat-runs/${run.id}`);
+        runInspector.update(run);
       }
       if (gen !== S.generation) return;
       if (["failed", "cancelled"].includes(run.status)) {
-        answer.replaceChildren(node("p", null, run.error?.message || "模型问答未完成"), renderTrace(run.trace));
+        answer.replaceChildren(node("p", null, run.error?.message || "模型问答未完成"), runDetailsButton(run.id));
         answer.append(node("p", "answer-note", run.error?.code === "MODEL_TOOLS_UNSUPPORTED"
           ? "请切换支持工具调用的模型，或使用本地事实查询；更换 Harness 无法启用远端服务的工具能力。"
           : "可更换模型或运行时重试，或切换本地事实查询；本次未发布模型答案。"));
@@ -821,11 +861,12 @@ async function ask(question, resumeTask=null) {
     if (gen !== S.generation) return;
     answer.replaceChildren(
       node("div", "message-label", mode === "agent" ? "✳ 模型 · 工具问答" : "✳ 本地事实查询"),
-      node("p", null, result.claims?.length ? result.claims.map(c=>c.text).join("\n\n") : result.answer),
+      node("p", null, result.claims?.length ? result.claims.map(c=>c.display_text||c.text).join("\n\n") : result.answer),
     );
+    if (run) answer.append(runDetailsButton(run.id));
     if (result.source_excerpts?.length) {
       const excerpts = node("section", "answer-note");
-      excerpts.append(node("p", null, "已读原文摘录：仅保留来源文字；对象归属、适用范围及所问统计或几何关系尚待核查，不计为完成。"));
+      excerpts.append(node("p", null, "历史已读摘录：未经过新版结论引用筛选；对象归属及适用范围尚待核查，不计为完成。"));
       for (const excerpt of result.source_excerpts) {
         excerpts.append(node("p", null, `“${excerpt.quote}” [${excerpt.citation_number}]`));
       }
@@ -845,9 +886,9 @@ async function ask(question, resumeTask=null) {
       renderRoomBatch(panel,result.room_batch);
     }
     const audit=node("details","answer-audit");audit.append(node("summary",null,"依据与运行详情"));answer.append(audit);
-    for (const [i, c] of result.citations.entries()) {
-      const b = node("button", "citation", `[${i + 1}] ${c.quote}`);
-      b.append(node("small", null, `${c.label} · 定位原文 ↗`));
+    for (const {source: c, number} of publishedCitations(result)) {
+      const b = node("button", "citation", `[${number}] ${c.quote}`);
+      b.append(node("small", null, `${c.source_context?.frame_name ? c.source_context.frame_name + '（解析图框） · ' : ''}${c.label} · 定位原文 ↗`));
       b.onclick = attempt(async () => {
         if (c.evidence_url) {
           const source = await api(c.evidence_url);
@@ -1932,6 +1973,20 @@ for (const eventName of ["dragover", "drop"]) {
 }
 document.addEventListener("dragend", resetImportDrop);
 $("drawing-select").onchange = attempt((e) => selectDrawing(e.target.value));
+$("reindex-drawing").onclick = attempt(async () => {
+  if (!S.drawing) return;
+  const id = S.drawing.id;
+  const generation = S.generation;
+  $("reindex-drawing").disabled = true;
+  try {
+    const drawing = await api(`/api/drawings/${id}/reindex`, {method: "POST"});
+    if (generation !== S.generation) return;
+    await refreshDrawings();
+    await selectDrawing(drawing.id);
+  } finally {
+    $("reindex-drawing").disabled = !S.drawing;
+  }
+});
 $("layout-select").onchange = (e) => {
   cancelSimilaritySelection();
   S.layout = e.target.value;
@@ -1985,6 +2040,10 @@ $("extract-button").onclick = attempt(extractCurrent);
 $("close-evidence").onclick = clearSelection;
 $("clear-selection").onclick = clearSelection;
 $("clear-chat").onclick = clearChat;
+$("run-history-button").onclick = attempt(async () => {
+  if(!S.drawing){toast('请先打开图纸。');return;}
+  await runInspector.showHistory(S.drawing.id);
+});
 $("source-read-batching").checked = false;
 $("chat-settings-button").onclick = () => {
   const box=$("related-drawings");box.replaceChildren();

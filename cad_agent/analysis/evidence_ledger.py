@@ -292,17 +292,15 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
 
 
 def compact_evidence(e):
-    return {
-        k: e[k]
-        for k in (
-            "evidence_id",
-            "snapshot_id",
-            "region_id",
-            "quote",
-            "text_span",
-            "entity_ids",
-        )
-    }
+    from cad_agent.cad.numbers import evidence_readings, VERSION
+    result = {k:e[k] for k in ("evidence_id","snapshot_id","region_id","quote","text_span","entity_ids")}
+    atoms = evidence_readings(e)
+    if atoms:
+        # The full provenance stays on the evidence record. Do not repeat raw
+        # text, identities and source geometry in every model context.
+        result['numeric_readings'] = dict(version=VERSION, items=[
+            {k:t[k] for k in ('number_id','kind','value','text_span','status')} for t in atoms])
+    return result
 
 
 def compact_coverage(coverage):

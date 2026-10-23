@@ -209,6 +209,9 @@ class TaskFocus:
         from cad_agent.analysis.recall import pending_calls
         names.update(call['tool'] for call in pending_calls(self.s.task.data))
         if names & {'read_source_context', 'read_assembly'}:names.add('batch_read_sources')
+        from cad_agent.analysis.capabilities import profile, ASSEMBLY_TOOLS
+        if profile(self.s) == 'assembly_lookup' and not self.expanded:
+            names &= ASSEMBLY_TOOLS | explicit | ({'batch_read_sources'} if self.s.request.source_read_batching else set())
         if not self.s.request.source_read_batching:names.discard('batch_read_sources')
         return names
 
@@ -301,7 +304,9 @@ class TaskFocus:
             if name in READS:context['reads'].append(compact({k:v for k,v in result.items() if k not in ('task','next_action','evidence_coverage')},seen))
             if name=='search_sources':context['last_search']=compact(result,seen)
         from cad_agent.analysis.delivery_context import bounded_packet
-        return bounded_packet(context,40000,self.s.task.data['subtasks'])
+        from cad_agent.analysis.capabilities import profile
+        return bounded_packet(context,40000,self.s.task.data['subtasks'],
+                              include_templates=profile(self.s) != 'assembly_lookup')
 
     def messages(self,messages):
         from cad_agent.analysis.project_sources_workflow import early_context as project_sources_context

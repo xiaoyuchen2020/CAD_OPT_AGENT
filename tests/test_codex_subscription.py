@@ -271,6 +271,8 @@ def test_budget_handoff_runs_only_one_final_turn_with_original_evidence(workspac
     turns = [p for m, p in rpc.requests if m == "turn/start"]
     assert len(threads) == len(turns) == 2 and threads[-1]["dynamicTools"] == []
     payload = json.loads(turns[-1]["input"][0]["text"])
+    from cad_agent.analysis.model_context import codec
+    payload = codec(s).decode(payload)
     assert payload["source_contexts"][0]["target_region_id"] == rid
     assert {e["evidence_id"] for e in payload["evidence"]} == set(s.evidence)
     assert result["citations"] and not result["fallback_used"]

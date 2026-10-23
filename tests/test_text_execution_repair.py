@@ -32,7 +32,9 @@ def test_validated_text_units_have_receipt_but_missing_input_does_not():
     result=calculate_facts(session,CalculateFacts(operation='sum',quantities=[quantity('a','5')],
         missing_operands=[dict(label='未知保温层',reason='未读到该层厚度')]))
     assert result['status']=='missing_operands' and not any(r['fulfilled'] for r in result['operation_receipts'])
-    assert next(calculation_tokens('1、5厚砂浆'))['status']=='identifier'
+    tokens=list(calculation_tokens('1、5厚砂浆'))
+    assert [t['value'] for t in tokens]==['5']  # ordinal 1 is not an operand
+    assert tokens[0]['status']=='unit_unconfirmed'
 
 
 def test_progress_reserve_bounded_and_repeated_read_does_not_stop_calculation(workspace):

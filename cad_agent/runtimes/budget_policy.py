@@ -1,5 +1,5 @@
 """Versioned, progress-aware subscription budgets; estimates != billed usage."""
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 import hashlib
 import math
 import time
@@ -27,7 +27,7 @@ class BudgetPolicy:
     final_context_chars: int = 100000
 
     def public(self):
-        return asdict(self) | {"version": "adaptive_v1"}
+        return asdict(self) | {"version": "source_budget_v2" if self.name.endswith('_v2') else "adaptive_v1"}
 
 
 STANDARD = BudgetPolicy()
@@ -35,6 +35,10 @@ DEEP = BudgetPolicy(name="deep", exploration_soft_tokens=750000, total_ceiling_t
                     elapsed_soft_seconds=420, elapsed_ceiling_seconds=900,
                     finalization_reserve_seconds=180,
                     rounds_soft=32, rounds_ceiling=48, tool_calls_ceiling=64, max_output_tokens=12288)
+LOOKUP = BudgetPolicy(name='source_lookup_v2', exploration_soft_tokens=120000,
+    total_ceiling_tokens=220000, reserved_finalization_tokens=100000,
+    input_soft_tokens_per_request=24000, rounds_soft=6, rounds_ceiling=10,
+    tool_calls_ceiling=12)
 
 
 def policy_for(settings, runtime="responses_subscription"):
@@ -45,7 +49,23 @@ def policy_for(settings, runtime="responses_subscription"):
 
 
 def for_session(session):
-    return policy_for(session.w.settings, getattr(getattr(session, "request", None), "runtime", "responses_subscription"))
+    policy = policy_for(session.w.settings, getattr(getattr(session, "request", None), "runtime", "responses_subscription"))
+    if policy and hasattr(session, 'task'):
+        from cad_agent.analysis.capabilities import profile
+        if profile(session) == 'assembly_lookup':
+            # Multiple source scopes/references are evidence of genuine complexity.
+            reads = [o.get('data', {}) for o in getattr(session, 'observations', {}).values()
+                     if o.get('tool') == 'read_assembly']
+            frames = {i.get('frame_id') for n, _, r in getattr(getattr(session, 'focus', None), 'results', []) if n == 'search_sources' for i in r.get('items', []) if i.get('assembly_heading')}
+            complex_read = len(frames) > 1 or any(r.get('reference_reads') or r.get('related_record_count', 0) > 4 for r in reads)
+            if not complex_read:
+                return LOOKUP
+            session.task.data['budget_promotion'] = dict(reason='multiple_records_or_source_references', from_policy=LOOKUP.name)
+            return replace(policy, name='source_multi_scope_v2', exploration_soft_tokens=180000,
+                total_ceiling_tokens=350000, reserved_finalization_tokens=150000,
+                input_soft_tokens_per_request=24000, rounds_soft=10, rounds_ceiling=20,
+                tool_calls_ceiling=24)
+    return policy
 
 
 def text_limit(session):
@@ -102,7 +122,7 @@ def stop_reason(session):
     tokens = charged_tokens(session)
     elapsed = time.monotonic() - session.started
     requests = getattr(session, "runtime_diagnostics", {}).get("model_requests", [])
-    if session.calls >= session.w.settings.agent_max_tool_calls:
+    if session.calls >= min(policy.tool_calls_ceiling, session.w.settings.agent_max_tool_calls):
         return "tool_call_budget"
     if tokens >= policy.total_ceiling_tokens - policy.reserved_finalization_tokens:
         return "finalization_token_reserve"

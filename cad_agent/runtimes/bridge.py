@@ -463,7 +463,10 @@ class ModelBridge:
             message, usage = self.subscription.complete(s.model_messages(messages, final), tools, final, self.requests[-1])
         else:
             with s.metrics.measure("model_wait"):
-                message, usage = s.w.gateway.chat_turn(s.model_messages(messages, final), tools, timeout=s._remaining())
+                model_messages = s.model_messages(messages, final)
+                message, usage = s.journal.model_call({'messages': model_messages, 'tools': tools},
+                    lambda: s.w.gateway.chat_turn(model_messages, tools, timeout=s._remaining()),
+                    title=f'桥接模型请求 · 第 {len(self.requests)} 轮')
             s.usage.append(usage)
         for call in message.get("tool_calls") or []:
             if (

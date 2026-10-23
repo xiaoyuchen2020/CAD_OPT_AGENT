@@ -7,6 +7,7 @@
     <title>CAD Atlas · 图纸事实工作台</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
     <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/run-inspector.css" />
     <script type="module" src="/assets/app.js"></script>
   </head>
   <body>
@@ -67,6 +68,7 @@
               <option>尚未导入图纸</option>
             </select>
           </div>
+          <button id="reindex-drawing" class="button" disabled title="使用当前解析规则生成新快照，保留历史图纸和任务">重新解析图纸</button>
           <p id="import-status" class="muted" role="status" aria-live="polite" hidden></p>
           <div class="tabs" role="tablist">
             <button
@@ -208,6 +210,7 @@
           <div class="chat-header">
             <div class="assistant-logo">✳</div>
             <div><strong>图纸助手</strong><span>查阅条款，回答附原图依据</span></div>
+            <button id="run-history-button" type="button" class="text-button" title="查看当前图纸的历史运行">运行记录</button>
             <button
               id="clear-chat"
               class="icon-button"

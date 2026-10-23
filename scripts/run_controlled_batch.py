@@ -249,7 +249,18 @@ def execute(args, manifest):
                     actual = w.model_catalog[selected['model_profile']]
                     if (actual.model, actual.reasoning_effort) != (selected['model'], selected['reasoning_effort']):
                         raise ValueError('Frozen product model configuration differs from test plan')
-                    run = w.start_chat(ChatRequest(snapshot_id=sid, question=case['question'], mode='agent',
+                    parent_id = None
+                    if case.get('fixed_history'):
+                        history = case['fixed_history']
+                        if len(history) != 2 or [m['role'] for m in history] != ['user', 'assistant']:
+                            raise ValueError('Expected fixed user/assistant history fixture')
+                        parent_id = 'fixture_' + case['id']
+                        fixture = dict(id=parent_id, snapshot_id=sid, status='completed',
+                            request=dict(question=history[0]['content'], related_drawings=[]),
+                            result=dict(answer=history[1]['content']), benchmark_fixture=True)
+                        w.store.put('chat_run', parent_id, fixture)
+                        dump(path / 'fixed-history-fixture.json', fixture)
+                    run = w.start_chat(ChatRequest(snapshot_id=sid, question=case['question'], mode='agent', parent_run_id=parent_id,
                          runtime=plan['runtime'], model_profile=selected['model_profile'], allow_fallback=False,
                          source_read_batching=selected['source_read_batching']))
                     state.update(state='started', run_id=run['id']); dump(path / 'state.json', state)

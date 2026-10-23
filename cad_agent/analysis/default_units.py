@@ -39,7 +39,7 @@ def applicable(a, b):
 
 def candidates(index, region):
     source = dict(snapshot_id=index.snapshot, layout_id=region.layout_id, frame_id=region.frame_id)
-    return [r for r in index.regions
+    return [r for r in getattr(index, "regions", list(index.by_id.values()))
             if declaration(r.text) and applicable(source, dict(snapshot_id=index.snapshot,
                 layout_id=r.layout_id, frame_id=r.frame_id, quote=r.text))]
 

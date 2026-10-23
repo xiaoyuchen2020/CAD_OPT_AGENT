@@ -208,7 +208,9 @@ def build_regions(texts, scene, rectangles, segments, snapshot_id):
                 owner = inside or sorted(indented, key=lambda pair: pair[0] - x)
                 key = tuple(owner[0]) if owner else None
                 columns.setdefault(key, []).append(t)
-            for key, column in columns.items():
+            from cad_agent.cad.assembly_headings import reading_columns
+            streams = [stream for key, column in columns.items() for stream in reading_columns(column, key)]
+            for key, column in streams:
                 lines = reading_lines(column, bounded=key is not None)
                 paragraphs = []
                 for line in lines:
@@ -261,6 +263,9 @@ def clause_level(text):
 
 
 def is_heading(text):
+    from cad_agent.cad.assembly_headings import HEADING
+    if HEADING.match(text):
+        return True
     t = re.sub(r"\s+", "", text)
     if (
         len(t) <= 65
@@ -288,6 +293,9 @@ def reading_lines(items, bounded=True):
         if t.kind == "TEXT" and abs(t.rotation) < 0.1:
             for line in reversed(lines[-8:]):
                 first = line[0]
+                # Independently numbered source entities are never one sentence.
+                if re.match(r'^\s*\d+[、．.]', first.text) and re.match(r'^\s*\d+[、．.]', t.text):
+                    continue
                 if first.kind != "TEXT" or abs(first.rotation) > 0.1:
                     continue
                 if (

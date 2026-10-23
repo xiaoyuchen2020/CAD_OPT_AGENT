@@ -1,7 +1,9 @@
 """Evidence is an exact span in an immutable region, never model coordinates."""
 
+from hashlib import sha256
 from cad_agent.contracts import Evidence, SourceRegion, stable_id
 from cad_agent.cad.reader import union_box
+from cad_agent.cad.numbers import VERSION as NUMBER_VERSION, region_readings
 
 
 def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit):
@@ -18,6 +20,11 @@ def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit)
         for part in parts:
             x, y, xx, yy = part.bbox
             shapes.extend(part.highlight_regions or [dict(boundary=[[x,y],[xx,y],[xx,yy],[x,yy]])])
+    atoms = []
+    for token in region_readings(source, snapshot_id):
+        a,b = token["text_span"]
+        if start <= a < b <= end:
+            atoms.append({**token, "source_span":[a,b], "text_span":[a-start,b-start]})
     return Evidence(
         evidence_id=stable_id(
             "ev", snapshot_id, source.region_id, str(start), str(end)
@@ -27,6 +34,7 @@ def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit)
         layout_id=source.layout_id,
         frame_id=source.frame_id,
         quote=source.text[start:end],
+        numeric_readings={"version":NUMBER_VERSION,"quote_sha256":sha256(source.text[start:end].encode()).hexdigest(),"items":atoms},
         text_span=[start, end],
         entity_ids=ids,
         bbox=union_box(boxes) if boxes else source.bbox,

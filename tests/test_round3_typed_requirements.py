@@ -55,7 +55,8 @@ def test_mixed_requirement_preserves_original_source_producer():
     assert step['requirement_types'] == ['DELIVERY_REQUIREMENT', 'SOURCE_FACT']
     data = dict(subtasks=[step | dict(status='pending')])
     calls = pending_calls(data)
-    assert [c['arguments'] for c in calls] == [dict(query='墙体', keywords=['标注厚度'], match='all', limit=3)]
+    # Object-first discovery preserves recall when property wording differs.
+    assert [c['arguments'] for c in calls] == [dict(query='墙体', limit=3)]
 
 
 def test_declared_acceptance_type_cannot_erase_source_obligation():

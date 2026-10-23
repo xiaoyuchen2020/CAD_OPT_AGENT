@@ -13,7 +13,7 @@ def _span_overlap(a, b):
             and b['text_span'][0] < a['text_span'][1])
 
 
-def ownership_issues(claim, evidence):
+def ownership_issues(claim, evidence, observations=None):
     """Detect affirmative reassignment of an explicitly pre-heading source line.
 
     A citation proves text, not ownership. Use only this run's read character
@@ -27,6 +27,28 @@ def ownership_issues(claim, evidence):
     if not cited or any(claim.text in e.get('quote', '') for e in cited):
         return []
     issues = []
+    # A field read from a differently named construction cannot be reassigned
+    # simply by citing the desired title beside it. Keep quotations/negations.
+    from cad_agent.cad.assembly_headings import FAMILY
+    wanted = set(FAMILY.findall(claim.text))
+    if len(wanted) == 1 and claim.state in ('observed', 'derived') and not re.search('不属于|不能归|归属.*未|候选|未确认', claim.text):
+        for observation in (observations or {}).values():
+            if observation.get('tool') != 'read_assembly':
+                continue
+            data = observation.get('data', {})
+            binding = data.get('source_binding') or {}
+            if binding.get('state') != 'source_bound':
+                continue
+            heading = HEADING.search((data.get('title_evidence') or {}).get('quote', ''))
+            if not heading or heading[1] in wanted:
+                continue
+            for item in data.get('items', []):
+                ref = item.get('evidence') or {}
+                if not any(_span_overlap(ref, e) for e in cited):
+                    continue
+                body = re.sub(r'^\s*\d+[、．.]\s*', '', ref.get('quote', '')).strip()
+                if len(body) >= 4 and body in claim.text:
+                    issues.append('来源字段归属冲突：引用原文属于' + heading[1] + heading['code'] + '，不能按共同材料词转归其他对象。')
     for whole in evidence.values():
         quote = whole.get('quote', '')
         if not whole.get('text_span'):

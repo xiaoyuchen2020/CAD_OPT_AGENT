@@ -83,7 +83,7 @@ def recover_valid_claims(self, content):
             rejected += 1
             rejected_requirements.update(data.get('question_part_ids', []))
             continue
-        value = {k: v for k, v in validated['claims'][0].items() if k != 'citation_numbers'}
+        value = {k: v for k, v in validated['claims'][0].items() if k not in ('citation_numbers','display_text','number_format_version')}
         if any(same_calculation_delivery(c, value, self.observations) for c in checked):
             normalizations.append(dict(action='deduplicate_calculation_receipts', text=value['text']))
             continue
@@ -96,7 +96,7 @@ def recover_valid_claims(self, content):
             validated = self.validate_answer(dumps(packet([data])))
         except ValueError:
             continue
-        checked.append({k: v for k, v in validated['claims'][0].items() if k != 'citation_numbers'})
+        checked.append({k: v for k, v in validated['claims'][0].items() if k not in ('citation_numbers','display_text','number_format_version')})
         normalizations.append(dict(action='retain_executed_calculation', observation_ids=data['observation_ids']))
     facts = [c for c in checked if c['state'] != 'unknown']
     unknowns = [c for c in checked if c['state'] == 'unknown']

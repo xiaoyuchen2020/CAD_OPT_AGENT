@@ -84,6 +84,11 @@ class Workspace:
         with self.import_lock:
             return self._ingest(filename, content, synthetic)
 
+    def reindex(self, snapshot_id):
+        """Use the shared immutable reindexer; never reconvert or rewrite history."""
+        from cad_agent.cad.reindex import reindex_drawing
+        return reindex_drawing(self, snapshot_id)
+
     def _ingest(self, filename, content, synthetic=False):
         filename = Path(filename.replace("\\", "/")).name
         suffix = Path(filename).suffix.lower()
@@ -488,6 +493,8 @@ class Workspace:
                 "stage": "等待模型问答",
                 "task_id": runner.task.data["task_id"],
                 "trace": [],
+                "run_events": [],
+                "journal_version": 1,
                 "usage": [],
                 "result": None,
                 "error": None,
@@ -523,6 +530,7 @@ class Workspace:
         runner.execution=ExecutionContext(self.execution,'chat_run',record['id'],token)
         def update(**fields):
             fields['task_id']=runner.task.data['task_id']
+            fields['run_events']=runner.journal.snapshot(fields.get('status'))
             if hasattr(runner,'metrics'): fields['metrics']=runner.metrics.snapshot()
             if fields.get('status')=='failed':
                 runner.task.publication_failed(fields.get('error'))
@@ -542,8 +550,14 @@ class Workspace:
                 record.update(self.execution.update("chat_run", record["id"], token, fields))
 
         runner.progress = update
+        runner.journal.bind(record['id'])
         try:
             update(status="running",queue_wait_seconds=max(0,(datetime.now(timezone.utc)-datetime.fromisoformat(record["created_at"])).total_seconds()))
+            initial = runner.journal.start('input', '接收问题与图纸上下文')
+            runner.journal.section(initial, 'context', record['request'], '本次问题与选定范围')
+            runner.journal.section(initial, 'history', history, '传入的对话历史')
+            runner.journal.section(initial, 'instructions', runner.system_prompt, '应用系统提示词')
+            runner.journal.end(initial)
             runner.execution.check_cancelled()
             if runner.w.settings.provider == "responses_subscription":
                 # Executor scheduling time is separate from the per-question budget.
@@ -557,6 +571,11 @@ class Workspace:
                 e["evidence_url"] = (
                     f"/api/chat-runs/{record['id']}/evidence/{e['evidence_id']}"
                 )
+            delivery = runner.journal.start('delivery', '校验完成，准备发布答案')
+            runner.journal.section(delivery, 'answer', {
+                k: result[k] for k in ('answer', 'claims', 'citations', 'missing_information', 'task') if k in result
+            }, '交付内容与未解决项')
+            runner.journal.end(delivery)
             update(
                 status="completed",
                 stage="回答与引用校验完成",
@@ -601,7 +620,8 @@ class Workspace:
                 try:
                     runner.task.data.update(status='partial',publication_status='not_published')
                     runner.task.save()
-                    self.execution.update('chat_run',record['id'],token,{'status':'cancelled','stage':'问答已取消'})
+                    self.execution.update('chat_run',record['id'],token,{'status':'cancelled','stage':'问答已取消',
+                        'run_events':runner.journal.snapshot('cancelled')})
                 except ExecutionCancelled:
                     pass
             self.execution.finish('chat_run',record['id'],token,runner.task.data)

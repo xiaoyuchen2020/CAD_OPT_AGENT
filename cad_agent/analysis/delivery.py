@@ -1,8 +1,9 @@
+from cad_agent.cad.numbers import unsupported_values, format_claim_text, readings, VERSION as NUMBER_VERSION
 """Source, numerical and per-requirement answer validation."""
 import json
 import re
 from cad_agent.analysis.boundary_context import numeric_evidence
-from cad_agent.analysis.grounding import numbers, contains_number, contains_numeric_phrase, verify_calculations
+from cad_agent.analysis.grounding import numbers, contains_number, contains_numeric_phrase, verify_calculations, without_claim_list_markers
 from cad_agent.analysis.fact_tools import user_values
 from cad_agent.analysis.assembly_delivery import ownership_issues
 from cad_agent.analysis.spatial_delivery import is_spatial_fact, spatial_claim_issues, spatial_numeric_evidence, spatial_measurement_issues, spatial_numeric_claim_text
@@ -60,7 +61,7 @@ def validate_answer(self, content):
         index = parts.claim_indexes[parsed_index] + 1
         issue_count = len(issues)
         issues.extend(f"第 {index} 条{message}" for message in delivery_consistency_issues(claim, self.evidence, self.observations))
-        issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence))
+        issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence, self.observations))
         issues.extend(f"第 {index} 条{message}" for message in property_claim_issues(claim, property_fields))
         ids = list(dict.fromkeys(claim.evidence_ids))
         # A source can itself contain design instructions or "同上". Keep
@@ -144,9 +145,12 @@ def validate_answer(self, content):
                  else numeric_evidence(o['data']) for o in obs], ensure_ascii=False
             )
             numeric_claim_text = spatial_numeric_claim_text(claim.text) if spatial_data else claim.text
-            unsupported_numbers=sorted({v for v in re.findall(r"\d+(?:\.\d+)?", re.sub(r'\]\([^)]*\)', ']', numeric_claim_text) if diagnostic else numeric_claim_text)
-                                        if (not contains_number(numeric_source, v) if any(is_spatial_fact(o['data']) for o in obs)
-                                            else v not in numeric_source) and v not in calculated_values})
+            numeric_claim_text = without_claim_list_markers(numeric_claim_text)
+            if diagnostic:
+                numeric_claim_text = re.sub(r'\]\([^)]*\)', ']', numeric_claim_text)
+            unsupported_numbers=sorted({t['value'] for t in readings(numeric_claim_text)
+                if t['kind'] not in ('ordinal','ordinal_reference')
+                and not contains_number(numeric_source,t['value']) and t['value'] not in calculated_values})
             if unsupported_numbers:
                 issues.append(f"第 {index} 条数值 {', '.join(unsupported_numbers[:12])} 不在该条引用的工具观测中；请引用实际含该数值的观测，或保留工具原单位及精度，不得自行换算或补值。")
             used_observations.update({o["observation_id"]: o for o in obs})
@@ -170,8 +174,7 @@ def validate_answer(self, content):
         quote = "\n".join(self.evidence[eid]["quote"] for eid in ids)
         # Exact numeric tokens or explicitly source-bound, recomputed values.
         if claim.state != "unknown":
-            values = numbers(claim.text)
-            missing = sorted({value for value in values if not contains_number(quote, value) and value not in calculated_values})
+            missing = unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values)
             if missing:
                 candidates = {
                     v: [
@@ -221,6 +224,9 @@ def validate_answer(self, content):
         else:
             unique_claims.append(claim)
     claims = unique_claims
+    for claim in claims:
+        claim['display_text'] = format_claim_text(claim['text'], [self.evidence[eid] for eid in claim.get('evidence_ids',[]) if eid in self.evidence])
+        claim['number_format_version'] = NUMBER_VERSION
     prefixes = {
         "observed": "",
         "derived": "【模型推断，待核查】",
@@ -235,7 +241,7 @@ def validate_answer(self, content):
             if c.get("evidence_basis") == "tool_observation"
             else prefixes[c["state"]]
         )
-        + c["text"]
+        + c["display_text"]
         + "".join(f" [{n}]" for n in c["citation_numbers"])
         for c in claims
     )
@@ -270,45 +276,9 @@ def validate_answer(self, content):
 
 
 def append_source_excerpts(session, result):
-    """Expose exact read text without claiming the requested analysis is complete.
-
-    Only task-owned, currently registered sources are eligible. Keep quotes whole,
-    include citation metadata, and never add them to claims or operation receipts.
-    """
-    if result.get('task', {}).get('status') == 'completed' and not any(
-            c['state'] == 'unknown' for c in result['claims']):
-        return result
-    owners = {}
-    for step in session.task.data['subtasks']:
-        for eid in step.get('evidence_ids', []):
-            if eid in session.evidence:
-                owners.setdefault(eid, []).append(step['id'])
-    positions = {e['evidence_id']: i for i, e in enumerate(result['citations'], 1)}
-    excerpts, used_chars = [], 0
-    # Prefer complete informative clauses to bare numbers or isolated table cells.
-    sources = sorted((session.evidence[eid] for eid in owners),
-                     key=lambda e: (-len(e.get('quote', '')), e['evidence_id']))
-    for evidence in sources:
-        quote = evidence.get('quote', '')
-        if (not quote or not re.search(r'[a-zA-Z\u3400-\u9fff]', quote)
-                or any(quote in c['text'] and evidence['evidence_id'] in c['evidence_ids']
-                       for c in result['claims'])
-                or len(quote) > 1500 or used_chars + len(quote) > 4000):
-            continue
-        eid = evidence['evidence_id']
-        if eid not in positions:
-            positions[eid] = len(result['citations']) + 1
-            result['citations'].append(evidence | {'label': '已读原文摘录', 'evidence_url': None})
-        excerpts.append({'quote': quote, 'evidence_id': eid,
-                         'question_part_ids': owners[eid], 'citation_number': positions[eid]})
-        used_chars += len(quote)
-        if len(excerpts) == 12:
-            break
-    if excerpts:
-        result['source_excerpts'] = excerpts
-        result['answer'] += '\n\n已读原文摘录（仅保留来源文字；对象归属、适用范围及所问统计或几何关系尚待核查，不计为完成）：\n\n' + '\n\n'.join(
-            '“' + e['quote'] + '” [' + str(e['citation_number']) + ']' for e in excerpts)
-    return result
+    """Compatibility entry point: never append investigation sources to answers."""
+    from cad_agent.analysis.evidence_selection import publish
+    return publish(result)
 
 
 def supersedes_claim(current, cached):

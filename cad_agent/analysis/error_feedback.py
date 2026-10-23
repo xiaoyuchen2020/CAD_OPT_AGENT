@@ -138,4 +138,5 @@ def build_feedback(session, name, args, result, error, task_ids):
         packet["next_actions"] = packet["next_actions"][:2] + [packet["next_actions"][-1]]
         packet["repair_context"]["state_delta"] = changed[:8]
         packet["repair_context"]["state_delta_count"] = len(changed)
-    return packet
+    from cad_agent.analysis.read_context import repair_read_routes
+    return repair_read_routes(session, name, args, packet, error)

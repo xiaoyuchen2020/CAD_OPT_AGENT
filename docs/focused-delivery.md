@@ -1,5 +1,7 @@
 # 按任务聚焦与主动交付（MVP）
 
+> 2026-10-23 更新：v2 做法查阅使用模块化短提示和实际 schema 裁剪；最终引用由 DeliveryManifest 选定，partial 不再自动附加调查材料。详见 [v2 实现](cad-agent-execution-v2.md)。
+
 本阶段只调整自定义运行时（native / responses_subscription）的工具曝光、提示、上下文和答案交付。外部 Codex / DeepSeek Harness 保持原有固定工具桥作为对照；`agent_policy=legacy` 保留原探索路径。未接入策略或任意代码执行。
 
 ## 交付检查

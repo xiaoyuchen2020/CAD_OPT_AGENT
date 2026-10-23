@@ -138,7 +138,10 @@ class TaskLedger:
                 raise ValueError('任务仍在运行，不能同时继续。')
             for step in self.data['subtasks']:
                 if step['status'] in ('pending','running','partial','blocked_capability'):
+                    step['lifetime_tool_calls'] = step.get('lifetime_tool_calls', 0) + step.get('calls', 0)
                     step.update(status='pending',calls=0,stalled=0)
+                    if step.get('quality_progress'):
+                        step['quality_progress']['stalled'] = 0
             self.data.pop('checkpoint',None)
         else:
             parts = natural_parts(request.question)
@@ -151,6 +154,10 @@ class TaskLedger:
                     reason=None, evidence_ids=[], observation_ids=[], batch_ids=[], calls=0, stalled=0,
                     delivered=False, claims=[], operations=infer_operations(p['text']), operation_receipts=[]) for p in parts],
                 batches={}, evidence={}, observations={}, delivery_check=None)
+        from cad_agent.analysis.capabilities import VERSION as EXECUTION_VERSION, requirement_spec
+        self.data.setdefault("execution_policy_version", EXECUTION_VERSION if not request.resume_task_id and getattr(w.settings, "execution_policy", "v2") == "v2" and request.agent_policy != "legacy" else "legacy")
+        for step in self.data["subtasks"]:
+            step.setdefault("requirement_spec", requirement_spec(step["requirement"]))
         self.ensure_coverage()
 
     def ensure_coverage(self):
@@ -235,6 +242,10 @@ class TaskLedger:
         from cad_agent.analysis.gap_routing import context as gap_context
         d['gap_recovery']=gap_context(self.data)
         d.pop('spatial_results',None)
+        for step in d['subtasks']:
+            progress = step.get('quality_progress')
+            if progress:
+                step['quality_progress'] = {k: len(progress.get(k, [])) for k in ('verified', 'candidates', 'diagnostics')} | {'stalled': progress.get('stalled', 0)}
         d['subtasks']=[{k:v for k,v in s.items() if k not in ('claims','evidence_ids','observation_ids')} for s in d['subtasks']]
         d['execution_states']={s['id']:execution_state(self.data,s['id']) for s in self.data['subtasks']}
         d['runnable']=self.runnable()
@@ -310,7 +321,7 @@ class TaskLedger:
             s.update(status='running',calls=s['calls']+1)
         self.save()
 
-    def record(self, ids, name, result, evidence, observations, batch=None, duplicate=False, action_key=None):
+    def record(self, ids, name, result, evidence, observations, batch=None, duplicate=False, action_key=None, track_progress=True, defer_stall=False):
         self.data['evidence'].update(deepcopy(evidence))
         self.data['observations'].update(deepcopy(observations))
         eid=set(evidence); oid=result.get('observation_id')
@@ -327,12 +338,18 @@ class TaskLedger:
                 s['action_progress_tracking'] = True
                 repeats = s.setdefault('repeated_actions', {})
                 repeats[action_key] = repeats.get(action_key, 0)+1 if duplicate else 0
-            if not duplicate and (new_evidence or result.get('items') or batch or
+            if track_progress and self.data.get('execution_policy_version') == 'cad-execution-v2':
+                from cad_agent.analysis.task_progress import record as record_progress
+                delta = record_progress(s, name, result, evidence, duplicate, receipts(name, result), defer_stall=defer_stall)
+                if delta['kind'] == 'verified_progress':
+                    s['progress_call'] = s['calls']
+            elif not duplicate and (new_evidence or result.get('items') or batch or
                     any(r.get('fulfilled') for r in receipts(name, result))):
                 s['progress_call'] = s['calls']
             s['status']='pending'
             if not execution_state(self.data, s['id'])['executable']:
-                s.update(status='partial',reason='subtask_tool_budget_or_repetition',gap_kind='budget_exhausted')
+                state = execution_state(self.data, s['id'])
+                s.update(status='partial',reason=state['blocked_reason'],gap_kind=state['gap_kind'])
         for s in self.data['subtasks']:
             if s['id'] in ids:
                 s.setdefault('operation_receipts',[]).extend(receipts(name,result))
@@ -513,6 +530,13 @@ class TaskLedger:
             if outcome:
                 s['gap_kind']=outcome.get('gap_kind','none')
                 if outcome['status']!='fulfilled':s.update(status='partial',reason=outcome['reason'])
+            if (s.get('requirement_spec', {}).get('intent') != 'locate'
+                    and re.search('做法|构造', s['requirement']) and claims):
+                from cad_agent.cad.assembly_headings import HEADING
+                quotes = [self.data['evidence'][eid]['quote'] for c in claims for eid in c.get('evidence_ids', [])
+                          if eid in self.data['evidence']]
+                if quotes and all(HEADING.match(q) and '\n' not in q and not re.search(r'\d+[、．.]', q) for q in quotes):
+                    s.update(status='partial', gap_kind='unread_source', reason='仅交付做法标题；所问正文层次尚未交付。')
             # A claim about one member cannot discharge every object that was
             # routed to the same requirement. Keep explicit unknown/conflict
             # states; never promote source co-occurrence into an accepted fact.
@@ -550,6 +574,20 @@ class TaskLedger:
         self.data['delivery_check']={'all_requirements_addressed':True,'items':checks,
             'note':'逐项交付检查不证明语义正确；待确认和部分完成不是整体完成。'}
         self.refresh_status()
+        manifest = result.get('delivery_manifest')
+        if manifest is not None:
+            # Publish the actual ledger outcome, including title-only and
+            # coverage gates applied above, in the same persisted task revision.
+            for s in self.data['subtasks']:
+                outcome = outcomes.get(s['id'])
+                if outcome and outcome['status'] == 'fulfilled' and s['status'] != 'completed':
+                    outcome.update(status='partial', gap_kind=s.get('gap_kind') or 'unread_source',
+                                   reason=s.get('reason', '要求尚未完整交付。'))
+            manifest['requirement_outcomes'] = result.get('requirement_outcomes', [])
+            manifest['completion_scope'] = self.data['status']
+            manifest['unresolved_gaps'] = [dict(requirement_id=s['id'], kind=s.get('gap_kind'),
+                reason=s.get('reason')) for s in self.data['subtasks'] if s['status'] != 'completed']
+            self.data['delivery_manifest'] = manifest
         self.save()
         return self.public()
 

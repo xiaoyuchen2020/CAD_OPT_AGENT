@@ -81,6 +81,8 @@ class ModelGateway:
             else "/v1/chat/completions"
         )
         try:
+            from cad_agent.analysis.run_journal import record_wire_request
+            record_wire_request(payload)
             with httpx.Client(
                 timeout=httpx.Timeout(min(60, timeout), connect=min(15, timeout)),
                 follow_redirects=False,

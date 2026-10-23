@@ -103,16 +103,13 @@ def test_frozen_read_sources_are_visible_but_never_count_as_analysis(case, quote
     original = deepcopy(run['result'])
     session = SimpleNamespace(task=SimpleNamespace(data=task), evidence=task['evidence'])
     result = append_source_excerpts(session, deepcopy(original))
-    assert quote in result['answer']
-    assert '已读原文摘录' in result['answer']
-    assert result['claims'] == original['claims']
+    # Legacy read material remains in the archived task, not auto-published.
+    assert result['answer'] == original['answer']
     assert result['task'] == original['task']
     assert result['requirement_outcomes'] == original['requirement_outcomes']
-    for excerpt in result['source_excerpts']:
-        assert excerpt['quote'] == task['evidence'][excerpt['evidence_id']]['quote']
-        citation = result['citations'][excerpt['citation_number'] - 1]
-        assert citation['evidence_id'] == excerpt['evidence_id']
-        assert citation['quote'] == excerpt['quote']
+    selected = {eid for c in result['claims'] for eid in c.get('evidence_ids', [])}
+    assert {e['evidence_id'] for e in result['citations']} == selected
+    assert any(quote in e.get('quote', '') for e in task['evidence'].values())
 
 
 def test_excerpt_does_not_publish_unowned_or_bare_numeric_source():
@@ -123,7 +120,9 @@ def test_excerpt_does_not_publish_unowned_or_bare_numeric_source():
         'subtasks': [{'id': 'q1', 'evidence_ids': ['name', 'number']}]}))
     result = append_source_excerpts(session, {'answer': '范围未定', 'claims': [],
                                              'citations': [], 'task': {'status': 'partial'}})
-    assert [e['evidence_id'] for e in result['source_excerpts']] == ['name']
+    assert not result.get('source_excerpts')
+    assert result['citations'] == []
+    assert result['delivery_manifest']['selected_evidence_ids'] == []
     assert '2000' not in result['answer'] and '不相关' not in result['answer']
 
 

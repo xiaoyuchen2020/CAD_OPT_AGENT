@@ -30,8 +30,11 @@ class Settings:
     agent_max_rounds: int = 8
     agent_max_tool_calls: int = 16
     agent_timeout_seconds: int = 180
+    execution_policy: str = "v2"
     subscription_budget_policy: str = "adaptive_v1"
     stable_subscription_prefix: bool = True
+    model_context_codec: bool = True
+    read_context_optimization: bool = True
     siwc_max_concurrency: int = 1
     siwc_queue_timeout_seconds: float = 600
     max_upload_bytes: int = 32 * 1024 * 1024
@@ -85,8 +88,11 @@ class Settings:
         deepseek = e.get("CAD_AGENT_PROVIDER", "deepseek") == "deepseek"
         return cls(
             data_dir=Path(e.get("CAD_AGENT_DATA_DIR", str(ROOT / ".data"))).resolve(),
+            execution_policy=e.get("CAD_EXECUTION_POLICY", "v2"),
             subscription_budget_policy=e.get("CAD_SUBSCRIPTION_BUDGET_POLICY", "adaptive_v1"),
             stable_subscription_prefix=e.get("CAD_STABLE_SUBSCRIPTION_PREFIX", "1") == "1",
+            model_context_codec=e.get("CAD_MODEL_CONTEXT_CODEC", "1") == "1",
+            read_context_optimization=e.get("CAD_READ_CONTEXT_OPTIMIZATION", "1") == "1",
             siwc_max_concurrency=int(e.get("CAD_SIWC_MAX_CONCURRENCY", "1")),
             siwc_queue_timeout_seconds=float(e.get("CAD_SIWC_QUEUE_TIMEOUT_SECONDS", "600")),
             agent_timeout_seconds=int(e.get("CAD_AGENT_TIMEOUT_SECONDS","180")),

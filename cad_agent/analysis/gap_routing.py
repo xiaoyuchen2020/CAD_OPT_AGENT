@@ -9,6 +9,7 @@ import json
 
 ATTEMPT_LIMIT = 3
 RULES = {
+    'assembly_ownership': ('做法归属未确认；核对表格或局部原图，不继续分页无界邻近文字。', ['read_table_semantics', 'render_region']),
     'header_unread': ('读取目标表的表头原文和对应列，不能按首行猜表头。', ['read_table_semantics']),
     'unit_missing': ('补读该数值直接绑定的单位来源；未知单位不换算、不自动确认。', ['read_source_context', 'read_dimensions']),
     'visual_identity': ('先核对原生来源，再看同对象局部图；视觉候选不是工程确认。', ['read_geometry', 'render_region']),
@@ -94,11 +95,26 @@ def record_result(session, name, ids, result):
         for gap in gaps.values():
             if gap['kind'] == 'no_new_evidence' and gap['status'] == 'open' and set(ids) & set(gap['task_ids']):
                 added = new_ids - set(gap.get('evidence_at_detection', []))
-                if added:
+                progress = [s.get('last_progress', {}) for s in data['subtasks'] if s['id'] in ids]
+                meaningful = data.get('execution_policy_version') != 'cad-execution-v2' or any(p.get('kind') in ('verified_progress', 'candidate_progress') for p in progress)
+                if added and meaningful:
                     gap.update(status='resolved', stop_reason=None, recommendation=None,
                                resolution=dict(tool=name, evidence_ids=sorted(added),
                                                basis='new_source_evidence_only'))
         base = {k: deepcopy(args[k]) for k in REFS if k in args}
+        if name == 'read_assembly' and result.get('view') == 'record' and (result.get('source_binding') or {}).get('state') != 'source_bound':
+            title = result.get('title_evidence') or {}
+            sources = [i.get('evidence', {}) for i in result.get('items', [])] + [title]
+            boxes = [e['bbox'] for e in sources if e.get('bbox')]
+            refs = base | {'snapshot_id': result.get('snapshot_id')}
+            if boxes:
+                refs['bbox'] = [min(b[0] for b in boxes)-500, min(b[1] for b in boxes)-500,
+                                max(b[2] for b in boxes)+500, max(b[3] for b in boxes)+500]
+                refs['layout_id'] = title.get('layout_id') or session.index.by_id[args['region_id']].layout_id
+            tables = result.get('table_candidates', [])
+            if tables:
+                refs['table_id'] = tables[0]['table_id']
+            _register(data, ids, 'assembly_ownership', refs)
         for row, refs in _walk(result, base):
             kinds = []
             if row.get('header_state') == 'unresolved' or 'HEADER_UNRESOLVED' in row.get('diagnostics', []):
@@ -161,6 +177,11 @@ def _proposals(session, gap):
         table_args['snapshot_id'] = r['snapshot_id']
     if kind == 'header_unread':
         yield table_tool, table_args
+    elif kind == 'assembly_ownership':
+        if r.get('table_id'):
+            yield table_tool, table_args
+        if r.get('layout_id') and r.get('bbox'):
+            yield 'render_region', {k: r[k] for k in ('layout_id', 'bbox')}
     elif kind == 'unit_missing':
         if cross_table:
             yield table_tool, table_args

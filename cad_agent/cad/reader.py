@@ -12,7 +12,7 @@ from ezdxf import bbox as cad_bbox
 from ezdxf.path import make_path
 from cad_agent.contracts import Entity, Diagnostic, stable_id
 
-PARSER_VERSION = "native-dxf-v4-root-batches"
+PARSER_VERSION = "native-dxf-v5.1-reading-streams"
 MAX_ENTITIES = 80000
 ENTITY_BATCH_SIZE = 512
 

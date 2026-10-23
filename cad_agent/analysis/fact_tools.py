@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field
 from cad_agent.contracts import Record
 from cad_agent.analysis.general import DrawingIndex
+from cad_agent.cad.numbers import readings, evidence_readings, matching_quantities, source_contains_number
 from cad_agent.analysis.grounding import contains_number, contains_numeric_phrase, numbers, numeric_tokens
 
 
@@ -42,6 +43,7 @@ def user_values(refs, question, state, text):
 
 
 class Quantity(Record):
+    quantity_id: str = Field(default="",description="来源 numeric_readings 中的 number_id；重复值须指定；编号/型号/歧义项不可作为操作数。")
     origin: Literal['source','user_input','measurement','calculation']
     label: str = Field(default='',max_length=120,description='明确对象与操作数角色，例如某分区面积；不要从第一个数字猜值。')
     source_quote: str = Field(default='',max_length=500,description='可选的已读原文逐字片段，须含本操作数与单位；保留约数和适用范围。')
@@ -80,34 +82,21 @@ class CalculateFacts(Record):
 UNITS={'':('scalar',Decimal(1)), 'mm':('length',Decimal('.001')), 'cm':('length',Decimal('.01')), 'm':('length',Decimal(1)),
        'mm2':('area',Decimal('.000001')), 'cm2':('area',Decimal('.0001')), 'm2':('area',Decimal(1)),
        'm2/count':('area_per_count',Decimal(1)), 'count':('count',Decimal(1)), 'ratio':('scalar',Decimal(1)), 'percent':('scalar',Decimal('.01'))}
-UNIT_TEXT={'mm':r'mm|毫米','cm':r'cm|厘米','m':r'(?<![a-z])m(?![a-z²2])|米(?![²2])',
-           'mm2':r'mm[²2]|平方毫米','cm2':r'cm[²2]|平方厘米','m2':r'(?<![a-z])m[²2]|㎡|平方米',
-           'm2/count':r'(?:m[²2]|㎡|平方米)\s*[/／]\s*(?:车位|车|辆|个|count)',
-           'percent':r'%|％','count':r'个|处|辆|车位|樘|部|间|数量','ratio':r'比例|比值|系数'}
+from cad_agent.cad.numbers import UNIT_TEXT
 
 
-def calculation_tokens(quote):
-    """Inventory literal numbers and adjacent units, never infer an operand join.
-
-    Roles are lexical hints only. Identifier/model fragments and implicit units
-    remain unavailable; an area label followed by m must not become m2.
-    """
-    order=('m2/count','mm2','cm2','m2','mm','cm','m','percent','count','ratio')
-    for token in numeric_tokens(quote):
-        start,end=token['text_span']
-        if start and re.match(r'[0-9A-Za-z_.]',quote[start-1]):continue
-        before,tail=quote[:start],quote[end:]
-        identifier=bool(re.search(r'(?:编号|型号)\s*$',before) or re.match(r'[#＃]|\s*(?:号|防火分区)',tail))
-        unit=next((u for u in order if re.match(r'\s*(?:'+UNIT_TEXT[u]+r')(?![A-Za-z²0-9])',tail,re.I)), '')
-        identifier=identifier or bool(re.match(r'[A-Za-z_]',tail) and not unit)
-        if not unit and re.search(r'(?:比例|比值|系数)\s*[:：=]?\s*$',before):unit='ratio'
-        role_match=re.search(r'(面积|停车数|车位数|数量|厚度|长度|宽度|净宽|标高)\s*(?:为|[:：=])?\s*(?:约)?\s*$',before)
-        role=role_match[1] if role_match else '厚度' if re.match(r'\s*厚(?!度)',tail) else ''
-        identifier = identifier or bool(re.match(r'\s*[、．.]',tail) and not role)
-        status='identifier' if identifier else 'unit_unconfirmed' if not unit else 'available_numeric'
-        if role=='面积' and unit and UNITS[unit][0]!='area':status='unit_conflict'
-        yield dict(value=token['value'],unit=unit,role=role,status=status,number_span=token['text_span'],
-                   raw=token['raw'],interpretation=token['interpretation'])
+def calculation_tokens(quote, atoms=None):
+    """Arithmetic projection of the shared source readings, with original spans."""
+    for token in readings(quote) if atoms is None else atoms:
+        if token['kind'] in ('ordinal','ordinal_reference'): continue
+        unit=token.get('unit',''); role=token.get('role','')
+        status=('ambiguous' if token['status']=='needs_review' else
+                'identifier' if token['kind'] in ('identifier','expression_component') else
+                'unit_conflict' if role=='面积' and unit and UNITS.get(unit, ('',))[0]!='area' else
+                'available_numeric' if unit else 'unit_unconfirmed')
+        yield dict(number_id=token['number_id'],kind=token['kind'],value=token['value'],unit=unit,
+                   role=role,status=status,number_span=token['text_span'],raw=token['raw'],
+                   interpretation=token['interpretation'])
 
 
 def calculate_facts(s,args):
@@ -126,6 +115,8 @@ def calculate_facts(s,args):
                 raise ValueError('calculation_key 已绑定另一目标、运算或口径；不能用其他算式消除缺项。')
     if not args.quantities and not args.missing_operands:raise ValueError('至少提供已绑定操作数或明确 missing_operands；不能猜操作数。')
     for q in args.quantities:
+        if q.quantity_id and q.origin not in ('source','user_input'):
+            raise ValueError('quantity_id 只用于原文或用户原句数量。')
         if q.unit_evidence_id and q.origin != 'source':
             raise ValueError('独立默认单位依据仅允许原文操作数使用。')
         value=Decimal(q.value); basis='source_text'; quote='';source_approximate=False
@@ -134,7 +125,7 @@ def calculate_facts(s,args):
         if q.origin=='source':
             if q.question_quote or q.observation_id or q.measurement_ref:raise ValueError('原文操作数不能混用其他来源。')
             e=s.evidence.get(q.evidence_id)
-            if not e or not contains_number(e['quote'],q.value):raise ValueError('操作数不在已读原文中。')
+            if not e or not source_contains_number(e,q.value):raise ValueError('操作数不在已读原文中。')
             quote=e['quote'];record=e
         elif q.origin=='user_input':
             if q.evidence_id or q.observation_id or q.measurement_ref:raise ValueError('用户操作数不能冒充原文或测量。')
@@ -206,32 +197,42 @@ def calculate_facts(s,args):
         if lineage is None:lineage=[deepcopy(binding)]
         original_quote=quote
         number_evidence=[]
+        quantity_ids=[]
         unit_binding=None
         if q.source_quote:
-            if q.source_quote not in quote or not contains_number(q.source_quote,q.value):raise ValueError('source_quote 必须是含该数值的已读原文片段。')
+            if q.source_quote not in quote:raise ValueError('source_quote 必须是含该数值的已读原文片段。')
+            if quote.count(q.source_quote) != 1:
+                raise ValueError('source_quote 在原文中重复；请提供更完整的原句和 quantity_id。')
             quote=q.source_quote
         if quote:
             source_approximate=bool(re.search(r'约|大约|近似|左右|测绘.{0,8}为准',original_quote))
         if quote:
-            tokens=[t for t in calculation_tokens(quote)
-                    if re.fullmatch(r'-?\d+(?:\.\d+)?',t['value']) and Decimal(t['value'])==Decimal(q.value)]
+            atoms = evidence_readings(record) if q.origin=='source' else readings(original_quote)
+            offset=original_quote.index(quote)
+            tokens=[t for t in calculation_tokens(original_quote, atoms)
+                    if (not q.quantity_id or t['number_id']==q.quantity_id)
+                    and t['number_span'][1]>offset and t['number_span'][0]<offset+len(quote)
+                    and re.fullmatch(r'-?\d+(?:\.\d+)?',t['value']) and Decimal(t['value'])==Decimal(q.value)]
             if not tokens:
                 raise ValueError('该数值仅见于编号或材料型号，不能作为独立数量操作数。')
             if all(t['status']=='identifier' for t in tokens):
                 raise ValueError('编号不是数量操作数；须读取明确数值与单位，不能按编号或数字邻近配值。')
-            tokens=[t for t in tokens if t['status']!='identifier']
+            tokens=[t for t in tokens if t['status'] not in ('identifier','ambiguous')]
+            if len(tokens)!=1:
+                raise ValueError('数量来源有歧义或重复；请读取上下文并指定唯一 quantity_id，编号/型号/未消歧项不能计算。')
+            quantity_ids=[t['number_id'] for t in tokens]
             # Use longest unit first. mm cannot borrow the prefix of mm2, and
             # m2 cannot discard the denominator of m2/count.
             unit_order=('m2/count','mm2','cm2','m2','mm','cm','m','percent','count','ratio')
             bound_units=[]
             for token in tokens:
-                tail=quote[token['number_span'][1]:]
+                tail=original_quote[token['number_span'][1]:]
                 detected=next((u for u in unit_order if re.match(r'\s*(?:'+UNIT_TEXT[u]+r')(?![A-Za-z²0-9])',tail,re.I)), '')
-                if not detected and re.search(r'(?:比例|比值|系数)\s*[:：=]?\s*$',quote[:token['number_span'][0]]):detected='ratio'
+                if not detected and re.search(r'(?:比例|比值|系数)\s*[:：=]?\s*$',original_quote[:token['number_span'][0]]):detected='ratio'
                 bound_units.append(detected)
             if q.unit_evidence_id:
                 from cad_agent.analysis.default_units import resolve
-                unit_binding = resolve(s, q, record, quote, tokens)
+                unit_binding = resolve(s, q, record, original_quote, tokens)
             if q.unit and q.unit not in bound_units:
                 if any(bound_units) or not unit_binding:
                     raise ValueError('该数值没有直接绑定所填单位；须读取并绑定明确默认单位条款，不能借用其他数字的单位或截断复合单位。')
@@ -241,8 +242,8 @@ def calculate_facts(s,args):
             offset=original_quote.index(quote)
             number_evidence=[dict(raw=t['raw'],value=t['value'],interpretation=t['interpretation'],
                                   text_span=t['number_span'])
-                             for t in calculation_tokens(original_quote)
-                             if t['status']!='identifier' and (t['unit']==q.unit or (unit_binding and not t['unit']))
+                             for t in calculation_tokens(original_quote, atoms)
+                             if t['number_id'] in quantity_ids and (t['unit']==q.unit or (unit_binding and not t['unit']))
                              and re.fullmatch(r'-?\d+(?:\.\d+)?',t['value'])
                              and Decimal(t['value'])==Decimal(q.value)
                              and t['number_span'][1]>offset and t['number_span'][0]<offset+len(quote)]
@@ -258,11 +259,11 @@ def calculate_facts(s,args):
         resolved.append(dict(**q.model_dump(),basis=basis,normalized_value=str(value*factor),dimension=dim,
                              quote=original_quote,approximate=source_approximate,binding=binding,lineage=lineage,
                              unit_status='explicit' if q.unit else 'numeric_only_unit_unconfirmed',candidate=candidate,
-                             number_evidence=number_evidence,unit_binding=unit_binding,**upstream))
+                             quantity_ids=quantity_ids,number_evidence=number_evidence,unit_binding=unit_binding,**upstream))
     for plan in task_data.get('calculation_workflows',{}).values():
         if plan['calculation_key']!=key or not set(plan['task_ids'])&set(owners):continue
         prior=plan.get('inputs',[])
-        identity_fields=('origin','evidence_id','unit_evidence_id','observation_id','measurement_ref','field','value','unit','object_id','scope_id')
+        identity_fields=('quantity_id','origin','evidence_id','unit_evidence_id','observation_id','measurement_ref','field','value','unit','object_id','scope_id')
         identity_changed=any(any(old.get(k,'')!=new.get(k,'') for k in identity_fields)
                              for old,new in zip(prior,resolved))
         known_object_changed=any(any(old.get('binding',{}).get(k) and
@@ -350,7 +351,7 @@ class ReadAssembly(Record):
     region_id: str
     view: Literal['record','catalog'] = 'record'
     offset: int = Field(default=0,ge=0)
-    limit: int = Field(default=8,ge=1,le=12)
+    limit: int = Field(default=12,ge=1,le=12)
 
 
 def read_assembly(s,args):

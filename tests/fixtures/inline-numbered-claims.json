@@ -1,0 +1,327 @@
+{
+  "provenance": "Frozen claim prose and cited quotes from chat_d6687ea539544aa987357604230507f4, first rejected draft; numeric validation fixture only. Full bindings retained in local replay artifact.",
+  "claims": [
+    {
+      "text": "【住宅楼及底层商铺、连廊建筑工程做法表】外墙1——有保温，原文编号顺序为：1.外墙真石漆饰面，颜色及立面分缝详效果图；2.外墙专用柔性腻子层两遍，每遍均打磨；3.5厚抗裂砂浆，其上挤浆满铺145g/平方米复合耐碱玻纤网格布；4.20厚岩棉板，燃烧性能A级，厚度具体详节能专篇；5.3厚粘接砂浆掺高效粘接剂；6.10厚DPM20防水砂浆分层抹平；7.砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；8.基层墙体。记录备注：用于底层商铺外墙部位；保温板用于各剪力墙部位。",
+      "state": "observed",
+      "question_part_ids": [
+        "q1"
+      ],
+      "evidence_basis": "source",
+      "evidence_ids": [
+        "ev_154543701fc99ab381df9aa3",
+        "ev_791ce12a4c82c93b334f8f84",
+        "ev_04868c2d5d9116bfc7fa9080",
+        "ev_2b158fde596cca03682ede44",
+        "ev_19a157ac892c9d72b6547b04",
+        "ev_a57c41bae0660a190df2ae5d",
+        "ev_46603bc8703b38b6bb373979",
+        "ev_25d2158ea865f9a68a31261a",
+        "ev_3cde534e1e1dd890919494fb",
+        "ev_ab646e2e4997cb72595ce048"
+      ]
+    },
+    {
+      "text": "【商业楼建筑工程做法表】外墙1——有保温：1.外墙真石漆饰面，颜色及立面分缝详效果图；2.外墙专用柔性腻子层两遍，每遍均打磨；3.5厚抗裂砂浆，其上挤浆满铺145g/平方米复合耐碱玻纤网格布；4.20厚岩棉板，燃烧性能A级，厚度具体详节能专篇；5.3厚粘接砂浆掺高效粘接剂；6.10厚DPM20防水砂浆分层抹平；7.砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；8.基层墙体。记录备注：用于底层商铺外墙部位；保温板用于各剪力墙部位。",
+      "state": "observed",
+      "question_part_ids": [
+        "q1"
+      ],
+      "evidence_basis": "source",
+      "evidence_ids": [
+        "ev_45adade2dfef471ddf2b2ae7",
+        "ev_a6de7851c8701cef15bf2ca7",
+        "ev_fcab2808811237eeec750b06",
+        "ev_9614cd2e2d23d777090b8ac6",
+        "ev_5dcd4bd3cfd26249ffb00098",
+        "ev_80fc76920d905f6766efa0a6",
+        "ev_0d0011199137bacfc35144fe",
+        "ev_97ac584492cc1023e80a4ab5",
+        "ev_0bdf27d7a4f5e73f80acd16b",
+        "ev_d13d53184ad680b54b4d6f9c"
+      ]
+    },
+    {
+      "text": "【商业楼建筑工程做法表】外墙2——铝板幕墙外墙：1.铝板饰面，由专业幕墙单位深化；2.用铝合金锚固件与竖、横龙骨固交，由专业幕墙单位深化；3.空气间层；4.铝合金竖向龙骨与混凝土构件预埋钢板焊牢；5.外墙NYS1:1.5丙乳净浆防水，一纵一横两遍，1mm厚以上；6.5厚抗裂砂浆，其上挤浆满铺145g/平方米复合耐碱玻纤网格布；7.35厚岩棉板，燃烧性能A级，厚度具体详节能专篇；8.3厚粘接砂浆掺高效粘接剂；9.10厚DPM20防水砂浆分层抹平；10.基层墙体。记录备注：用于无内侧墙体部位。另读到“外墙3——玻璃幕墙”标题，其具体层次尚未确认。",
+      "state": "observed",
+      "question_part_ids": [
+        "q1"
+      ],
+      "evidence_basis": "source",
+      "evidence_ids": [
+        "ev_0e3f99529e5e7df186367d23",
+        "ev_fa901c0e334617569e2e9c4d",
+        "ev_e995af26342b93e672ad358b",
+        "ev_ed92fd8fe032a6c83f443beb",
+        "ev_767d9d80781e301622043a12",
+        "ev_24e9b43b7333786face96621",
+        "ev_f245b6660b1d07da38901c9f",
+        "ev_ffa8d0ee953dd74fe4f469ac",
+        "ev_6e4cf6ee628c85b0b6cce33c",
+        "ev_3bc1176e9ccf4619b06fbb0a",
+        "ev_f07fe0ee258ca25130e160d5",
+        "ev_4c488ca0da5515192633b9fd",
+        "ev_b7e8008b4b9709bcebe90c6f"
+      ]
+    },
+    {
+      "text": "【办公楼建筑工程做法表】外墙1——有保温：1.外墙真石漆饰面，颜色及立面分缝详效果图；2.外墙专用柔性腻子层两遍，每遍均打磨；3.5厚抗裂砂浆，其上挤浆满铺145g/平方米复合耐碱玻纤网格布；4.35厚岩棉板，燃烧性能A级，厚度具体详节能专篇；5.3厚粘接砂浆掺高效粘接剂；6.10厚DPM20防水砂浆分层抹平；7.砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；8.基层墙体。记录备注：用于底层商铺外墙部位；保温板用于各剪力墙部位。",
+      "state": "observed",
+      "question_part_ids": [
+        "q1"
+      ],
+      "evidence_basis": "source",
+      "evidence_ids": [
+        "ev_b972cd786d6e1fa65d18a5a4",
+        "ev_a2e31f9b0da2e416bcb4e0d6",
+        "ev_212f991463bf400d243fbd2f",
+        "ev_98ff2414508f9b55c7c98469",
+        "ev_af62aaf84a0f9bfbf57f27fd",
+        "ev_a2160127ab2d863829bb37cf",
+        "ev_5ca45e97eed5347ce19960cf",
+        "ev_df8bbf7f4f75cb5045793bcd",
+        "ev_7307aabe64fbdc1eec4d8b2e",
+        "ev_2cf544269f1d566cf99468d0"
+      ]
+    },
+    {
+      "text": "【办公楼建筑工程做法表】外墙4——铝板幕墙外墙：1.铝板饰面，由专业幕墙单位深化；2.用铝合金锚固件与竖、横龙骨固交，由专业幕墙单位深化；3.空气间层；4.铝合金竖向龙骨与混凝土构件预埋钢板焊牢；5.外墙NYS1:1.5丙乳净浆防水，一纵一横两遍，1mm厚以上；6.5厚抗裂砂浆，其上挤浆满铺145g/平方米复合耐碱玻纤网格布；7.35厚岩棉板，燃烧性能A级，厚度具体详节能专篇；8.3厚粘接砂浆掺高效粘接剂；9.10厚DPM20防水砂浆分层抹平；10.基层墙体。",
+      "state": "observed",
+      "question_part_ids": [
+        "q1"
+      ],
+      "evidence_basis": "source",
+      "evidence_ids": [
+        "ev_720cf56fc1214e3aafa20c2b",
+        "ev_a376a975ff5ebd52050524d9",
+        "ev_0e6b1735bcccb4104d94890a",
+        "ev_121755d3b6c026735c23fb87",
+        "ev_af7356f6b9bfa44a263e8c5b",
+        "ev_b0e9b4dbf609837ea9887501",
+        "ev_f65a8294715d3b470b049baf",
+        "ev_163164ac8cc351730852a5e2",
+        "ev_29c387d90c9b8e12d3143349",
+        "ev_cc21fe6946b8eb7e2c2cc138",
+        "ev_535adbbc150eb79ba417ca22"
+      ]
+    }
+  ],
+  "evidence": {
+    "ev_154543701fc99ab381df9aa3": {
+      "evidence_id": "ev_154543701fc99ab381df9aa3",
+      "quote": "外墙：外墙1——有保温"
+    },
+    "ev_0e3f99529e5e7df186367d23": {
+      "evidence_id": "ev_0e3f99529e5e7df186367d23",
+      "quote": "外墙：外墙2——铝板幕墙外墙"
+    },
+    "ev_19a157ac892c9d72b6547b04": {
+      "evidence_id": "ev_19a157ac892c9d72b6547b04",
+      "quote": "4. 20厚岩棉板（燃烧性能A级）（厚度具体详节能专篇）；"
+    },
+    "ev_af62aaf84a0f9bfbf57f27fd": {
+      "evidence_id": "ev_af62aaf84a0f9bfbf57f27fd",
+      "quote": "4. 35厚岩棉板（燃烧性能A级）（厚度具体详节能专篇）；"
+    },
+    "ev_791ce12a4c82c93b334f8f84": {
+      "evidence_id": "ev_791ce12a4c82c93b334f8f84",
+      "quote": "1. 外墙真石漆饰面（颜色及立面分缝详效果图）;"
+    },
+    "ev_04868c2d5d9116bfc7fa9080": {
+      "evidence_id": "ev_04868c2d5d9116bfc7fa9080",
+      "quote": "2. 外墙专用柔性腻子层两遍，每遍均打磨；"
+    },
+    "ev_2b158fde596cca03682ede44": {
+      "evidence_id": "ev_2b158fde596cca03682ede44",
+      "quote": "3. 5厚抗裂砂浆（其上挤浆满铺145g/平方米复合耐碱玻纤网格布）"
+    },
+    "ev_a57c41bae0660a190df2ae5d": {
+      "evidence_id": "ev_a57c41bae0660a190df2ae5d",
+      "quote": "5. 3厚粘接砂浆掺高效粘接剂；"
+    },
+    "ev_46603bc8703b38b6bb373979": {
+      "evidence_id": "ev_46603bc8703b38b6bb373979",
+      "quote": "6. 10厚DPM20防水砂浆分层抹平；"
+    },
+    "ev_25d2158ea865f9a68a31261a": {
+      "evidence_id": "ev_25d2158ea865f9a68a31261a",
+      "quote": "7. 砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；"
+    },
+    "ev_3cde534e1e1dd890919494fb": {
+      "evidence_id": "ev_3cde534e1e1dd890919494fb",
+      "quote": "8. 基层墙体。"
+    },
+    "ev_ab646e2e4997cb72595ce048": {
+      "evidence_id": "ev_ab646e2e4997cb72595ce048",
+      "quote": "（用于底层商铺外墙部位；保温板用于各剪力墙部位）"
+    },
+    "ev_b7e8008b4b9709bcebe90c6f": {
+      "evidence_id": "ev_b7e8008b4b9709bcebe90c6f",
+      "quote": "外墙：外墙3——玻璃幕墙"
+    },
+    "ev_fa901c0e334617569e2e9c4d": {
+      "evidence_id": "ev_fa901c0e334617569e2e9c4d",
+      "quote": "1. 铝板饰面（由专业幕墙单位深化）；"
+    },
+    "ev_e995af26342b93e672ad358b": {
+      "evidence_id": "ev_e995af26342b93e672ad358b",
+      "quote": "2. 用铝合金锚固件与竖、横龙骨固交（由专业幕墙单位深化）；"
+    },
+    "ev_ed92fd8fe032a6c83f443beb": {
+      "evidence_id": "ev_ed92fd8fe032a6c83f443beb",
+      "quote": "3. 空气间层；"
+    },
+    "ev_767d9d80781e301622043a12": {
+      "evidence_id": "ev_767d9d80781e301622043a12",
+      "quote": "4. 铝合金竖向龙骨与混凝土构件预埋钢板焊牢；"
+    },
+    "ev_24e9b43b7333786face96621": {
+      "evidence_id": "ev_24e9b43b7333786face96621",
+      "quote": "5. 外墙NYS1:1.5丙乳净浆防水（一 纵一横两遍，1mm厚以上）；"
+    },
+    "ev_f245b6660b1d07da38901c9f": {
+      "evidence_id": "ev_f245b6660b1d07da38901c9f",
+      "quote": "6. 5厚抗裂砂浆（其上挤浆满铺145g/平方米复合耐碱玻纤网格布）；"
+    },
+    "ev_ffa8d0ee953dd74fe4f469ac": {
+      "evidence_id": "ev_ffa8d0ee953dd74fe4f469ac",
+      "quote": "7. 35厚岩棉板（燃烧性能A级）（厚度具体详节能专篇）；"
+    },
+    "ev_6e4cf6ee628c85b0b6cce33c": {
+      "evidence_id": "ev_6e4cf6ee628c85b0b6cce33c",
+      "quote": "8. 3厚粘接砂浆掺高效粘接剂；"
+    },
+    "ev_3bc1176e9ccf4619b06fbb0a": {
+      "evidence_id": "ev_3bc1176e9ccf4619b06fbb0a",
+      "quote": "9. 10厚DPM20防水砂浆分层抹平；"
+    },
+    "ev_f07fe0ee258ca25130e160d5": {
+      "evidence_id": "ev_f07fe0ee258ca25130e160d5",
+      "quote": "10. 基层墙体。"
+    },
+    "ev_4c488ca0da5515192633b9fd": {
+      "evidence_id": "ev_4c488ca0da5515192633b9fd",
+      "quote": "（用于无内侧墙体部位）"
+    },
+    "ev_720cf56fc1214e3aafa20c2b": {
+      "evidence_id": "ev_720cf56fc1214e3aafa20c2b",
+      "quote": "外墙：外墙4——铝板幕墙外墙"
+    },
+    "ev_a376a975ff5ebd52050524d9": {
+      "evidence_id": "ev_a376a975ff5ebd52050524d9",
+      "quote": "1. 铝板饰面（由专业幕墙单位深化）；"
+    },
+    "ev_0e6b1735bcccb4104d94890a": {
+      "evidence_id": "ev_0e6b1735bcccb4104d94890a",
+      "quote": "2. 用铝合金锚固件与竖、横龙骨固交（由专业幕墙单位深化）；"
+    },
+    "ev_121755d3b6c026735c23fb87": {
+      "evidence_id": "ev_121755d3b6c026735c23fb87",
+      "quote": "3. 空气间层；"
+    },
+    "ev_af7356f6b9bfa44a263e8c5b": {
+      "evidence_id": "ev_af7356f6b9bfa44a263e8c5b",
+      "quote": "4. 铝合金竖向龙骨与混凝土构件预埋钢板焊牢；"
+    },
+    "ev_b0e9b4dbf609837ea9887501": {
+      "evidence_id": "ev_b0e9b4dbf609837ea9887501",
+      "quote": "5. 外墙NYS1:1.5丙乳净浆防水（一 纵一横两遍，1mm厚以上）；"
+    },
+    "ev_f65a8294715d3b470b049baf": {
+      "evidence_id": "ev_f65a8294715d3b470b049baf",
+      "quote": "6. 5厚抗裂砂浆（其上挤浆满铺145g/平方米复合耐碱玻纤网格布）；"
+    },
+    "ev_163164ac8cc351730852a5e2": {
+      "evidence_id": "ev_163164ac8cc351730852a5e2",
+      "quote": "7. 35厚岩棉板（燃烧性能A级）（厚度具体详节能专篇）；"
+    },
+    "ev_29c387d90c9b8e12d3143349": {
+      "evidence_id": "ev_29c387d90c9b8e12d3143349",
+      "quote": "8. 3厚粘接砂浆掺高效粘接剂；"
+    },
+    "ev_cc21fe6946b8eb7e2c2cc138": {
+      "evidence_id": "ev_cc21fe6946b8eb7e2c2cc138",
+      "quote": "9. 10厚DPM20防水砂浆分层抹平；"
+    },
+    "ev_535adbbc150eb79ba417ca22": {
+      "evidence_id": "ev_535adbbc150eb79ba417ca22",
+      "quote": "10. 基层墙体。"
+    },
+    "ev_45adade2dfef471ddf2b2ae7": {
+      "evidence_id": "ev_45adade2dfef471ddf2b2ae7",
+      "quote": "外墙：外墙1——有保温"
+    },
+    "ev_a6de7851c8701cef15bf2ca7": {
+      "evidence_id": "ev_a6de7851c8701cef15bf2ca7",
+      "quote": "1. 外墙真石漆饰面（颜色及立面分缝详效果图）;"
+    },
+    "ev_fcab2808811237eeec750b06": {
+      "evidence_id": "ev_fcab2808811237eeec750b06",
+      "quote": "2. 外墙专用柔性腻子层两遍，每遍均打磨；"
+    },
+    "ev_9614cd2e2d23d777090b8ac6": {
+      "evidence_id": "ev_9614cd2e2d23d777090b8ac6",
+      "quote": "3. 5厚抗裂砂浆（其上挤浆满铺145g/平方米复合耐碱玻纤网格布）"
+    },
+    "ev_5dcd4bd3cfd26249ffb00098": {
+      "evidence_id": "ev_5dcd4bd3cfd26249ffb00098",
+      "quote": "4. 20厚岩棉板（燃烧性能A级）（厚度具体详节能专篇）；"
+    },
+    "ev_80fc76920d905f6766efa0a6": {
+      "evidence_id": "ev_80fc76920d905f6766efa0a6",
+      "quote": "5. 3厚粘接砂浆掺高效粘接剂；"
+    },
+    "ev_0d0011199137bacfc35144fe": {
+      "evidence_id": "ev_0d0011199137bacfc35144fe",
+      "quote": "6. 10厚DPM20防水砂浆分层抹平；"
+    },
+    "ev_97ac584492cc1023e80a4ab5": {
+      "evidence_id": "ev_97ac584492cc1023e80a4ab5",
+      "quote": "7. 砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；"
+    },
+    "ev_0bdf27d7a4f5e73f80acd16b": {
+      "evidence_id": "ev_0bdf27d7a4f5e73f80acd16b",
+      "quote": "8. 基层墙体。"
+    },
+    "ev_d13d53184ad680b54b4d6f9c": {
+      "evidence_id": "ev_d13d53184ad680b54b4d6f9c",
+      "quote": "（用于底层商铺外墙部位；保温板用于各剪力墙部位）"
+    },
+    "ev_b972cd786d6e1fa65d18a5a4": {
+      "evidence_id": "ev_b972cd786d6e1fa65d18a5a4",
+      "quote": "外墙：外墙1——有保温"
+    },
+    "ev_a2e31f9b0da2e416bcb4e0d6": {
+      "evidence_id": "ev_a2e31f9b0da2e416bcb4e0d6",
+      "quote": "1. 外墙真石漆饰面（颜色及立面分缝详效果图）;"
+    },
+    "ev_212f991463bf400d243fbd2f": {
+      "evidence_id": "ev_212f991463bf400d243fbd2f",
+      "quote": "2. 外墙专用柔性腻子层两遍，每遍均打磨；"
+    },
+    "ev_98ff2414508f9b55c7c98469": {
+      "evidence_id": "ev_98ff2414508f9b55c7c98469",
+      "quote": "3. 5厚抗裂砂浆（其上挤浆满铺145g/平方米复合耐碱玻纤网格布）"
+    },
+    "ev_a2160127ab2d863829bb37cf": {
+      "evidence_id": "ev_a2160127ab2d863829bb37cf",
+      "quote": "5. 3厚粘接砂浆掺高效粘接剂；"
+    },
+    "ev_5ca45e97eed5347ce19960cf": {
+      "evidence_id": "ev_5ca45e97eed5347ce19960cf",
+      "quote": "6. 10厚DPM20防水砂浆分层抹平；"
+    },
+    "ev_df8bbf7f4f75cb5045793bcd": {
+      "evidence_id": "ev_df8bbf7f4f75cb5045793bcd",
+      "quote": "7. 砌体与钢筋混凝土基层清理干净，分别刷1.5厚专用界面剂与混凝土界面剂；"
+    },
+    "ev_7307aabe64fbdc1eec4d8b2e": {
+      "evidence_id": "ev_7307aabe64fbdc1eec4d8b2e",
+      "quote": "8. 基层墙体。"
+    },
+    "ev_2cf544269f1d566cf99468d0": {
+      "evidence_id": "ev_2cf544269f1d566cf99468d0",
+      "quote": "（用于底层商铺外墙部位；保温板用于各剪力墙部位）"
+    }
+  }
+}

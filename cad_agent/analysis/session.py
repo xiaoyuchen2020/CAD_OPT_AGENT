@@ -180,6 +180,8 @@ class CadAgentSession:
         self.coverage.parts=self.task.parts
         self.focus=TaskFocus(self)
         self.prepared_answer=None
+        from cad_agent.analysis.run_journal import RunJournal
+        self.journal = RunJournal(self)
 
     @property
     def focused_enabled(self):
@@ -191,8 +193,14 @@ class CadAgentSession:
 
     @property
     def system_prompt(self):
+        from cad_agent.analysis.model_context import GUIDANCE, enabled
+        return self._base_system_prompt + ('\n' + GUIDANCE if enabled(self) else '')
+
+    @property
+    def _base_system_prompt(self):
         if self.focused_enabled:
-            return source_read_guidance(FOCUSED_PROMPT, self.request.source_read_batching)
+            from cad_agent.analysis.prompts import build
+            return build(self, source_read_guidance(FOCUSED_PROMPT, self.request.source_read_batching))
 
         if not self.policy.enabled:
             return SYSTEM
@@ -209,7 +217,7 @@ class CadAgentSession:
         limit = self.w.settings.agent_max_rounds
         from cad_agent.runtimes.budget_policy import for_session
         if for_session(self):
-            return limit
+            return min(limit, for_session(self).rounds_ceiling)
         operations={o for s in self.task.data['subtasks'] for o in s.get('operations',[])}
         if operations:
             return max(limit,min(20,8+2*len(operations)))
@@ -231,6 +239,8 @@ class CadAgentSession:
         # No lossy model-generated history summary is used.
         result = self.focus.messages(messages) if self.focused_enabled else messages
         if self.focused_enabled and result and result[0].get("role")=="system":result=[dict(result[0],content=self.system_prompt)]+result[1:]
+        from cad_agent.analysis.model_context import encode_messages
+        result = encode_messages(self, result)
         self.policy.model_requests.append({
             "message_chars": len(dumps(result)), "final_only": final_only,
             "stop_reason": self.policy.stop_reason,
@@ -358,6 +368,28 @@ class CadAgentSession:
         return register_observation(self, name, result)
 
     def invoke_tool(self, name, raw_args):
+        from cad_agent.analysis.model_context import decode
+        with self.journal.tool(name, raw_args) as event:
+            try:
+                canonical_args = decode(self, raw_args)
+            except ValueError as error:
+                # Count rejected calls without executing a guessed/cross-run ID.
+                self._remaining()
+                self.calls += 1
+                failure = {'code': 'MODEL_CONTEXT_UNKNOWN_ID', 'message': str(error)}
+                self.trace.append(dict(tool=name, status='failed', error=failure))
+                result = dumps({'error': failure})
+            else:
+                result = self._invoke_tool(name, canonical_args)
+            packet = json.loads(result)
+            # Covers preflight failures and batch envelopes that bypass execute.
+            if event is not None and 'model_result' not in event['sections']:
+                self.journal.section(event, 'model_result', packet, '返回给运行时的结果')
+            self.journal.end(event, 'failed' if packet.get('error') else 'completed',
+                             error=packet.get('error'))
+            return result
+
+    def _invoke_tool(self, name, raw_args):
         from cad_agent.analysis.tool_execution import invoke_tool
         execution = getattr(self, 'execution', None)
         # A source batch has no operation of its own. Each child persists its
@@ -411,7 +443,9 @@ class CadAgentSession:
                     "requirement_outcomes":"逐项requirement_id,status=fulfilled/partial/unresolved,reason,gap_kind；unknown不算完成。"},
                 "instruction": "仅依据已读证据返回最终JSON，逐项回答用户问题，保留前提、例外和原文数值。每条结论自足，不用上述/前述/同上；不得列拟取消、替换、减薄等方案，即使注明供人工复核。跨来源适用或计算推导标derived；不足分项标unknown。不调用工具。校验反馈是待修正问题，不是图纸事实。"}
 
-        return bounded_packet(packet,controls.FINAL_CONTEXT_CHARS,self.task.data['subtasks'])
+        from cad_agent.analysis.capabilities import profile
+        return bounded_packet(packet,controls.FINAL_CONTEXT_CHARS,self.task.data['subtasks'],
+                              include_templates=profile(self) != 'assembly_lookup')
 
     def recover_valid_claims(self, content):
         from cad_agent.analysis.delivery_recovery import recover_valid_claims
@@ -460,6 +494,16 @@ class CadAgentSession:
         return bool(self.scope_recovery_feedback)
 
     def finish(self, content):
+        from cad_agent.analysis.model_context import decode
+        try:
+            content = decode(self, content)
+        except ValueError:
+            with self.journal.validation(content):
+                raise
+        with self.journal.validation(content):
+            return self._finish(content)
+
+    def _finish(self, content):
         if self.recover_scope_before_delivery():
             raise ValueError('ROOM_SCOPE_RECHECKED：本地已重新检查旧范围阻塞，最新候选和具体诊断见 recovered_batches；请基于新结果交付，不沿用旧的范围不足结论，也不重复调用批量工具。')
         from cad_agent.analysis.scheduling import execution_state
@@ -472,7 +516,7 @@ class CadAgentSession:
         # blocker cannot erase independently verified facts. Cache is not delivery.
         result = self.validate_answer(content)
         from cad_agent.analysis.delivery_recovery import cache_validated_parts
-        checked = [{k: v for k, v in c.items() if k != 'citation_numbers'} for c in result['claims']]
+        checked = [{k: v for k, v in c.items() if k not in ('citation_numbers','display_text','number_format_version')} for c in result['claims']]
         cache_validated_parts(self, checked, checked, result.get('user_inputs', []))
         from cad_agent.analysis.scheduling import schedule
         scheduled=schedule(self)
@@ -497,9 +541,10 @@ class CadAgentSession:
             result["object_registry"] = registry_summary(self.task.data)
         self.task.data['evidence'].update(self.evidence)
         self.task.data['observations'].update(self.observations)
+        from cad_agent.analysis.evidence_selection import publish
+        result = publish(result, self)
+        self.task.data['delivery_manifest'] = result['delivery_manifest']
         task=self.task.finalise(result)
-        from cad_agent.analysis.delivery import append_source_excerpts
-        result=append_source_excerpts(self, result | {'task': task})
         if self.focused_enabled and self.task.complex and not self.policy.stop_reason and self.focus.review_ready():
             self.policy.stop_reason='evidence_sufficient' if task['status']=='completed' and all(c['state']!='unknown' for c in result['claims']) else 'partial_delivery'
         return result | {
@@ -517,6 +562,10 @@ class CadAgentSession:
             "model_profile": self.w.settings.model_profile,
             "retrieval_mode": self.request.retrieval_mode,
             "retrieval_usage": self.retrieval_usage,
+            "model_context_codec": ({'version': self._model_context_codec.last_stats.get('version'),
+                'aliases': dict(self._model_context_codec.reverse),
+                'last_request': dict(self._model_context_codec.last_stats)}
+                if hasattr(self, '_model_context_codec') else None),
             "agent_policy": self.request.agent_policy,
             "vision": {"image_ids": sorted(self.sent_image_ids), "unique_images_sent": len(self.sent_image_ids),
                        "binding_ids": list(self.visual_bindings)},

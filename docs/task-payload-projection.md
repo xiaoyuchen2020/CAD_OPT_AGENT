@@ -1,5 +1,7 @@
 # 按任务选择工具返回视图
 
+> 2026-10-23 更新：v2 增加模型历史的确定性检查点，复用本文的领域数据包与证据档案；工具返回视图的授权语义不变。详见 [v2 上下文规则](cad-agent-execution-v2.md)。
+
 `analysis/payload_projection.py` 在 `invoke_tool` 的正常执行路径中、观察和覆盖登记之前运行。它复用 `evidence_store` 的任务授权归档；没有新增数据库或独立文件存储。`artifact_storage` 用于共享 CAD 输入，不用于本轮工具记录。
 
 工具调用的通用 envelope 接受 `result_view`：

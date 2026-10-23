@@ -27,7 +27,8 @@ def assembly_observation(observation):
     binding = data.get('source_binding')
     keys = ('record_id', 'target_region_id', 'view', 'relation_basis', 'offset',
             'total', 'has_more', 'next_offset', 'checks', 'diagnostics',
-            'title_evidence', 'reference_reads', 'source_binding')
+            'title_evidence', 'reference_reads', 'source_binding', 'source_scope',
+            'default_unit_clauses', 'unit_candidates')
     projected = _references({k: data[k] for k in keys if k in data})
     # The complete header evidence and role mapping suffice here; source geometry
     # is reproducible through observation_id and must not displace the source text.
@@ -58,13 +59,13 @@ def _reference_ids(value):
     return set()
 
 
-def bounded_packet(packet, limit, steps=()):
+def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     out=deepcopy(packet)
     sources = {e['evidence_id']: e for e in out.get('evidence', [])}
     observations = []
     for observation in out.get('observations', []):
         projected = assembly_observation(observation)
-        if observation.get('tool') == 'read_assembly':
+        if observation.get('tool') == 'read_assembly' and include_templates:
             owners = [s['id'] for s in steps if observation['observation_id'] in s.get('observation_ids', []) and 'id' in s]
             fields = delivery_fields(observation['data'], sources, owners)
             if fields:

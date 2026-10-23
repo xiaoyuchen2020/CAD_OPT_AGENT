@@ -7,6 +7,7 @@ from cad_agent.adapters.model import ModelError
 from cad_agent.adapters.siwc import RESOURCE, fail
 from cad_agent.adapters.response_diagnostics import media_type, response_metadata, inspect_failure_body, error_shape
 from cad_agent.analysis.efficiency import dumps, compact
+from cad_agent.analysis.model_context import encode_messages, decode, codec, enabled as codec_enabled
 from cad_agent.analysis.session import FinalAnswer, tool_definitions, validation_feedback
 from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
 from cad_agent.runtimes.vision import attach_images, mark_images_sent
@@ -374,11 +375,12 @@ class ResponsesSubscriptionRuntime:
                     session.policy.stop_reason = reason or ("answer_repair" if recovery == "repair_answer" else "exploration_budget")
                     final_input = session.final_context(controls, session.policy.stop_reason)
                     text = dumps(final_input)
-                    if len(text) > controls.FINAL_CONTEXT_CHARS:
+                    if sum(len(m.get('content', '')) for m in encode_messages(session, [{'role': 'user', 'content': text}])) > controls.FINAL_CONTEXT_CHARS:
                         raise fail("CONTEXT_BUDGET", "最终回答上下文超过上限；未继续调用模型。")
                     messages = [{"role": "user", "content": text}]
                 if session.focused_enabled and not final_only and not stable:
                     messages=session.focus.messages(messages)
+                budget = for_session(session)
                 tools_added = []
                 if stable and not final_only:
                     allowed_now = sorted(t["function"]["name"] for t in session.offered_tools(planning_only=True))
@@ -392,7 +394,11 @@ class ResponsesSubscriptionRuntime:
                     if reviews:
                         state['required_calculation_review'] = {k:reviews[0][k] for k in
                             ('tool','task_ids','required_operations','reason')}
-                    messages.append({"role": "developer", "content": "当前执行状态（数据）：" + dumps(state)})
+                    state['remaining_model_requests'] = max(0, session.round_limit - round_no - 1)
+                    state['convergence'] = '只补关键缺口，保留最终交付机会；不能把停止当完成。' if state['remaining_model_requests'] <= 3 else '依据当前要求的有效进展继续。'
+                    state['requirement_progress'] = [s.get('last_progress') for s in session.task.data['subtasks'] if s.get('last_progress')]
+                    from cad_agent.analysis.context_projection import replace_state
+                    messages = replace_state(messages, state)
                 definitions = stable_tools.definitions if stable else session.offered_tools(planning_only=True)
                 tools = [] if final_only and not stable else [{"type": "namespace", "name": "cad",
                     "description": "当前图纸的只读 CAD 检索、上下文与证据工具。",
@@ -401,24 +407,16 @@ class ResponsesSubscriptionRuntime:
                         "strict": False} for t in definitions]}]
                 choice = "none" if final_only else "required" if not completed_tool or recovery == "retrieve_evidence" else "auto"
                 payload = {"model": session.w.settings.model, "instructions": instructions,
-                    "input": messages, "tools": tools, "tool_choice": choice,
+                    "input": encode_messages(session, messages), "tools": tools, "tool_choice": choice,
                     "parallel_tool_calls": False, "store": False, "stream": True,
                     "reasoning": {"effort": session.w.settings.reasoning_effort}, "include": ["reasoning.encrypted_content"]}
                 if budget:
                     payload["max_output_tokens"] = budget.max_output_tokens
                     estimated, _ = estimate_input(payload)
                     if not final_only and estimated > budget.input_soft_tokens_per_request:
-                        # Checkpoint only at the threshold, not every turn.
-                        # Full preceding messages remain locally addressable.
-                        from cad_agent.analysis.evidence_store import save_session
-                        ref = save_session(session, "context_checkpoint", messages)
-                        context = session.focus.context()
-                        context["prior_context_record"] = ref
-                        context["evidence_records"] = list(session.task.data.get("evidence_records", {}).values())[-20:]
-                        messages = [messages[0], {"role":"user", "content":dumps(context)},
-                                    {"role":"developer", "content":"当前执行状态（数据）：" + dumps(state)}]
-                        payload["input"] = messages
-                        session.runtime_diagnostics.setdefault("context_checkpoints", []).append(ref)
+                        from cad_agent.analysis.context_projection import checkpoint
+                        messages = checkpoint(session, messages, state if stable else {})
+                        payload["input"] = encode_messages(session, messages)
                 if len(dumps(payload)) > text_limit(session):
                     raise fail("CONTEXT_BUDGET", "单轮上下文超过本地上限；未继续调用模型。")
                 entry = {"round": round_no+1, "final_only": final_only, "request_chars": len(dumps(payload)),
@@ -431,6 +429,11 @@ class ResponsesSubscriptionRuntime:
                          "tool_schema_chars":len(dumps(tools)),
                          "delivery_gate":session.focus.review_ready(),
                          "evidence_coverage": session.coverage.summary()}
+                entry["prompt_release"] = session.task.data.get("prompt_release")
+                if codec_enabled(session):
+                    entry['context_codec'] = dict(codec(session).last_stats)
+                entry["execution_policy_version"] = session.task.data.get("execution_policy_version")
+                entry["budget_policy"] = budget.public() if budget else None
                 entry.update(prefix_diagnostics(payload))
                 entry["tool_catalog_change"] = "initial" if not request_log else "required_capability_expansion" if tools_added else "none"
                 entry["tools_added"] = tools_added
@@ -438,8 +441,15 @@ class ResponsesSubscriptionRuntime:
                 try:
                     preflight(session, payload, entry)
                 except ModelError as error:
-                    if budget and not final_only and completed_tool and error.code == "SIWC_TOKEN_BUDGET":
-                        admission_stop = "finalization_request_reserve"
+                    if budget and not final_only and completed_tool and error.code in {
+                            "SIWC_TOKEN_BUDGET", "SIWC_CONTEXT_BUDGET"}:
+                        # Unsent exploration is not a terminal answer failure.
+                        # The existing bounded final packet retains source atoms
+                        # and gaps; final-only requests cannot bind unseen images.
+                        # Recheck that packet under the same budget, never retry
+                        # the oversized payload or reset already charged usage.
+                        admission_stop = ("context_input_limit" if error.code == "SIWC_CONTEXT_BUDGET"
+                                          else "finalization_request_reserve")
                         session.runtime_diagnostics.setdefault("admission_rejections", []).append(
                             {"round": round_no + 1, "error_code": error.code,
                              "budget_preflight": entry.get("budget_preflight"), "sent": False})
@@ -451,7 +461,9 @@ class ResponsesSubscriptionRuntime:
                 session.progress(stage=f"直接订阅 · 第 {round_no+1} 轮", trace=session.trace, usage=session.usage)
                 try:
                     with session.metrics.measure("model_wait"):
-                        response = transport.request(session, payload)
+                        response = session.journal.model_call(payload,
+                            lambda: transport.request(session, payload), capture_level='wire_payload',
+                            title=f'模型请求 · 第 {round_no+1} 轮', image_inputs=entry.get('image_inputs'))
                     mark_images_sent(session, entry)
                 except ModelError as error:
                     entry.update(status="failed", error_code=error.code, elapsed_seconds=round(time.monotonic()-tick, 3))
@@ -494,6 +506,10 @@ class ResponsesSubscriptionRuntime:
                     result = session.finish(answer)
                     return self.delivery(session,result,request_log,controls)
                 except ValueError as error:
+                    try:
+                        answer = decode(session, answer)
+                    except ValueError:
+                        pass  # Keep the rejected unknown reference; never guess it.
                     # Replay only a recognized answer protocol with read sources
                     # and a field failure. Free replies and transport-like JSON
                     # never enter persisted diagnostics, even after a source read.

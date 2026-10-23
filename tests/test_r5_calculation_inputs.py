@@ -59,7 +59,8 @@ def test_area_m_is_not_square_metres_and_ids_are_not_operands():
     assert area['unit']=='m' and area['status']=='unit_conflict'
     assert any(t['value']=='4' and t['status']=='identifier' for t in tokens)
     assert next(t for t in tokens if t['value']=='5')['status']=='unit_unconfirmed'
-    assert not any(t['value']=='1122' for t in tokens)
+    # Shared readings retain model digits for auditing, never as operands.
+    assert next(t for t in tokens if t['value']=='1122')['status']=='identifier'
     assert next(t for t in tokens if t['value']=='123')['status']=='identifier'
 
 

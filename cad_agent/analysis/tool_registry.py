@@ -272,7 +272,7 @@ def tool_definitions(efficient=False, session=None):
         for tool in result:
             props = tool["function"]["parameters"].get("properties", {})
             if "limit" in props:
-                props["limit"]["default"] = 12 if tool["function"]["name"]=="analyze_room_batch" else 5
+                props["limit"]["default"] = 12 if tool["function"]["name"] in {"analyze_room_batch", "read_assembly"} else 5
     if session and session.request.source_read_batching:
         from cad_agent.analysis.batch_reads import batch_schema
         for tool in result:

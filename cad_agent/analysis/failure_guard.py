@@ -40,6 +40,9 @@ def _effective_owners(session, name, value):
 def progress_signature(session):
     from cad_agent.analysis.focus import CONTROL
     data = session.task.data
+    if data.get('execution_policy_version') == 'cad-execution-v2' and any(s.get('quality_progress') for s in data['subtasks']):
+        from cad_agent.analysis.task_progress import signature
+        return signature(data)
     # Control calls and freshly assigned observation IDs are not fact growth.
     # Identical re-reads have one content digest. Genuine new candidates, cursors,
     # unit decisions, scope decisions and operation receipts remain progress.

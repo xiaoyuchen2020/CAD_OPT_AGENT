@@ -5,7 +5,7 @@ from typing import Literal
 import json
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.concurrency import run_in_threadpool
@@ -471,6 +471,39 @@ def create_app(settings=None):
     @app.get("/api/chat-runs/{run_id}")
     def chat_run(run_id: str):
         return workspace.store.get("chat_run", run_id)
+
+    @app.get('/api/drawings/{snapshot_id}/chat-runs')
+    def drawing_chat_runs(snapshot_id: str, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50)):
+        workspace.store.get('drawing', snapshot_id)
+        runs = workspace.store.list('chat_run', filters={'snapshot_id': snapshot_id}, limit=limit, offset=offset)
+        return {'items': [dict(id=r['id'], question=r['request']['question'], status=r['status'],
+                              created_at=r['created_at']) for r in runs],
+                'has_more': offset+len(runs) < workspace.store.count('chat_run', filters={'snapshot_id': snapshot_id})}
+
+    @app.get('/api/chat-runs/{run_id}/events/{event_id}/sections/{section}')
+    def run_event_section(run_id: str, event_id: str, section: str,
+                          start: int = Query(0, ge=0), length: int = Query(12000, ge=1, le=12000)):
+        from cad_agent.analysis.run_journal import read_section
+        return read_section(workspace, run_id, event_id, section, start, length)
+
+    @app.get('/api/chat-runs/{run_id}/journal-evidence/{evidence_id}')
+    def run_journal_evidence(run_id: str, evidence_id: str):
+        run = workspace.store.get('chat_run', run_id)
+        if not any(evidence_id in e.get('evidence_ids', []) for e in run.get('run_events', [])):
+            raise KeyError(evidence_id)
+        task = TaskLedger.read(workspace, run['task_id'])
+        source = task.get('evidence', {}).get(evidence_id)
+        allowed = {run['snapshot_id'], *(d['snapshot_id'] for d in run['request'].get('related_drawings', []))}
+        if not source or source.get('snapshot_id') not in allowed:
+            raise KeyError(evidence_id)
+        return source
+
+    @app.get('/api/chat-runs/{run_id}/journal-export')
+    def export_run_journal(run_id: str):
+        from cad_agent.analysis.run_journal import export_journal
+        run = workspace.store.get('chat_run', run_id)
+        return StreamingResponse(export_journal(workspace, run), media_type='application/x-ndjson',
+            headers={'Content-Disposition': 'attachment; filename="cad-run-journal.jsonl"'})
 
     @app.get("/api/chat-runs/{run_id}/evidence/{evidence_id}")
     def chat_evidence(run_id: str, evidence_id: str):

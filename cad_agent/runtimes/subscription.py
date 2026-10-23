@@ -296,6 +296,14 @@ class CodexSubscriptionRuntime:
             totals[thread] = total
 
     def turn(self, rpc, session, sid, prompt, totals, final=False):
+        return session.journal.model_call({
+            'instructions': session.system_prompt, 'input': prompt,
+            'tools': [] if final else tool_definitions(),
+            'note': '应用提交给托管运行时的输入；内部逐轮请求不可见。',
+        }, lambda: self._turn(rpc, session, sid, prompt, totals, final),
+            capture_level='managed_runtime_input', title='Codex 订阅回合' + (' · 最终整理' if final else ''))
+
+    def _turn(self, rpc, session, sid, prompt, totals, final=False):
         response = rpc.request("turn/start", {"threadId": sid,
             "input": [{"type": "text", "text": prompt}], "effort": "low"})
         turn_id = response["turn"]["id"]
@@ -319,6 +327,8 @@ class CodexSubscriptionRuntime:
                 else:
                     value = session.invoke_tool(params["tool"], params["arguments"])
                     self.remember_context(params["tool"], json.loads(value))
+                from cad_agent.analysis.model_context import encode_messages
+                value = '\n\n'.join(m['content'] for m in encode_messages(session, [{'role': 'tool', 'content': value}]))
                 rpc.send({"id": event["id"], "result": {"contentItems": [{"type": "inputText", "text": value}],
                                                         "success": "error" not in json.loads(value)}})
             if method == "thread/tokenUsage/updated":
@@ -355,7 +365,8 @@ class CodexSubscriptionRuntime:
             try:
                 sid = self.start_thread(rpc, session, cwd)
                 messages = session.build_messages(history)
-                prompt = dumps(messages[1:])
+                from cad_agent.analysis.model_context import encode_messages
+                prompt = dumps(encode_messages(session, messages[1:]))
                 totals = {}
                 content = self.turn(rpc, session, sid, prompt, totals)
                 issue = None
@@ -374,6 +385,7 @@ class CodexSubscriptionRuntime:
                     "validation_issue": issue,
                     "stop_reason": session.policy.stop_reason,
                     "instruction": "仅依据以上已读来源返回最终 JSON，通常1–2条结论；预算收束不代表证据充分，不足标 unknown。保留适用范围与来源引用，不调用工具。"})
+                prompt = '\n\n'.join(m['content'] for m in encode_messages(session, [{'role': 'user', 'content': prompt}]))
                 if len(prompt) > self.FINAL_CONTEXT_CHARS:
                     raise ModelError("CODEX_CONTEXT_BUDGET", "已有证据超过最终整理预算，未继续消耗订阅额度。")
                 sid = self.start_thread(rpc, session, cwd, final=True)
