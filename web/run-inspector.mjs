@@ -27,9 +27,13 @@ export function visibleEvents(run, filter='all', query='', cursor=null) {
 }
 export function runSummary(run) {
   const usage=run?.usage||run?.result?.usage||[];
+  const source=run?.result?.source_records;
+  const noModel=run?.status==='completed'&&source?.mode==='auto'&&source?.model_requests===0
+    &&source?.fallback===false&&!usage.length&&!eventsForRun(run).some(e=>e.kind==='model');
   return {status:statuses[run?.status]||run?.status||'未选择',
+    noModel,
     toolCalls:eventsForRun(run).filter(e=>e.kind==='tool').length,
-    tokens:usage.length&&usage.every(u=>Number.isFinite(u.total_tokens))?usage.reduce((n,u)=>n+u.total_tokens,0):null,
+    tokens:noModel?0:usage.length&&usage.every(u=>Number.isFinite(u.total_tokens))?usage.reduce((n,u)=>n+u.total_tokens,0):null,
     failedChecks:eventsForRun(run).filter(e=>e.kind==='validation'&&e.status==='failed').length};
 }
 
@@ -104,7 +108,7 @@ export class RunInspector {
     this.question.textContent=r.request?.question||'';this.status.textContent=s.status;this.status.dataset.status=r.status;
     this.stage.textContent=r.error?.message||r.stage||'';
     this.metrics.replaceChildren(...[r.model||r.result?.model||'模型未报告',`${s.toolCalls} 次工具调用`,
-      `${s.failedChecks} 次校验未通过`,s.tokens===null?'Token 未报告':`${s.tokens.toLocaleString()} tokens`,
+      `${s.failedChecks} 次校验未通过`,s.noModel?'未调用模型 · 0 tokens':s.tokens===null?'Token 未报告':`${s.tokens.toLocaleString()} tokens`,
       r.result?.elapsed_seconds!=null?timeLabel(r.result.elapsed_seconds):active(r)?'进行中耗时见步骤':'总耗时未报告'].map(v=>el('span',null,v)));
     this.cancelButton.hidden=!active(r);this.cancelButton.disabled=!!r.cancel_requested;
     this.cancelButton.textContent=r.cancel_requested?'正在停止…':'停止分析';

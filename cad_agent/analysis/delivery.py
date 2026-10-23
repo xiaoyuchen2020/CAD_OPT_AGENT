@@ -26,7 +26,8 @@ class AnswerValidationError(ValueError):
 
 
 def validate_answer(self, content):
-    parts = inspect_answer(content, self.request.question)
+    from cad_agent.analysis.source_record_answer import permitted
+    parts = inspect_answer(content, self.request.question, record_delivery=permitted(self, content))
     parsed = parts.answer
     if len(self.task.parts)==1:
         for claim in parsed.claims:

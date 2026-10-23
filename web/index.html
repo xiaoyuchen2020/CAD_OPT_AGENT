@@ -322,6 +322,13 @@
                 <option value="responses_subscription" hidden>自定义 · 订阅直连</option>
               </select>
               <label class="runtime-fallback"><input type="checkbox" id="runtime-fallback" />失败时使用自定义 API 回退</label>
+          <label for="source-record-mode">来源整理方式</label>
+          <select id="source-record-mode">
+            <option value="auto">自动整理原文</option>
+            <option value="review">模型复核来源选择</option>
+            <option value="agent">深入分析</option>
+          </select>
+          <p class="settings-help">来源整理功能需由服务端开启。复杂问题自动进入深入分析。</p>
           <label class="runtime-fallback"><input type="checkbox" id="source-read-batching" />批量读取来源（实验选项，节省模型往返）</label>
           <p class="settings-help">默认关闭，逐项读取原文。勾选后对后续问答生效；刷新页面恢复关闭。</p>
           <p class="settings-help">订阅模型自动匹配连接方式，不启用付费 API 回退。</p>

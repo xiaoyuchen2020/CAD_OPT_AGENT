@@ -29,7 +29,7 @@ class AnswerParts:
     claim_indexes: tuple = ()
 
 
-def inspect_answer(content, question):
+def inspect_answer(content, question, *, record_delivery=False):
     """Parse independent fields so one malformed entry cannot erase valid siblings.
 
     Full-answer errors remain blocking for normal publication. Recovery receives
@@ -56,7 +56,11 @@ def inspect_answer(content, question):
             normalized['missing_information'].append(item)
     issues = []
     try:
-        FinalAnswer.model_validate(normalized)
+        if record_delivery:
+            from cad_agent.analysis.source_record_answer import SourceRecordAnswer
+            SourceRecordAnswer.model_validate(normalized)
+        else:
+            FinalAnswer.model_validate(normalized)
     except ValidationError as error:
         issues = [{'path': '.'.join(map(str, e['loc'])), 'code': e['type'],
                    'message': e['msg']} for e in error.errors(include_input=False)]

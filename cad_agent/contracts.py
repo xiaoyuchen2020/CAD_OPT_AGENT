@@ -164,6 +164,7 @@ class ChatRequest(Record):
     retrieval_mode: Literal["keyword", "lexical", "hybrid"] = "keyword"
     agent_policy: Literal["efficient", "legacy"] = "efficient"
     source_read_batching: bool = Field(default=False, strict=True, description="手动启用独立来源批量读取；默认逐项读取。")
+    source_record_mode: Literal['auto', 'review', 'agent'] = 'auto'
     model_profile: (
         Literal["default", "qwen_large", "qwen_medium", "qwen_small", "codex_sol_56", "codex_sol", "codex_astra", "siwc_sol", "siwc_sol_high", "siwc_luna_high"] | None
     ) = None

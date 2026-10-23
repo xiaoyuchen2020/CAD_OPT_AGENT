@@ -12,11 +12,15 @@ REPETITION_LIMIT = 2
 PLAN_REVISION_LIMIT = 2
 
 
-def execution_state(data, task_id, visiting=None):
+def execution_state(data, task_id, visiting=None, *, source_read_limit=None):
     nodes={s['id']:s for s in data['subtasks']}
     step=nodes[task_id]
     result={'executable':True,'blocked_reason':None,'gap_kind':None}
-    if step.get('calls',0)>=SUBTASK_CALL_LIMIT and not (
+    # A host-owned fixed source scan may enumerate more pages than a model
+    # exploration subtask. Its transient cap stays below the session tool cap;
+    # it grants no evidence/operation credit and is absent from persisted plans.
+    fixed_read = type(source_read_limit) is int and step.get('calls',0)<source_read_limit
+    if not fixed_read and step.get('calls',0)>=SUBTASK_CALL_LIMIT and not (
             step.get('progress_call', 0) >= step.get('calls', 0)-1 and
             step.get('progress_call', 0) > 0 and
             step.get('calls', 0) < SUBTASK_CALL_LIMIT + SUBTASK_PROGRESS_RESERVE):

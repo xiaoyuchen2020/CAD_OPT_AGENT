@@ -54,7 +54,7 @@ def receipts(name, result):
     from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
     if name in SPATIAL_METHODS:
         return declared
-    if name in ('get_analysis_results','analyze_measurements','calculate_measurements','calculate_facts','check_dimension_chain','inspect_enclosure','review_space_connections','review_discovered_spaces'):
+    if name in ('select_source_records','get_analysis_results','analyze_measurements','calculate_measurements','calculate_facts','check_dimension_chain','inspect_enclosure','review_space_connections','review_discovered_spaces'):
         return declared
     out=[]
     def add(op, fulfilled=True):

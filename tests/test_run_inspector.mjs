@@ -27,3 +27,11 @@ test('legacy trace does not invent prompts, results, or validation',()=>{
   assert.equal(events.length,1);assert.deepEqual(events[0].sections,{});
   assert.deepEqual(events[0].legacy.arguments,{limit:5});
 });
+test('zero usage is shown only for a completed automatic source workflow with no model calls',()=>{
+ const source_records={mode:'auto',model_requests:0,fallback:false};
+ const run={status:'completed',journal_version:1,result:{source_records},run_events:[]};
+ assert.equal(runSummary(run).tokens,0);
+ assert.equal(runSummary({...run,status:'failed'}).tokens,null);
+ assert.equal(runSummary({...run,result:{source_records:{...source_records,mode:'review'}}}).tokens,null);
+ assert.equal(runSummary({...run,run_events:[{kind:'model'}]}).tokens,null);
+});

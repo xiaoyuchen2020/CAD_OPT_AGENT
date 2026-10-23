@@ -308,7 +308,7 @@ class TaskLedger:
             raise ValueError('必须使用任务中的 task_ids 关联本次工具调用。')
         if self.needs_plan: raise ValueError('先调用 plan_task 确认完整计划。')
         for key in ids:
-            state=execution_state(self.data,key)
+            state=execution_state(self.data,key,source_read_limit=getattr(self,'source_read_limit',None))
             if not state['executable']:
                 raise ValueError('TASK_NOT_EXECUTABLE：'+json.dumps(dict(task_id=key,**state),ensure_ascii=False)+'；继续 runnable 中的独立要求，或通过 plan_task 修正不必要依赖；预算耗尽须部分交付。')
         return [by_id[k] for k in ids]
@@ -347,8 +347,8 @@ class TaskLedger:
                     any(r.get('fulfilled') for r in receipts(name, result))):
                 s['progress_call'] = s['calls']
             s['status']='pending'
-            if not execution_state(self.data, s['id'])['executable']:
-                state = execution_state(self.data, s['id'])
+            if not execution_state(self.data, s['id'],source_read_limit=getattr(self,'source_read_limit',None))['executable']:
+                state = execution_state(self.data, s['id'],source_read_limit=getattr(self,'source_read_limit',None))
                 s.update(status='partial',reason=state['blocked_reason'],gap_kind=state['gap_kind'])
         for s in self.data['subtasks']:
             if s['id'] in ids:

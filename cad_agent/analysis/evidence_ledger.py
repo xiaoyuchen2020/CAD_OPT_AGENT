@@ -99,9 +99,9 @@ def register_observation(self, name, result):
         ]
     if name in ("get_analysis_results","analyze_measurements","check_dimension_chain","inspect_enclosure","prepare_space_connections","review_space_connections","prepare_discovery_review","review_discovered_spaces"):
         data={k:v for k,v in result.items() if k not in ("highlight_action",)}
-    if name in ('calculate_facts','resolve_drawing_scope','read_project_sources','read_assembly'):data={k:v for k,v in result.items() if k!='observation_id'}
+    if name in ('calculate_facts','resolve_drawing_scope','read_project_sources','read_assembly','select_source_records'):data={k:v for k,v in result.items() if k!='observation_id'}
     if data is not None:
-        snapshot_id = data["snapshot_id"] if name == 'read_door_schedule_table' else self.request.snapshot_id
+        snapshot_id = data.get("snapshot_id", self.request.snapshot_id) if name in ('read_door_schedule_table', 'read_assembly') else self.request.snapshot_id
         oid = stable_id(
             "obs", snapshot_id, name, json.dumps(data, sort_keys=True)
         )

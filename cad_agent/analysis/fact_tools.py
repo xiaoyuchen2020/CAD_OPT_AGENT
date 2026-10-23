@@ -349,6 +349,8 @@ def calculate_facts(s,args):
 
 class ReadAssembly(Record):
     region_id: str
+    snapshot_id: str = ''
+    heading_start: int | None = Field(default=None, ge=0)
     view: Literal['record','catalog'] = 'record'
     offset: int = Field(default=0,ge=0)
     limit: int = Field(default=12,ge=1,le=12)
@@ -356,11 +358,20 @@ class ReadAssembly(Record):
 
 def read_assembly(s,args):
     from cad_agent.analysis.assembly import read
-    result = read(s.index,args)
+    from cad_agent.analysis.general import DrawingIndex
+    sid = args.snapshot_id or s.request.snapshot_id
+    if sid not in s.allowed_snapshots:
+        raise ValueError('来源图纸不在本轮授权清单。')
+    index = s.index if sid == s.request.snapshot_id else DrawingIndex(s.w, sid)
+    if s.w.settings.source_record_workflow:
+        from cad_agent.analysis.source_record_store import read_page
+        result = read_page(s, index, args)
+    else:
+        result = read(index,args)
     from cad_agent.analysis.default_units import candidates
     result['default_unit_clauses'] = [
-        dict(evidence=s.index.evidence(r), applicability='requires_explicit_unit_evidence_binding')
-        for r in candidates(s.index, s.index.by_id[args.region_id])[:3]]
+        dict(evidence=index.evidence(r), applicability='requires_explicit_unit_evidence_binding')
+        for r in candidates(index, index.by_id[args.region_id])[:3]]
     return result
 
 

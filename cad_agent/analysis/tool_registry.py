@@ -153,7 +153,10 @@ class FinalAnswer(Record):
     missing_information: list[str] = Field(default_factory=list, max_length=12, description="字符串数组；每项完整说明对象与缺口，不返回对象或嵌套字段。")
 
 
+from cad_agent.analysis.source_record_selection import SelectSourceRecords
+
 TOOL_SPECS = {
+    "select_source_records": (SelectSourceRecords, "对本轮已读完整来源记录执行用户明确字面筛选；分别保留纳入和排除记录，不证明全图覆盖或工程适用性。"),
     "read_requirement_sources": (
         RequirementSources,
         "按当前 requirement_id 的原始问题跨条款补读原文（有界、本地字面排序），用于通则、特殊条件、不同目标漏读。返回可引用原文及续读入口；排名不证明对象归属，不替代完整表行核查。"),

@@ -6,7 +6,7 @@ from cad_agent.contracts import stable_id
 from cad_agent.analysis.text_units import read_unit_candidates
 from cad_agent.semantics.tables import explicit_units, local_assembly_headers
 
-VERSION = 'assembly-source-v7-numbers'
+VERSION = 'assembly-source-v8-record-headings'
 from cad_agent.cad.numbers import evidence_readings, format_numbered_text, without_claim_list_markers, ordinals
 from cad_agent.cad.assembly_headings import FAMILY, HEADING
 
@@ -18,28 +18,46 @@ def _action(tool, **arguments):
     return dict(tool=tool, arguments=arguments)
 
 
+def _geometry(index):
+    """Index native rails once; target-dependent tolerances stay in ruled_band."""
+    cached=getattr(index,'_assembly_geometry',None)
+    if cached is not None:return cached
+    def build():
+        texts={};rails={}
+        for text in index.scene['texts']:
+            texts.setdefault(text['entity_id'],[]).append(text)
+        for line in index.scene['lines']:
+            hs,vs=rails.setdefault(line['layout_id'],([],[]))
+            for p,q in zip(line['points'],line['points'][1:]):
+                if abs(p[1]-q[1])<=.01:
+                    hs.append((p[1],min(p[0],q[0]),max(p[0],q[0]),line['entity_id']))
+                elif abs(p[0]-q[0])<=.01:
+                    vs.append((p[0],min(p[1],q[1]),max(p[1],q[1]),line['entity_id']))
+        return texts,rails
+    if hasattr(index,'w') and hasattr(index,'signature'):
+        from cad_agent.cache import workspace_cache
+        cached=workspace_cache(index.w,'_assembly_geometry',max_entries=4).get_or_build(index.signature,build)
+    else:cached=build()
+    index._assembly_geometry=cached
+    return cached
+
+
 def ruled_band(index, target):
     """Find the smallest enclosing ruled row, including slightly open CAD endpoints.
 
     Tolerance is capped by both source text height and row width. All gaps and
     source line IDs remain visible. Competing row envelopes are not selected.
     """
-    texts = [t for t in index.scene['texts'] if t['entity_id'] in target.entity_ids]
+    text_index,rail_index=_geometry(index)
+    texts = [t for eid in target.entity_ids for t in text_index.get(eid,[])]
     height = median(t['height'] for t in texts if t['height'] > 0) if any(t['height'] > 0 for t in texts) else 0
     if not height:
         return None, ['ROW_GEOMETRY_UNAVAILABLE']
     x = min(t['origin'][0] for t in texts)
     low = min(t['origin'][1] for t in texts)
     high = max(t['origin'][1] for t in texts)
-    hs, vs = [], []
-    for line in index.scene['lines']:
-        if line['layout_id'] != target.layout_id:
-            continue
-        for p, q in zip(line['points'], line['points'][1:]):
-            if abs(p[1]-q[1]) <= .01 and abs(p[0]-q[0]) > height * 8:
-                hs.append((p[1], min(p[0],q[0]), max(p[0],q[0]), line['entity_id']))
-            elif abs(p[0]-q[0]) <= .01:
-                vs.append((p[0], min(p[1],q[1]), max(p[1],q[1]), line['entity_id']))
+    raw_hs,vs=rail_index.get(target.layout_id,([],[]))
+    hs=[h for h in raw_hs if h[2]-h[1]>height*8]
     # Nearest separator candidates only. Never use an unbounded all-pairs search.
     above = sorted([h for h in hs if h[1] <= x <= h[2] and h[0] >= high], key=lambda h:h[0])[:12]
     below = sorted([h for h in hs if h[1] <= x <= h[2] and h[0] < low], key=lambda h:-h[0])[:12]
@@ -152,8 +170,9 @@ def _fragments(index, region, start, end):
     return fragments
 
 
-def _catalog(index,target):
-    explicit=HEADING.search(target.text)
+def _catalog(index,target,heading_start=None):
+    explicit=next((m for m in HEADING.finditer(target.text)
+                   if heading_start is None or m.start()==heading_start),None)
     match=FAMILY.search(target.text)
     family=explicit[1] if explicit else match[0] if match else None
     if not family:return []
@@ -166,13 +185,15 @@ def _catalog(index,target):
     return headings
 
 
-def _bounded_section(rows,target):
+def _bounded_section(rows,target,heading_start=None):
     """Clip at explicit line-start headings, including alphanumeric codes.
 
     The parser may combine a previous record's last layer and the new heading.
     Character spans, rather than region membership, define the section boundary.
     """
     headings=list(HEADING.finditer(target.text))
+    if heading_start is not None:
+        headings=[m for m in headings if m.start()==heading_start]
     if len(headings)!=1:return None
     heading=headings[0]
     at=next(i for i,r in enumerate(rows) if r.region_id==target.region_id)
@@ -193,8 +214,8 @@ def _bounded_section(rows,target):
     return out,stop
 
 
-def _section_binding(index,target,sources,stop):
-    heading=next(HEADING.finditer(target.text))
+def _section_binding(index,target,sources,stop,heading_start=None):
+    heading=next(m for m in HEADING.finditer(target.text) if heading_start is None or m.start()==heading_start)
     end=target.text.find('\n',heading.start())
     title=index.evidence(target,heading.start(),len(target.text) if end<0 else end)
     numbers=[]; diagnostics=[]; previous=None
@@ -283,8 +304,11 @@ def _reference_reads(index,target,sources):
             code=match[1]+match[2]
             matches=[]
             for r in index.scope(target.layout_id,target.frame_id):
-                if any(m[1]+m['code']==code for m in HEADING.finditer(r.text)):
-                    matches.append(_action('read_assembly',region_id=r.region_id,view='record',offset=0,limit=4))
+                headings=list(HEADING.finditer(r.text))
+                for m in headings:
+                    if m[1]+m['code']==code:
+                        matches.append(_action('read_assembly',snapshot_id=index.snapshot,region_id=r.region_id,view='record',offset=0,limit=4,
+                            **({'heading_start':m.start()} if len(headings)>1 else {})))
             refs.append(dict(code=code,state='candidate',evidence=index.evidence(region,lo+match.start(),lo+match.end()),
                              next_actions=matches[:8],target_count=len(matches),has_more=len(matches)>8,
                              note='显式引用需独立补读；不自动展开或与当前层次叠加。'))
@@ -295,9 +319,14 @@ def read(index, args):
     if args.region_id not in index.by_id:
         raise ValueError('来源区域不属于当前图纸。')
     target = index.by_id[args.region_id]
-    catalog=_catalog(index,target)
+    heading_start=getattr(args,'heading_start',None)
+    if heading_start is not None and not any(m.start()==heading_start for m in HEADING.finditer(target.text)):
+        raise ValueError('标题起点必须对应原文中实际存在的完整标题。')
+    catalog=_catalog(index,target,heading_start)
     binding=None
     band,diagnostics = (None,[]) if args.view=='catalog' and catalog else ruled_band(index,target)
+    if heading_start is not None and len(list(HEADING.finditer(target.text)))>1:
+        band,diagnostics=None,[]
     if not catalog and band:
         row_sources=_source_spans(index,target,band)
         binding=_row_binding(index,target,band,row_sources)
@@ -321,11 +350,11 @@ def read(index, args):
             at = next(i for i,r in enumerate(rows) if r.region_id == target.region_id)
             rows = rows[at:]
         sources = [(r,0,len(r.text),None,'target' if r.region_id == target.region_id else basis) for r in rows]
-        section=_bounded_section(rows,target)
+        section=_bounded_section(rows,target,heading_start)
         if section:
             sources,stop=section
             basis='explicit_section_candidate'
-            binding=_section_binding(index,target,sources,stop)
+            binding=_section_binding(index,target,sources,stop,heading_start)
             # A bounded numbered section does not need a ruled-table envelope.
             if binding['state']=='source_bound':
                 diagnostics=[d for d in diagnostics if d not in ('ROW_ENVELOPE_UNRESOLVED','ROW_GEOMETRY_UNAVAILABLE')]
@@ -361,7 +390,8 @@ def read(index, args):
     if args.view=='record' and catalog:
         actions.append(_action('read_assembly',region_id=target.region_id,view='catalog',offset=0,limit=args.limit))
     if args.view=='catalog':
-        actions += [_action('read_assembly',region_id=r.region_id,view='record',offset=0,limit=args.limit) for r,_,_,_,_,_ in page]
+        actions += [_action('read_assembly',region_id=r.region_id,view='record',offset=0,limit=args.limit,
+            **({'heading_start':start} if len(list(HEADING.finditer(r.text)))>1 else {})) for r,start,_,_,_,_ in page]
     table_candidates = []
     ids = set(target.entity_ids)
     # A local source read must not implicitly build every table in a large DXF.
@@ -406,6 +436,11 @@ def read(index, args):
     for action in actions:
         if action not in unique_actions:unique_actions.append(action)
     actions=unique_actions
+    for action in actions:
+        if action['tool']=='read_assembly':
+            action['arguments']['snapshot_id']=index.snapshot
+            if action['arguments'].get('region_id')==target.region_id and action['arguments'].get('view')==args.view and heading_start is not None:
+                action['arguments']['heading_start']=heading_start
     # Ownership/units cannot be filled merely because all candidate rows were read.
     checks = dict(source_sequence_exhausted=not more and args.offset < len(segments),
         source_segment_count=len(segments),returned_segment_count=len(items),
@@ -423,12 +458,12 @@ def read(index, args):
         excludes=['elevations', 'coordinates', 'areas', 'material_grades'])
         for row in unit_clauses(index, target)[:3]]
     target_headings=list(HEADING.finditer(target.text))
-    title_start=target_headings[0].start() if len(target_headings)==1 else 0
+    title_start=heading_start if heading_start is not None else target_headings[0].start() if len(target_headings)==1 else 0
     title_end=target.text.find('\n',title_start) if target_headings else len(target.text)
     if title_end<0:title_end=len(target.text)
-    return dict(snapshot_id=index.snapshot,target_region_id=target.region_id,version=VERSION,
+    return dict(snapshot_id=index.snapshot,target_region_id=target.region_id,heading_start=heading_start,version=VERSION,
         source_scope=dict(layout_id=target.layout_id, frame_id=target.frame_id, frame_name=getattr(target, "frame_name", ""), basis="parser_frame_metadata_not_engineering_identity"),
-        record_id=stable_id('assembly',index.snapshot,target.region_id,VERSION),view=args.view,relation_basis=basis,
+        record_id=stable_id('assembly',index.snapshot,target.region_id,VERSION,*([heading_start] if heading_start is not None else [])),view=args.view,relation_basis=basis,
         related_record_count=len(catalog),
         title_evidence=index.evidence(target,title_start,min(title_end,title_start+1800)),row_structure=band,
         unit_candidates=read_unit_candidates(index,target),

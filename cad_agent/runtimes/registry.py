@@ -34,9 +34,14 @@ def run_agent(session, history=None):
     attempts = []
     try:
         with session.metrics.measure("runtime_total"):
-            result = get_runtime(name).run(session, history)
+            from cad_agent.analysis.source_record_workflow import try_run
+            result = try_run(session, history)
+            if result is None:
+                result = get_runtime(name).run(session, history)
+                if getattr(session, 'source_record_fallback', None):
+                    result['source_record_fallback'] = session.source_record_fallback
     except ModelError as error:
-        if name == "native" or name in subscription_runtimes or not session.request.allow_fallback:
+        if error.code == "SOURCE_CHANGED" or name == "native" or name in subscription_runtimes or not session.request.allow_fallback:
             raise
         attempts.append(
             {

@@ -1,3 +1,4 @@
+import {renderSourceRecords} from './source-records.mjs';
 import {publishedCitations} from './evidence-selection.mjs';
 import {spatialRows,spatialHighlightBounds} from './spatial-results.mjs';
 import {RunInspector} from './run-inspector.mjs';
@@ -726,6 +727,13 @@ async function extractCurrent() {
     busy(false);
   }
 }
+function sourceRecordView(result) {
+  return renderSourceRecords(result,{document,onError:toast,openSource:async citation=>{
+    const source=await api(citation.evidence_url);
+    if(source.snapshot_id!==S.drawing?.id)await selectDrawing(source.snapshot_id);
+    showSource(source);
+  }});
+}
 const welcome = $("chat-messages").innerHTML;
 const runInspector = new RunInspector({
   workspace: document.querySelector('.workspace'), api,
@@ -734,11 +742,16 @@ const runInspector = new RunInspector({
     if(S.chatBusy||run.snapshot_id!==S.drawing?.id)return;
     const result=run.result,answer=node('div','message');
     answer.append(node('div','message-label','✳ 已保存的模型问答'),
-      node('p',null,result?.answer||run.error?.message||run.stage),runDetailsButton(run.id));
-    for(const {source:c,number} of publishedCitations(result||{})){const b=node('button','citation',`[${number}] ${c.quote}`);b.type='button';
+      sourceRecordView(result||{}) || node('p',null,result?.answer||run.error?.message||run.stage),runDetailsButton(run.id));
+    const savedSources=publishedCitations(result||{}),audit=node('details','answer-audit');
+    audit.append(node('summary',null,`全部原文证据（${savedSources.length}）`));
+    for(const {source:c,number} of savedSources){const b=node('button','citation',`[${number}] ${c.quote}`);b.type='button';
       b.append(node('small',null,`${c.source_context?.frame_name ? c.source_context.frame_name+'（解析图框） · ' : ''}${c.label||''} · 定位原文 ↗`));
-      b.onclick=attempt(async()=>{const source=await api(c.evidence_url);if(source.snapshot_id===S.drawing?.id)showSource(source);});answer.append(b);}
-    if(result?.missing_information?.length)answer.append(node('p','answer-note',result.missing_information.join('；')));
+      b.onclick=attempt(async()=>{const source=await api(c.evidence_url);if(source.snapshot_id!==S.drawing?.id)await selectDrawing(source.snapshot_id);showSource(source);});audit.append(b);}
+    if(savedSources.length)answer.append(audit);
+    if(result?.missing_information?.length){const gaps=node('details','answer-audit');
+      gaps.append(node('summary',null,`范围与待核事项（${result.missing_information.length}）`));
+      for(const gap of result.missing_information)gaps.append(node('p','answer-note',gap));answer.append(gaps);}
     $('chat-messages').replaceChildren(node('div','message user',run.request.question),answer);
     $('chat-messages').scrollTop=$('chat-messages').scrollHeight;
     S.parentRun=run.status==='completed'?run.id:null;
@@ -806,6 +819,7 @@ async function ask(question, resumeTask=null) {
       model_profile: $("model-profile").value,
       allow_fallback: $("runtime-fallback").checked,
       source_read_batching: $("source-read-batching").checked,
+      source_record_mode: $("source-record-mode").value,
       parent_run_id: mode === "agent" ? S.parentRun : null,
     };
     if (mode==='agent' && S.adaptationPolicy?.snapshot_id===S.drawing.id) payload.adaptation_policy_id=S.adaptationPolicy.policy_id;
@@ -861,7 +875,7 @@ async function ask(question, resumeTask=null) {
     if (gen !== S.generation) return;
     answer.replaceChildren(
       node("div", "message-label", mode === "agent" ? "✳ 模型 · 工具问答" : "✳ 本地事实查询"),
-      node("p", null, result.claims?.length ? result.claims.map(c=>c.display_text||c.text).join("\n\n") : result.answer),
+      sourceRecordView(result) || node("p", null, result.claims?.length ? result.claims.map(c=>c.display_text||c.text).join("\n\n") : result.answer),
     );
     if (run) answer.append(runDetailsButton(run.id));
     if (result.source_excerpts?.length) {

@@ -25,7 +25,7 @@ def assembly_observation(observation):
         return observation
     data = observation['data']
     binding = data.get('source_binding')
-    keys = ('record_id', 'target_region_id', 'view', 'relation_basis', 'offset',
+    keys = ('record_id', 'target_region_id', 'snapshot_id', 'heading_start', 'view', 'relation_basis', 'offset',
             'total', 'has_more', 'next_offset', 'checks', 'diagnostics',
             'title_evidence', 'reference_reads', 'source_binding', 'source_scope',
             'default_unit_clauses', 'unit_candidates')

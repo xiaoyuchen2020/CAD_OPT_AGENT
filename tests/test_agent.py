@@ -98,7 +98,7 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         with pytest.raises(ValueError):
             runner.execute(name, args)
     assert {t["function"]["name"] for t in tool_definitions()} == {
-        "read_requirement_sources",
+        "read_requirement_sources", "select_source_records",
         "read_assembly", "calculate_facts", "resolve_drawing_scope", "inspect_scope_objects", "read_project_sources",
         "plan_task", "analyze_measurements", "get_analysis_results", "check_dimension_chain", "inspect_enclosure",
         "locate_space_labels", "prepare_space_connections", "review_space_connections", "prepare_discovery_review", "review_discovered_spaces",

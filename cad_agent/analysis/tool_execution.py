@@ -69,6 +69,9 @@ def execute(self, name, raw_args, *, bounded=False):
     if name in SPATIAL_METHODS:
         from cad_agent.analysis.spatial_workflow import execute_spatial_method
         return execute_spatial_method(self, name, args)
+    if name=='select_source_records':
+        from cad_agent.analysis.source_record_selection import select
+        return select(self,args)
     if name=='read_assembly':return self._register_tree(read_assembly(self,args))
     if name=='calculate_facts':return calculate_facts(self,args)
     if name=='resolve_drawing_scope':return self._register_tree(resolve_scope(self,args))
