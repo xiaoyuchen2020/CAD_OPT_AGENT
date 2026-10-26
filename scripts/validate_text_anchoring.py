@@ -185,7 +185,7 @@ def main():
             ('runtime-diagnostics',getattr(s,'runtime_diagnostics',{}))]: save(out,name+'.json',value)
         summary=dict(passed=result is not None and error is None,mode=args.mode,live_model=live,
             effective_path=('source_records_'+result['source_records']['mode'] if result and result.get('source_records')
-                            else 'agent' if live else args.mode),
+                            else 'agent' if result and live else args.mode if result else None),
             route=getattr(s,'source_record_route',{}).get('route'),
             validation_scope='source_integrity_and_sample_checks',
             elapsed_seconds=round(time.monotonic()-started,2),error=error,source_audit=audit,
