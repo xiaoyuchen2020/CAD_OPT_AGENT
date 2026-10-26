@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--parent-run-id')
     parser.add_argument('--resume-task-id')
     parser.add_argument('--case-name', default='')
+    parser.add_argument('--queue-timeout', type=int, default=600)
     parser.add_argument('--legacy',action='store_true')
     parser.add_argument('--offline',action='store_true')
     args=parser.parse_args()
@@ -41,7 +42,7 @@ def main():
     from cad_agent.adapters.siwc import SiwcAccount
     from cad_agent.contracts import ChatRequest
     from cad_agent.analysis.agent import AgentRunner
-    w=Workspace(Settings(data_dir=out/'data',llm_query_intent=not args.legacy))
+    w=Workspace(Settings(data_dir=out/'data',llm_query_intent=not args.legacy,siwc_queue_timeout_seconds=args.queue_timeout))
     try:
         with sqlite3.connect(f'file:{args.source_data.resolve()}/index.sqlite3?mode=ro',uri=True) as db:
             row=db.execute("select data from records where id=? and kind='drawing'",(args.snapshot,)).fetchone()
@@ -78,7 +79,7 @@ def main():
         w.siwc_account.close();w.siwc_account=SiwcAccount(args.account_data,1)
         record=w.start_chat(request)
         print('STARTED',record['id'],flush=True)
-        previous=None;deadline=time.monotonic()+900
+        previous=None;deadline=time.monotonic()+args.queue_timeout+900
         while True:
             record=w.store.get('chat_run',record['id'])
             progress=(record['status'],record.get('stage'),len(record.get('trace',[])))
