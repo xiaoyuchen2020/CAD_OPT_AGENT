@@ -3,7 +3,7 @@
 from hashlib import sha256
 from cad_agent.contracts import Evidence, SourceRegion, stable_id
 from cad_agent.cad.reader import union_box
-from cad_agent.cad.numbers import VERSION as NUMBER_VERSION, region_readings
+from cad_agent.cad.numbers import VERSION as NUMBER_VERSION, region_readings, readings
 
 
 def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit):
@@ -21,7 +21,15 @@ def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit)
             x, y, xx, yy = part.bbox
             shapes.extend(part.highlight_regions or [dict(boundary=[[x,y],[xx,y],[xx,yy],[x,yy]])])
     atoms = []
-    for token in region_readings(source, snapshot_id):
+    source_tokens = region_readings(source, snapshot_id)
+    # A quote covering one complete native entity has its own lexical boundary.
+    # Adjacent CAD cells can have been concatenated by the legacy region index;
+    # never tokenize a user-selected substring as though it were a whole entity.
+    crosses_boundary=any(a<start<b or a<end<b for a,b in (t['text_span'] for t in source_tokens))
+    if crosses_boundary and len(parts)==1 and list(parts[0].text_span)==[start,end]:
+        source_tokens = [dict(t,text_span=[t['text_span'][0]+start,t['text_span'][1]+start])
+                         for t in readings(source.text[start:end],snapshot_id+':'+source.region_id+':'+parts[0].entity_id)]
+    for token in source_tokens:
         a,b = token["text_span"]
         if start <= a < b <= end:
             atoms.append({**token, "source_span":[a,b], "text_span":[a-start,b-start]})
