@@ -143,6 +143,8 @@ python -m pytest -q tests/test_room_geometry.py
 
 经济技术指标与建（构）筑物一览表可分别通过 `extract_planning_metrics`、`extract_building_schedule` 提取，支持候选表发现、逐页字段读取、原文证据、缺失与冲突，并复用来源记录的缓存校验。接口、字段及完整性边界见 [业务表格提取](docs/business-table-extraction.md)。
 
+Agent 与来源记录复核共用逐字文本目录、快照内锚点校验和按任务组合的元数据投影；预算按完整来源依赖组裁剪。协议与真实图纸验证入口见 [文本、元数据与证据锚点](docs/text-metadata-anchoring.md)。
+
 ## 表格恢复固定方法试点
 
 新增独立的表格恢复诊断、冻结输入、固定方法 Docker 隔离执行、独立验证和原图叠加接口。现有表格组件及 Agent 工具保持原行为，不接入 LLM 动态生成代码；输出保留候选与待复核状态。环境准备、接口和真实样本证据见 [第一阶段说明](docs/table-recovery-stage1.md)。
