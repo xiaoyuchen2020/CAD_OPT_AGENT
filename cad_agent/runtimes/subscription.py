@@ -378,16 +378,14 @@ class CodexSubscriptionRuntime:
                 # At most one dedicated synthesis/repair turn, with no tools.
                 # It gets only verified evidence already read during exploration.
                 session.policy.stop_reason = session.policy.stop_reason or "answer_repair"
-                prompt = dumps({"question": session.request.question,
-                    "evidence": compact(list(session.evidence.values())),
-                    "source_contexts": self.source_contexts,
-                    "observations": list(session.observations.values()),
-                    "validation_issue": issue,
-                    "stop_reason": session.policy.stop_reason,
-                    "instruction": "仅依据以上已读来源返回最终 JSON，通常1–2条结论；预算收束不代表证据充分，不足标 unknown。保留适用范围与来源引用，不调用工具。"})
-                prompt = '\n\n'.join(m['content'] for m in encode_messages(session, [{'role': 'user', 'content': prompt}]))
-                if len(prompt) > self.FINAL_CONTEXT_CHARS:
-                    raise ModelError("CODEX_CONTEXT_BUDGET", "已有证据超过最终整理预算，未继续消耗订阅额度。")
+                from cad_agent.analysis.final_context_budget import fit_messages
+                packet = session.final_context(self, session.policy.stop_reason)
+                packet['validation_issue'] = issue
+                try:
+                    final_messages = fit_messages(session, packet, self.FINAL_CONTEXT_CHARS)
+                except ModelError as error:
+                    raise ModelError("CODEX_CONTEXT_BUDGET", str(error)) from None
+                prompt = '\n\n'.join(m['content'] for m in final_messages)
                 sid = self.start_thread(rpc, session, cwd, final=True)
                 content = self.turn(rpc, session, sid, prompt, totals, final=True)
                 try:

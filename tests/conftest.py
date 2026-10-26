@@ -10,7 +10,7 @@ from cad_agent.contracts import SourceRegion, ExtractionRequest
 
 @pytest.fixture
 def workspace(tmp_path):
-    w = Workspace(Settings(data_dir=tmp_path / "data"))
+    w = Workspace(Settings(data_dir=tmp_path / "data", llm_query_intent=False))
     yield w
     w.close()
 

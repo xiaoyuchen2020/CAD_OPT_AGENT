@@ -42,6 +42,8 @@ def validate_answer(self, content):
             claim.user_inputs.extend(r for r in parsed.user_inputs if contains_numeric_phrase(claim.text, r.value) and (r.quote,r.value) not in own)
     claims, citations, positions = [], [], {}
     issues = [f"{e['path']} [{e['code']}]：{e['message']}" for e in parts.field_issues]
+    from cad_agent.analysis.source_candidates import delivery_issues
+    issues.extend(delivery_issues(self, parsed))
     validated_claims = []
     outcomes={v.requirement_id:v for v in parsed.requirement_outcomes}
     if len(outcomes)!=len(parsed.requirement_outcomes) or not set(outcomes)<={s["id"] for s in self.task.data["subtasks"]}:
@@ -61,6 +63,8 @@ def validate_answer(self, content):
     for parsed_index, claim in enumerate(parsed.claims):
         index = parts.claim_indexes[parsed_index] + 1
         issue_count = len(issues)
+        from cad_agent.analysis.source_candidates import claim_issues
+        issues.extend(claim_issues(self, claim))
         issues.extend(f"第 {index} 条{message}" for message in delivery_consistency_issues(claim, self.evidence, self.observations))
         issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence, self.observations))
         issues.extend(f"第 {index} 条{message}" for message in property_claim_issues(claim, property_fields))

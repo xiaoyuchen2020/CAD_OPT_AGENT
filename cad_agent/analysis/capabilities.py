@@ -2,7 +2,7 @@
 import re
 
 VERSION = 'cad-execution-v2'
-ASSEMBLY_TOOLS = {'search_sources', 'read_assembly', 'read_source_context',
+ASSEMBLY_TOOLS = {'search_source_records', 'search_sources', 'read_assembly', 'read_source_context',
                   'read_table_semantics', 'get_drawing_overview', 'resolve_drawing_scope',
                   'finish_analysis', 'request_toolset', 'read_evidence_record'}
 

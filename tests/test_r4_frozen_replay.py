@@ -32,7 +32,7 @@ def replay(out, case_ids=('Q11','Q14','Q15')):
     with tempfile.TemporaryDirectory(prefix='r4-frozen-') as tmp:
         # Offline source replay performs cold parsing repeatedly under test
         # contention; this is not evidence of delivery within production SLA.
-        w=Workspace(Settings(data_dir=Path(tmp)/'data',provider='responses_subscription',agent_timeout_seconds=600))
+        w=Workspace(Settings(llm_query_intent=False, data_dir=Path(tmp)/'data',provider='responses_subscription',agent_timeout_seconds=600))
         try:
             w.store.put('drawing',SID,drawing)
             for name in ('source.dxf','scene.json','regions.json','entities.json'):

@@ -10,7 +10,7 @@ from test_door_schedule import chain
 
 
 def test_property_tool_and_http_readback_are_task_scoped(tmp_path, demo_bytes):
-    with TestClient(create_app(Settings(data_dir=tmp_path))) as client:
+    with TestClient(create_app(Settings(llm_query_intent=False, data_dir=tmp_path))) as client:
         workspace = client.app.state.workspace
         session = make_session(workspace, demo_bytes)
         sid = session.request.snapshot_id
@@ -42,7 +42,7 @@ def test_property_tool_and_http_readback_are_task_scoped(tmp_path, demo_bytes):
 
 
 def test_property_view_rejects_observations_from_unselected_snapshot(tmp_path, demo_bytes):
-    with TestClient(create_app(Settings(data_dir=tmp_path))) as client:
+    with TestClient(create_app(Settings(llm_query_intent=False, data_dir=tmp_path))) as client:
         workspace = client.app.state.workspace
         session = make_session(workspace, demo_bytes)
         session.task.data["observations"] = {
@@ -91,7 +91,7 @@ def test_similarity_http_and_agent_use_same_native_instances(tmp_path):
     from cad_agent.contracts import ChatRequest
     from test_similarity_search import source
     path, _, _ = source(tmp_path)
-    with TestClient(create_app(Settings(data_dir=tmp_path / "data"))) as client:
+    with TestClient(create_app(Settings(llm_query_intent=False, data_dir=tmp_path / "data"))) as client:
         workspace = client.app.state.workspace
         drawing = workspace.ingest("similar.dxf", path.read_bytes())
         layout = next(l["layout_id"] for l in drawing["layouts"] if l["name"] == "Model")

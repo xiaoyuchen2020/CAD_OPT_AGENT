@@ -98,7 +98,7 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         with pytest.raises(ValueError):
             runner.execute(name, args)
     assert {t["function"]["name"] for t in tool_definitions()} == {
-        "read_requirement_sources", "select_source_records",
+        "read_requirement_sources", "select_source_records", "search_source_records",
         "read_assembly", "calculate_facts", "resolve_drawing_scope", "inspect_scope_objects", "read_project_sources",
         "plan_task", "analyze_measurements", "get_analysis_results", "check_dimension_chain", "inspect_enclosure",
         "locate_space_labels", "prepare_space_connections", "review_space_connections", "prepare_discovery_review", "review_discovered_spaces",
@@ -208,7 +208,7 @@ def test_loop_budget_and_invalid_final_are_explicit_failures(
 def test_background_api_persists_evidence_and_history(
     tmp_path, demo_bytes, monkeypatch
 ):
-    app = create_app(Settings(data_dir=tmp_path / "api"))
+    app = create_app(Settings(data_dir=tmp_path / "api", llm_query_intent=False))
     w = app.state.workspace
     d = w.ingest("demo.dxf", demo_bytes)
     scripted_turns(w, monkeypatch)
@@ -343,7 +343,7 @@ def test_context_distinguishes_preceding_section_and_real_children(
 
 
 def test_unconfigured_background_chat_is_failed_not_fallback(tmp_path, demo_bytes):
-    app = create_app(Settings(data_dir=tmp_path / "api"))
+    app = create_app(Settings(data_dir=tmp_path / "api", llm_query_intent=False))
     w = app.state.workspace
     d = w.ingest("demo.dxf", demo_bytes)
     with TestClient(app) as client:

@@ -34,7 +34,7 @@ def register_observation(self, name, result):
             for k in ("file_metadata", "total", "view", "has_more")
             if k in result
         }
-    elif name in ("extract_facts", "query_facts", "search_sources"):
+    elif name in ("extract_facts", "query_facts", "search_sources", "search_source_records"):
         data = {
             k: result[k]
             for k in (
@@ -114,6 +114,12 @@ def register_observation(self, name, result):
             "note": "解析器读回或计算的元数据，不是原图原文证据，不证明设计语义。",
         }
         self.observations[oid] = observation
+        from cad_agent.analysis.query_intent import enabled as intent_enabled
+        if intent_enabled(self) and name == 'read_assembly':
+            selected = self.task.data.setdefault('query_context_observation_ids', [])
+            selected[:] = [value for value in selected if value != oid] + [oid]
+            del selected[:-6]
+
         result["observation_id"] = oid
         result["observation_note"] = observation["note"]
 

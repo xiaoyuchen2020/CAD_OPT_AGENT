@@ -1,6 +1,6 @@
 """Runtime-neutral tool capability metadata. No session imports."""
 GROUPS = {
-    'sources': {'select_source_records','batch_read_sources','read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','search_sources','read_source_context','read_table','get_evidence','get_drawing_overview'},
+    'sources': {'search_source_records','select_source_records','batch_read_sources','read_assembly','calculate_facts','resolve_drawing_scope','read_project_sources','search_sources','read_source_context','read_table','get_evidence','get_drawing_overview'},
     'facts': {'query_facts','extract_facts','get_evidence'},
     'rooms': {'prepare_discovery_review','review_discovered_spaces','inspect_enclosure','get_drawing_context','get_analysis_results','analyze_measurements','resolve_room_units','prepare_room_boundaries','select_room_boundaries','analyze_room_batch','discover_rooms','get_room_contours','measure_room_area','measure_room','get_measurement_evidence'},
     'geometry': {'inspect_scope_objects','get_drawing_context','read_dimensions','query_building_relations','get_component_evidence','query_entities','read_geometry','query_spatial','measure_geometry','get_measurement_evidence','inspect_region'},

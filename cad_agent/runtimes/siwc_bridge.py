@@ -9,7 +9,7 @@ import time
 from cad_agent.adapters.siwc import fail
 from cad_agent.adapters.model import ModelError
 from cad_agent.analysis.efficiency import dumps, compact
-from cad_agent.analysis.model_context import encode_messages
+from cad_agent.analysis.final_context_budget import fit_messages
 from cad_agent.runtimes.responses_subscription import ResponsesTransport
 from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
 from cad_agent.runtimes.vision import attach_images, mark_images_sent
@@ -62,11 +62,8 @@ class SiwcBridge:
         self.controls.source_contexts = []
         instructions, inputs = self.inputs(messages)
         if final:
-            text = dumps(s.final_context(self.controls, s.policy.stop_reason or 'exploration_budget'))
-            inputs = [{'role': 'user', 'content': text}]
-            inputs = encode_messages(s, inputs)
-            if sum(len(m.get('content', '')) for m in inputs) > self.controls.FINAL_CONTEXT_CHARS:
-                raise fail('CONTEXT_BUDGET', '最终上下文超过本地上限。')
+            packet = s.final_context(self.controls, s.policy.stop_reason or 'exploration_budget')
+            inputs = fit_messages(s, packet, self.controls.FINAL_CONTEXT_CHARS)
         choice = 'none' if final else 'required' if not completed_tool else 'auto'
         definitions = [] if not tools else [{'type': 'namespace', 'name': 'cad',
             'description': '当前图纸的只读 CAD 检索、上下文与证据工具。',

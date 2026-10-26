@@ -463,7 +463,7 @@ def read(index, args):
     if title_end<0:title_end=len(target.text)
     return dict(snapshot_id=index.snapshot,target_region_id=target.region_id,heading_start=heading_start,version=VERSION,
         source_scope=dict(layout_id=target.layout_id, frame_id=target.frame_id, frame_name=getattr(target, "frame_name", ""), basis="parser_frame_metadata_not_engineering_identity"),
-        record_id=stable_id('assembly',index.snapshot,target.region_id,VERSION,*([heading_start] if heading_start is not None else [])),view=args.view,relation_basis=basis,
+        record_id=stable_id('assembly',index.snapshot,target.region_id,VERSION,*([str(heading_start)] if heading_start is not None else [])),view=args.view,relation_basis=basis,
         related_record_count=len(catalog),
         title_evidence=index.evidence(target,title_start,min(title_end,title_start+1800)),row_structure=band,
         unit_candidates=read_unit_candidates(index,target),

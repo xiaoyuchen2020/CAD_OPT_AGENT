@@ -38,6 +38,8 @@ MANIFEST=ROOT/'tests/fixtures/real_geometry_tasks.json'
 
 @dataclass(frozen=True)
 class OfflineSettings(Settings):
+    # This evaluator invokes deterministic tools without a model planning turn.
+    llm_query_intent: bool = False
     def model_catalog(self):
         # Do not call Settings.model_catalog: it reads the user's .env.
         return {'default':self}

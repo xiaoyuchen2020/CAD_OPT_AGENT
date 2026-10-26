@@ -242,6 +242,9 @@ class TaskLedger:
         from cad_agent.analysis.gap_routing import context as gap_context
         d['gap_recovery']=gap_context(self.data)
         d.pop('spatial_results',None)
+        candidates=d.pop('source_candidates', {})
+        searches=d.pop('query_searches', [])
+        d['query_navigation'] = dict(candidate_count=len(candidates), searches=searches[-3:])
         for step in d['subtasks']:
             progress = step.get('quality_progress')
             if progress:

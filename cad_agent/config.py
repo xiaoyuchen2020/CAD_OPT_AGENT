@@ -35,6 +35,7 @@ class Settings:
     stable_subscription_prefix: bool = True
     model_context_codec: bool = True
     read_context_optimization: bool = True
+    llm_query_intent: bool = True
     source_record_workflow: bool = True
     source_record_max_records: int = 64
     source_record_max_pages: int = 128
@@ -92,6 +93,7 @@ class Settings:
         deepseek = e.get("CAD_AGENT_PROVIDER", "deepseek") == "deepseek"
         return cls(
             data_dir=Path(e.get("CAD_AGENT_DATA_DIR", str(ROOT / ".data"))).resolve(),
+            llm_query_intent=e.get("CAD_LLM_QUERY_INTENT", "1") == "1",
             execution_policy=e.get("CAD_EXECUTION_POLICY", "v2"),
             subscription_budget_policy=e.get("CAD_SUBSCRIPTION_BUDGET_POLICY", "adaptive_v1"),
             stable_subscription_prefix=e.get("CAD_STABLE_SUBSCRIPTION_PREFIX", "1") == "1",

@@ -143,7 +143,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     # The immutable question and task requirements have small schema bounds;
     # if metadata nevertheless expands, retain the actual task text and gaps.
     if len(dumps(out))>limit:
-        out={k:v for k,v in out.items() if k in ('question','task','evidence','observations','context_omissions','instruction','validation_issue','answer_contract','field_issues','validated_claims','validated_user_inputs','user_conditions','repair_targets')}
+        out={k:v for k,v in out.items() if k in ('query_intent','question','task','evidence','observations','context_omissions','instruction','validation_issue','answer_contract','field_issues','validated_claims','validated_user_inputs','user_conditions','repair_targets')}
     if len(dumps(out))>limit:
         out['task']={'subtasks':[{k:s[k] for k in ('id','requirement','status','reason') if k in s} for s in steps]}
     # Previously validated clauses remain cached in the session even when the

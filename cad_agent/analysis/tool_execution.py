@@ -45,6 +45,9 @@ def execute(self, name, raw_args, *, bounded=False):
     if self.journal.tool_stack:
         self.journal.section(self.journal.tool_stack[-1], 'execution', args.model_dump(),
                              '工具执行入口参数（含已验证默认值）')
+    if name == 'search_source_records':
+        from cad_agent.analysis.source_candidates import search
+        return search(self, args)
     if name == 'read_evidence_record':
         from cad_agent.analysis.evidence_store import read
         return read(self, args)
@@ -423,7 +426,7 @@ def invoke_tool(self, name, raw_args):
     tick = time.monotonic()
     previous_evidence = dict(self.evidence)
     previous_observations = dict(self.observations)
-    registry_fields = ('object_registry', 'object_workflows', 'source_recall', 'spatial_objects', 'spatial_results')
+    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'spatial_objects', 'spatial_results')
     registry_before = {k: deepcopy(self.task.data[k]) for k in registry_fields if k in self.task.data}
     def rollback_registry():
         for key in registry_fields:
@@ -449,6 +452,12 @@ def invoke_tool(self, name, raw_args):
         tool_supported = True
         args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
         args = dict(args)
+        from cad_agent.analysis.query_intent import prepare_call
+        intent = prepare_call(self, name, args)
+        if intent:
+            entry['query_intent_id'] = intent['intent_id']
+        from cad_agent.analysis.source_candidates import check_read
+        check_read(self, name, args)
         from cad_agent.analysis.payload_projection import VIEWS, PROJECTABLE_TOOLS, selected_view
         result_view = args.pop('result_view', 'auto')
         if result_view not in VIEWS:
@@ -513,7 +522,7 @@ def invoke_tool(self, name, raw_args):
         from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
         revalidates_source = SPATIAL_METHODS | {
             'bind_spatial_object', 'get_spatial_object', 'resolve_drawing_scope',
-            'query_property_evidence', 'trace_door_schedule',
+            'query_property_evidence', 'trace_door_schedule', 'search_source_records',
         }
         if name not in CONTROL and name not in revalidates_source and cache_key in self.policy.cache:
             duplicate = True
@@ -566,6 +575,8 @@ def invoke_tool(self, name, raw_args):
                 result.update(registry_update)
             record_scope_call(self, name, args, result)
             self.register_observation(name, result)
+            from cad_agent.analysis.source_candidates import record_read
+            record_read(self, name, args, result)
             full_result = result
             new_evidence = evidence_ids(result) - self.policy.seen_evidence
         if duplicate and name in ('search_sources','query_entities'):
@@ -610,6 +621,8 @@ def invoke_tool(self, name, raw_args):
             result['error']={'code':'SOURCE_READ_BATCHING_DISABLED','message':'批量读取已关闭，请逐项调用 read_source_context/read_assembly；仅用户可在问答设置中开启。'}
         elif str(error).startswith('COMPONENT_ITEM_TOO_LARGE'):
             result['error']={'code':'COMPONENT_ITEM_TOO_LARGE','message':str(error)[:400]}
+        elif name != 'finish_analysis' and str(error).startswith('QUERY_'):
+            result['error']={'code':str(error).split(':',1)[0], 'message':str(error)[:700]}
         elif name=='finish_analysis':
             self.record_validation_issue(error)
             result['error']['message']=self.validation_issue
