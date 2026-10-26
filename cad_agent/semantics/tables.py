@@ -5,7 +5,7 @@ from statistics import median
 
 from cad_agent.contracts import stable_id
 
-TABLE_VERSION = 'table-semantics-v1.6-ordinal-barrier'
+TABLE_VERSION = 'table-semantics-v1.8-ruled-source'
 HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目|性能|耐火|适用|部位|类型')
 UNITS = re.compile(r'(?<![A-Za-z])(?:mm[²2]?|cm[²2]?|m[²2]?|MPa|kN|kPa|kg/m[³3]|毫米|厘米|平方米|㎡|米|个|樘|扇)(?![A-Za-z])')
 
@@ -32,10 +32,11 @@ def explicit_units(text):
 FIELD_LABELS = {
     'code': r'(?:设计|构造|做法|类型)?编号|型号',
     'ordinal': r'序号',
-    'name': r'(?:构造|做法|材料|项目)?名称|项目|类别|类型',
+    'name': r'(?:构造|做法|材料|项目)?名称|项目|类别|类型|分类',
     'applicability': r'(?:适用|使用|应用)?(?:部位|位置|范围)(?:名称)?|房间(?:名称)?|楼层',
-    'layers': r'(?:构造|材料|具体|建筑)?做法|构造层次|材料及做法',
+    'layers': r'(?:构造|材料|具体|建筑)?[做作]法|构造层次|材料及[做作]法|[做作]法及用料|用料及[做作]法',
     'notes': r'备注|说明',
+    'requirements': r'(?:技术|材料|性能|构造)要求|技术性能',
 }
 
 
@@ -63,7 +64,7 @@ def local_assembly_headers(index, target, band):
     for line in index.scene['lines']:
         if line['layout_id'] != target.layout_id: continue
         for p,q in zip(line['points'],line['points'][1:]):
-            if abs(p[1]-q[1]) < .01 and abs(min(p[0],q[0])-a)<=tol and abs(max(p[0],q[0])-c)<=tol:
+            if abs(p[1]-q[1]) < .01 and min(p[0],q[0])<=a+tol and max(p[0],q[0])>=c-tol:
                 if bottom-tol <= p[1] <= top+tol:
                     hs.append(p[1]);horizontal_sources.append(dict(entity_id=line['entity_id'],points=[p,q]))
     ys = sorted({round(y,5) for y in hs if y >= d-tol})
@@ -79,6 +80,9 @@ def local_assembly_headers(index, target, band):
             line=next((line for line in baselines if abs(line[0]['origin'][1]-t['origin'][1])<height*.35),None)
             if line is None: baselines.append([t])
             else: line.append(t)
+        header_xs=[xs[0]]+[x for x in xs[1:-1] if any(abs(line['points'][0][0]-x)<=tol
+            and abs(line['points'][1][0]-x)<=tol and min(p[1] for p in line['points'])<=lo+tol
+            and max(p[1] for p in line['points'])>=hi-tol for line in band['source_lines'])]+[xs[-1]]
         possibilities=[]
         for line in baselines:
             groups=[]
@@ -87,13 +91,17 @@ def local_assembly_headers(index, target, band):
                     groups[-1].append(t)
                 else: groups.append([t])
             labels=[(''.join(t['text'] for t in group).strip(),group) for group in groups]
-            if len(labels)!=len(xs)-1 or any(not field_roles([text]) for text,_ in labels): continue
-            if any(not xs[i]-height*2 <= (group[0]['origin'][0]+group[-1]['bbox'][2])/2 <= xs[i+1]+height*2
+            mapping_xs=xs if len(labels)==len(xs)-1 else header_xs
+            if len(labels)!=len(mapping_xs)-1 or any(not field_roles([text]) for text,_ in labels): continue
+            if any(not mapping_xs[i]-height*2 <= (group[0]['origin'][0]+group[-1]['bbox'][2])/2 <= mapping_xs[i+1]+height*2
                    for i,(_,group) in enumerate(labels)): continue
-            possibilities.append(labels)
+            possibilities.append((labels,mapping_xs))
         if len(possibilities)!=1: continue
+        labels,header_xs=possibilities[0]
         fields=[]
-        for i,(text,group) in enumerate(possibilities[0]):
+        for i in range(len(xs)-1):
+            parent=next(j for j in range(len(header_xs)-1) if header_xs[j]<=xs[i] and xs[i+1]<=header_xs[j+1])
+            text,group=labels[parent]
             fields.append(dict(column_index=i,text=text,roles=field_roles([text]),
                 evidence=[e for t in group for e in index.entity_evidence(t['entity_id'])],
                 entity_ids=[t['entity_id'] for t in group],state='source_bound'))
@@ -134,6 +142,11 @@ def grid(index, table):
             elif abs(p[0]-q[0])<.01:
                 all_v.append((round(p[0],2),min(p[1],q[1]),max(p[1],q[1])))
     texts=[t for t in index.scene['texts'] if t['layout_id']==lid and a<=t['origin'][0]<c and b<=t['origin'][1]<d]
+    source=table.get('ruled_source')
+    if source:
+        all_h,all_v=source['horizontal'],source['vertical']
+        if source['instance_path']:
+            texts=[t for t in texts if t.get('entity_path',[])[:len(source['instance_path'])]==source['instance_path']]
     height=median(t['height'] for t in texts) if texts else 1
     raw_cells=[cell for row in table['rows'] for cell in row['cells']]
     cluttered=0
@@ -205,7 +218,15 @@ def grid(index, table):
         if len(coords)!=(r1-r0)*(c1-c0):
             raise ValueError('NON_RECTANGULAR_CELL_COMPONENT: 缺边形成非矩形连通区域，不丢弃格子或推定合并关系。')
         bounds=[xs[c0],ys[r1],xs[c1],ys[r0]]
-        chosen=sorted([t for t in texts if bounds[0]<=t['origin'][0]<bounds[2] and bounds[1]<=t['origin'][1]<bounds[3]],
+        def anchor_x(text):
+            x=text['origin'][0]
+            # Centered captions can start just across a rail. Reassign only a
+            # small overhang with most of the text in the adjacent column.
+            center=(text['bbox'][0]+text['bbox'][2])/2
+            if source and any(0 < rail-x <= text['height']*.3 and center>rail for rail in xs[1:-1]):
+                return center
+            return x
+        chosen=sorted([t for t in texts if bounds[0]<=anchor_x(t)<bounds[2] and bounds[1]<=t['origin'][1]<bounds[3]],
                       key=lambda t:(-t['origin'][1],t['origin'][0],t['entity_id']))
         rotated=[t for t in chosen if abs(t.get('rotation',0))>.1]
         if rotated:diagnostics.append('ROTATED_CELL_TEXT_REQUIRES_REVIEW')
@@ -227,7 +248,7 @@ def read_semantic_table(index,args):
     cells,n,m,cached_diagnostics=cache[key]
     diagnostics=list(cached_diagnostics)
     header_rows=args.header_rows
-    if header_rows is not None and max(header_rows)>=n:raise ValueError('表头行超出表格。')
+    if header_rows and max(header_rows)>=n:raise ValueError('表头行超出表格。')
     if header_rows is None:
         header_rows=[]
         for r in range(min(4,n)):

@@ -48,6 +48,9 @@ def _infer(cell, step):
             or re.search(r'可定位证据|证据引用|引用编号|回答格式|输出格式', label)
             or re.fullmatch(r'回答|答复|输出|结果表', obj)):
         return 'DELIVERY_REQUIREMENT'
+    from cad_agent.analysis.business_table_routing import literal_business_read
+    if literal_business_read(clause):
+        return 'SOURCE_FACT'
     # A requested printed value remains a source fact even if its label names
     # a sum/difference. A separate compute clause has its own producer.
     if (re.search(r'原文|标注|注记|文字|尺寸链|分尺寸|定位尺寸', field)

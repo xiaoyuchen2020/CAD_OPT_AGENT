@@ -1,0 +1,776 @@
+{
+  "provenance": "Frozen real drawing chapter, 2026-10-26; no benchmark answers supplied to product.",
+  "source_sha256": "7828607e871b369bdb06435d8ddb941f3bad4974aa9318ffce3b865b723c47b7",
+  "heading": "region_de0c42bbe08e9a7c6bbc1ae5",
+  "regions": [
+    {
+      "region_id": "region_de0c42bbe08e9a7c6bbc1ae5",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "四、墙体工程",
+      "entity_ids": [
+        "ent_9fef403ab6676e0907ce7716"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -644857.8208673454,
+        1353281.889408871,
+        -644282.5821224614
+      ],
+      "context_region_ids": [],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_4b12b1e23838699af3797a0b",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "1、本工程±0.00标高或建筑室内地坪标高以下墙体（非地下室室内部分）：",
+      "entity_ids": [
+        "ent_36378559d96b1e48669a5223",
+        "ent_7945dfa1863a69f596f055fa",
+        "ent_87f8cf80a96923b48feb6de5",
+        "ent_c96066646afbaf05928ed369"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -645622.8208673454,
+        1365932.2795862244,
+        -645047.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_3e393e7041e34bbeb9f7482c",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "建筑外墙底部采用C20素混凝土现浇墙体一次性浇筑室内±0.000以上200高，在两侧粉刷15厚DW-M20普通防水砂浆；",
+      "entity_ids": [
+        "ent_7df27f70d6879d409512e1aa",
+        "ent_e7d60e34ffaa66b9c2fac382",
+        "ent_1873b9dd6e4981f9be42d4eb",
+        "ent_1d8e904879627ba7b79826f0",
+        "ent_4e50d41335c5ad47b6cf26c8",
+        "ent_edade9f3ec21b7ae3fb2f057",
+        "ent_656e39c743be11d3d1bc86e7",
+        "ent_45feac4e470cb9495cd1bac3",
+        "ent_b3ef8524424269c4dd144f10",
+        "ent_cdf8df994e353cb0d20d74e2",
+        "ent_121a3825cf9fdbc71cf8f422"
+      ],
+      "bbox": [
+        1350373.222749366,
+        -646387.8208673454,
+        1369990.8021685826,
+        -645812.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_4b12b1e23838699af3797a0b"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_3a891656dbdeb674ee33a1f5",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "建筑内墙底部采用MU20水泥实心砖。混凝土砖砌筑砂浆采用DM-M20预拌水泥砂浆砌筑，粉刷砂浆采用DP-M15预拌水泥砂浆15厚。",
+      "entity_ids": [
+        "ent_bd6334870ef6fb2e051446c5",
+        "ent_c295118394cf32aada2e6546",
+        "ent_12ba0dd495af9f35356208b9",
+        "ent_b11ea7e374d67257a96a7a65",
+        "ent_ad99e75ce64ca1c85a174c5e",
+        "ent_94865396568a324fcac0bec2",
+        "ent_eecb4398b5942bde68b3e81a",
+        "ent_a697b4ea60788c7c41f5e8e2",
+        "ent_de89a6aed6c99645dae0ec6f"
+      ],
+      "bbox": [
+        1350373.222749366,
+        -647152.8208673454,
+        1371611.0617671013,
+        -646577.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_4b12b1e23838699af3797a0b"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_82760be1b2cf5b67e341213a",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "室外部分墙体采用240厚MU20混凝土实心砖，砌筑砂浆采用DM-M20预拌水泥砂浆砌筑，在两侧粉刷15厚DW-M20普通防水砂浆。",
+      "entity_ids": [
+        "ent_45da70d627f4bb28e2a336f2",
+        "ent_7b6edf5b73820e7b7937af63",
+        "ent_d9e02bf435f191f675cf032b",
+        "ent_130a38b4402e1aaac4a0f955",
+        "ent_f1f43f352cc31cc93baaede9",
+        "ent_f41269937a8ab249c4024574",
+        "ent_698f190f0dbcd64ef896841f",
+        "ent_f6af9f9fd1053cab28cf8978",
+        "ent_1b3bf7fc660b07636e6c17a0",
+        "ent_a7d9da934537ee4036fe208f",
+        "ent_8e301ab09b95b9fb4e48b28d"
+      ],
+      "bbox": [
+        1350590.923536767,
+        -647917.8208673454,
+        1372271.6390639707,
+        -647342.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_4b12b1e23838699af3797a0b"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_a40396ee0b5070584a757031",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "本工程使用的各项砂浆均应采用预拌砂浆。",
+      "entity_ids": [
+        "ent_dc20a7adf8740abd478d829b"
+      ],
+      "bbox": [
+        1350808.624324169,
+        -648682.8208673454,
+        1360364.0949926546,
+        -648107.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_4b12b1e23838699af3797a0b"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_16d67fbcdde83eb29b2ac7cf",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "2、本施工图中±0.00标高或建筑室内地坪标高以上的墙体：采用蒸压砂加气混凝土砌块或PC构件，除特别注明外，外墙为240厚，内墙为200厚或\n100厚。",
+      "entity_ids": [
+        "ent_b55c1293a507ab6a2b58598b",
+        "ent_16c0ea7e2d7355cebf331d40",
+        "ent_b1c65ea13445a88f9103661f",
+        "ent_c943c1fd3ed8ed7bc0b6745e",
+        "ent_eb18ef1fe036a63d0b513830",
+        "ent_f3593c7c7b5544c32ae9fb0c",
+        "ent_3f04f4302795d45718f28838",
+        "ent_65706b239220d9c656ec6b66",
+        "ent_c99db528eca392398b0517ac",
+        "ent_0a03773598f3793dfd4d7111",
+        "ent_5f96a2ce565acb15e707dc83",
+        "ent_16a15aed291aea9be6771213"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -650212.8208673454,
+        1373600.4970876863,
+        -648872.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_6170bbc987b6a59d1f66921f",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "a、砌块的体积密度外墙采用B06级，强度等级不小于A5.0；内墙采用B06级；内墙砂加气制品强度等级不小于A3.5。",
+      "entity_ids": [
+        "ent_b11dcb1667d4a89d82f452b6",
+        "ent_5798478303ef1ae581bbe34b",
+        "ent_221913727e02467c2fcccddb",
+        "ent_12f137ee4ea23adbf9cf7533",
+        "ent_ffa31eaa3c7ccafc653354a2",
+        "ent_c9daacce50e494b98d05fd2e",
+        "ent_b28181467015e16250c58bd4",
+        "ent_117bdcc72bf3f3020ab27a93",
+        "ent_845ccffd35a1c717c7d301f8",
+        "ent_2968151707f92eb5c9b58de5"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -650977.8208673454,
+        1369892.7987832616,
+        -650402.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_c32f7c4eba60134b3b5a49a0",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "b、应使用砌块专用的粘结剂作为砌筑砂浆。",
+      "entity_ids": [
+        "ent_5f9cc8f3dffdd26473672ac4",
+        "ent_fb1e3501e499faced8f1490e"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -651742.8208673454,
+        1360035.8430241507,
+        -651167.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_d258657c2a69d19f8f6d3cc2",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "c、对蒸压砂加气混凝土砌块的设计要求，以下表述未完全处，参照《蒸压加气混凝土砌块、板材构造》13J104。",
+      "entity_ids": [
+        "ent_ea6524554ebb6e234fceb1a2",
+        "ent_7448e61c9807f31d0db73d99",
+        "ent_1c573fd46108a9a8dbceeb6f",
+        "ent_8b28b6730b2b05aaf1399b52"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -652507.8208673454,
+        1373091.178826139,
+        -651932.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_76c06b3834e82b9e7f10b461",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "d、除设计另有表述的部位外，砌块墙体底部均采用C20素砼导墙，翻高200（从该层建筑标高起算）。",
+      "entity_ids": [
+        "ent_2e034851cad8388228bcf73d",
+        "ent_b8913d416c4c8f18b1f366fb",
+        "ent_3da44880eb461a51849adc48",
+        "ent_be8746012310289b546fff7b",
+        "ent_feb7060aa66b49f8166ccd22",
+        "ent_742327ec78d8ca7d33bcd135"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -653272.8208673454,
+        1368199.977890648,
+        -652697.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_a6597f09b34ee61b0e28948c",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "e、结构梁底与加气砼砌块墙顶之间的塞缝做法：宜通过预先排版将缝高控制在20~30mm之间，然后在砌体中部填塞通长泡沫\n交联聚乙烯条或打发泡剂嵌实，再在两侧分别用聚合物水泥砂浆或专用嵌缝剂进行填充。",
+      "entity_ids": [
+        "ent_1010524494a6f961db011042",
+        "ent_1ec44e5552ab99c8af07d444",
+        "ent_8a6efa49dac2b3f23fc2b58b",
+        "ent_51659864ff41103ce9a59bce",
+        "ent_519c7ab7e4fde774bd77fbcd"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -654802.8208673454,
+        1372505.3702118336,
+        -653462.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_443ae4024c980459a21d8959",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "3、管道井隔墙：采用100或200厚B06级A5.0蒸压砂加气混凝土砌块，专用粘结剂砌筑，耐火极限1小时。",
+      "entity_ids": [
+        "ent_158fdba62a86d1d12f9fe9ac",
+        "ent_0c9ea28708dc38b691fb717d",
+        "ent_1cd3ee10ffbc8e10250943a0",
+        "ent_a75a456984c6f83be3508916",
+        "ent_fabc0890425d6608caa2bdab",
+        "ent_e0316f68eb773b924a96d60b",
+        "ent_eec82c89fd4be3e5a8853e2b",
+        "ent_d29e488fe298783aaac1ec49",
+        "ent_c07b636103e260aaec0a17c9",
+        "ent_db753a55aa0777963682cf98",
+        "ent_0bcc517b1e64da884227712c",
+        "ent_3c8ffc3dbb7bff7ce854915b"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -655567.8208673454,
+        1368908.0924881923,
+        -654992.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_436c52025b5af83aa2182971",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "4、墙体物理性能指标：本工程采用的蒸压砂加气混凝土砌块、混凝土砖等各项性能应符合相关国家和地方规范、规定的要求。",
+      "entity_ids": [
+        "ent_732fedd782510b0e8c650725",
+        "ent_bb3837a091024cec95183678"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -656332.8208673454,
+        1378140.9453433868,
+        -655757.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_906d9c578260074fb22c4436",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "5、承重钢筋混凝土墙体见结构施工图。",
+      "entity_ids": [
+        "ent_4a531e8ecf01a1abaf840bb9",
+        "ent_37a6d9a9f12cd636e7c30952"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -657097.8208673454,
+        1359019.7182921292,
+        -656522.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_bb2a0785cfd00eebb75ef7ad",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "6、墙体设计要求：",
+      "entity_ids": [
+        "ent_c1dceb723cb2883ecee5c230",
+        "ent_3c8ab0f708bead35c6a6a5fd"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -657862.8208673454,
+        1354493.4427123202,
+        -657287.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_57639039ea68fa03dcffdfe2",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "1）构造柱设置要求及做法见结施。门、窗、配电箱、消火栓等洞口边形成独立砖柱宽度小于等于240mm、混凝土柱或剪力墙边门垛小于240mm、\n窗间墙小于360mm时，砖柱改用钢筋混凝土构造柱。",
+      "entity_ids": [
+        "ent_5c23e0e7d6bf83ec5aa030fb",
+        "ent_efef0ea6bbc27ac6a467212e",
+        "ent_50d6e41df74a0e2df9e9bb96",
+        "ent_1c06b0ae218eb2f0d602d437",
+        "ent_bee34f9164d4df29fbd72688",
+        "ent_0672ce4d52fdd340000cb8f8",
+        "ent_177526c0dadfe3ac26d93170",
+        "ent_c3584b04fc2bfee470140177",
+        "ent_08c514e7b0ced867334e06a2"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -659392.8208673454,
+        1373885.8169083833,
+        -658052.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_c5af05ccc92939cb07a72f24",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "2）宽度大于300mm的预留洞口应设钢筋混凝土过梁，过梁做法见结施。过梁伸入每边墙体的长度不应小于250,墙体材料为加气混凝土砌块时，过梁\n伸入墙体长度不应小于300mm，且其支承面下应设置混凝土梁垫。当门窗洞上口至梁底距离小于200mm时，门窗过梁应与结构梁整浇。",
+      "entity_ids": [
+        "ent_3e037f3a699a2789e346c0fd",
+        "ent_c7062f98179ae61dc478f963",
+        "ent_333492c11e8cc01e6004303b",
+        "ent_5b2251dfe7f9b1d59d70e970",
+        "ent_67011ec40cd6e0d055f8fe96",
+        "ent_7905a27ae1a1115d26835470",
+        "ent_d037e70a325b9211393bf712",
+        "ent_3ca7ec37acfaa55d1c3c7c0b",
+        "ent_ecc6aa3aa3a05b04fa792834",
+        "ent_9060d3450b65a5801891e660",
+        "ent_2e7140cede2a84c4d109bc44"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -660922.8208673454,
+        1375992.2273546907,
+        -659582.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_80a14e3767fdc6a183678163",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "1",
+      "entity_ids": [
+        "ent_e54b94bc94759a429fddfa14"
+      ],
+      "bbox": [
+        1373711.7071371311,
+        -661422.5950639355,
+        1373840.200822712,
+        -661039.3344528717
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_afce98808151a2a8d6937138",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "3）窗台处设置钢筋混凝土窗台板，纵筋3Φ8，分布筋Φ6@200，两端到混凝土柱墙结束或嵌入两端墙体墙体600。图中另有表述的除外。详见附图：",
+      "entity_ids": [
+        "ent_59a470770afb1b1500a200ab",
+        "ent_5962699a0914539c21bd667c",
+        "ent_d604c0183d23dfdc1f0d41c4",
+        "ent_e721aaeca0c9ca7eb7eeb163",
+        "ent_2dc8e0878943ed27c5932838",
+        "ent_44bdb44f07c1de12f3a64d49",
+        "ent_3a04c1c116322ed89921f914",
+        "ent_c2a6f28dfacee8f64cada238"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -661687.8208673454,
+        1375765.9416404045,
+        -661112.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_ab17ba5b7d855d004a5d771f",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "总8",
+      "entity_ids": [
+        "ent_3251ec585f14e472e3197d06"
+      ],
+      "bbox": [
+        1373610.652887528,
+        -661773.2606864253,
+        1373941.255072314,
+        -661433.3164929211
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad",
+        "region_afce98808151a2a8d6937138"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_0367fb9e4f23d99171100a33",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "4）墙体与构造柱或混凝土墙交接处，设拉结钢筋见结施。采用加气混凝土砌块墙体时，应预先在砌块的水平灰缝面开设通长的凹槽（槽宽、深度比\n钢筋大10mm），置入钢筋后，应用粘结剂或DPM7.5水泥砂浆填实至槽的上口平。楼梯间和人流通道的填充墙，尚应采用钢丝网(Φ4@200双向)砂浆\n面层加强，疏散部位施工完成后不应影响疏散宽度。",
+      "entity_ids": [
+        "ent_a44445e87d048ce0353debdc",
+        "ent_785c9e222be0657054b1f418",
+        "ent_f428e0fbde813e3a85c7a941",
+        "ent_b5f1d3685eff4e50b0f2c862",
+        "ent_3a3449b1639aea080d02c06e",
+        "ent_fe3b9ce4ca0610f2bb6ef930",
+        "ent_c9a1f467d29c221164adf04e",
+        "ent_a145521b0a89a2f388f49310",
+        "ent_f2cab23534fbc7020c72b5b8",
+        "ent_1098d26734771047f55f1ebe",
+        "ent_8f9b95928f9efc8cb72a68f9",
+        "ent_a03bbb0e9949338193109702"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -663982.8208673454,
+        1382667.2209231958,
+        -661877.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_bce507506975d1ed019f417c",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "5）水电管线的暗敷工作，必须待墙体砌完、砂浆强度达到设计要求后方能进行。开槽时，应使用轻型电动切割机并辅手工镂槽器，严禁锤斧剔凿。",
+      "entity_ids": [
+        "ent_5041be924844d603badf5e24",
+        "ent_a9082928274ea81f84bbc612"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -664747.8208673454,
+        1382656.9352089097,
+        -664172.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_d80080282092f29243106dac",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "开槽深度不宜超过墙厚的1/3，墙厚≤120的墙体不得双向对开管线槽。管线开槽应距门窗洞口300外为宜。导管敷设后，应采用细石混凝土或干硬性\n砂浆填封密实牢固；加气砼墙体应采用用掺入加气砼碎屑的专用砂浆填实。墙体补平宜比墙面微凹2mm,沿槽长外侧粘贴宽度不小于100的耐碱玻璃纤\n维网格布增强。穿防火墙的管线、桥架等部位应采用不燃烧材料将其周围的空隙填塞密实；穿过防火墙的管道保温材料，应采用不燃烧材料。",
+      "entity_ids": [
+        "ent_b440ffbd5ec4f71e28210638",
+        "ent_6984a9fa53ac9bca586b4be1",
+        "ent_8fadb01a32e1c3f76dcdb3b1",
+        "ent_d0319e19ac18696da765a635",
+        "ent_4edfda442a2d53a780015b65",
+        "ent_2a72fa1720a74a27cb38d008",
+        "ent_1ef3034aa201a5f09a33c348",
+        "ent_c997a9c727bf74e0e7ff316f",
+        "ent_0473e1f605ff820238e728c3",
+        "ent_6bee6c4ee658ab9548bc0631",
+        "ent_19bde3b3b7223c679091c8b3",
+        "ent_a585c29bbef7892df5718e45",
+        "ent_a64a9f9e90c95aaf4ece31e3"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -667042.8208673454,
+        1381445.3819054605,
+        -664937.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_1765caab194369fea772e7fe",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "6）窗台板、表具箱、配电箱、消火栓箱等与砌体交接处的缝隙应用柔性不燃材料封填。",
+      "entity_ids": [
+        "ent_4338b6f1580ed73c8cef39b1",
+        "ent_b357b76eafddb331109a7282"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -667807.8208673454,
+        1369581.0279783502,
+        -667232.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_051464e1abc7cc5568831768",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "7）在墙体上预埋铁件时，应用电钻在砌块上钻取所需孔洞，铁件在钻孔内用水玻璃或结构胶粘接。穿过墙体的铁件应作防锈处理。",
+      "entity_ids": [
+        "ent_cfdc27149f41bc30c4b61a8f",
+        "ent_cf371dbb0004b6912808dcc7"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -668572.8208673454,
+        1379136.498646836,
+        -667997.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_c1d64a931471f9f9be6ad5ab",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "8）用于卫生间的墙体,墙面增加防水层见设计说明装修做法表内墙部分。",
+      "entity_ids": [
+        "ent_4ddaf45b383cbdf93ba44792",
+        "ent_9c1612db8120c9965b3fe0b6",
+        "ent_5397515f6fbaba39307f7e94",
+        "ent_aca43c2f750eeca0acfd348a"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -669337.8208673454,
+        1364866.8872650396,
+        -668762.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_3350e320dec7db3fc573beed",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "9）内墙的阳角部位应做不低于2m高的DP-M15预拌水泥砂浆护角，外墙护角应全做。护角宽度50。",
+      "entity_ids": [
+        "ent_35232cab1dab8d8bb88b05b2",
+        "ent_60ff004a70ee13ceccb0a91d",
+        "ent_d3b6e388a14160c1d84df584",
+        "ent_b63ae3961040387dca2ff95b",
+        "ent_5aae1236e30f1f4589b7d991",
+        "ent_4ce9ee020466832343202df3",
+        "ent_5140ce9b63554514e0261f88",
+        "ent_e1d782b7478ccf0408b6144b"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -670102.8208673454,
+        1368313.682041886,
+        -669527.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    },
+    {
+      "region_id": "region_0b6f2d550aff08afd22780ce",
+      "layout_id": "layout_147c92ecee6af148b7ac8794",
+      "frame_id": "frame_307d2fdc39fded5095c66c24",
+      "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+      "kind": "paragraph",
+      "text": "10）墙面抹灰前，基层应清扫干净后再抹或喷专用界面剂处理，界面剂厚度2～3。",
+      "entity_ids": [
+        "ent_00ce37bd620c42b8b0a9dd99",
+        "ent_14bd2d38812a0c0edb914b58",
+        "ent_60f08839c82ec91b23268e63",
+        "ent_e44154f161e2eae4a686ca94",
+        "ent_edd6be1aaf73988f1ed46980",
+        "ent_5e9ef642cd8362281c65f8ec"
+      ],
+      "bbox": [
+        1350264.372355665,
+        -670867.8208673454,
+        1366717.7966394303,
+        -670292.5821224614
+      ],
+      "context_region_ids": [
+        "region_de0c42bbe08e9a7c6bbc1ae5",
+        "region_bb2a0785cfd00eebb75ef7ad"
+      ],
+      "column_key": "(1349964.372, 1373964.372)"
+    }
+  ]
+}

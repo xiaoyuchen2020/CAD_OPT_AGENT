@@ -26,8 +26,9 @@ class AnswerValidationError(ValueError):
 
 
 def validate_answer(self, content):
-    from cad_agent.analysis.source_record_answer import permitted
-    parts = inspect_answer(content, self.request.question, record_delivery=permitted(self, content))
+    from cad_agent.analysis.source_record_answer import permitted, literal_claim
+    record_delivery = permitted(self, content)
+    parts = inspect_answer(content, self.request.question, record_delivery=record_delivery)
     parsed = parts.answer
     if len(self.task.parts)==1:
         for claim in parsed.claims:
@@ -46,6 +47,10 @@ def validate_answer(self, content):
     issues.extend(delivery_issues(self, parsed))
     validated_claims = []
     outcomes={v.requirement_id:v for v in parsed.requirement_outcomes}
+    for sequence in self.task.data.get('source_sequences', {}).get('records', []):
+        if sequence['state'] != 'fully_read' and any(
+                outcomes.get(i) and outcomes[i].status == 'fulfilled' for i in sequence['task_ids']):
+            issues.append('指定连续条文尚未完整读取：'+sequence['quote']+'；可交付已核验部分，相关要求须保留partial/unresolved。')
     if len(outcomes)!=len(parsed.requirement_outcomes) or not set(outcomes)<={s["id"] for s in self.task.data["subtasks"]}:
         issues.append("requirement_outcomes 含重复或不存在的要求。")
     if self.task.data.get("plan_origin")=="model" and any(s.get("operations") for s in self.task.data["subtasks"]):
@@ -66,13 +71,17 @@ def validate_answer(self, content):
         from cad_agent.analysis.source_candidates import claim_issues
         issues.extend(claim_issues(self, claim))
         issues.extend(f"第 {index} 条{message}" for message in delivery_consistency_issues(claim, self.evidence, self.observations))
-        issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence, self.observations))
+        compiled_literal = record_delivery and literal_claim(self, claim, index-1)
+        # An exact compiler-owned candidate transcript makes no affirmative
+        # ownership claim. Observed/derived statements retain the boundary guard.
+        if not (compiled_literal and claim.state=='unknown'):
+            issues.extend(f"第 {index} 条{message}" for message in ownership_issues(claim, self.evidence, self.observations))
         issues.extend(f"第 {index} 条{message}" for message in property_claim_issues(claim, property_fields))
         ids = list(dict.fromkeys(claim.evidence_ids))
         # A source can itself contain design instructions or "同上". Keep
         # literal source reporting, but do not turn derived prose into a
         # design proposal or a clause dependent on an omitted predecessor.
-        literal_source = (claim.evidence_basis == 'source' and bool(ids)
+        literal_source = compiled_literal or (claim.evidence_basis == 'source' and bool(ids)
             and any(claim.text in self.evidence.get(eid, {}).get('quote', '') for eid in ids))
         if claim.state != 'unknown' and not literal_source:
             if re.search(r'上述|前述|前文|同上|如前所述|见上文', claim.text):
@@ -179,7 +188,7 @@ def validate_answer(self, content):
         quote = "\n".join(self.evidence[eid]["quote"] for eid in ids)
         # Exact numeric tokens or explicitly source-bound, recomputed values.
         if claim.state != "unknown":
-            missing = unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values)
+            missing = [] if compiled_literal else unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values)
             if missing:
                 candidates = {
                     v: [

@@ -22,6 +22,7 @@ class ToolsetRequest(Record):
 # Used only for sources/label batches. Advanced geometry/vision retains the full
 # existing instructions so pruning never removes measurement/visual safeguards.
 PROMPT = '''
+经济技术指标或建（构）筑物一览表：分别用extract_planning_metrics、extract_building_schedule；无table_id时先发现候选，按实际范围选表。沿next_actions逐页读取，fields_complete仅针对当前页。observed字段的原表行内标签/值/单位已绑定，可直接摘录；工程身份unverified不等于这些来源尚未读取。使用value/unit或display_text交付显示值，normalizations记录的CAD转义解码不是估算，原文raw_text仍可引用。保留设计/控制值、计容/不计容、地上/地下与机动车/非机动车原文限定；合计行不是建筑记录。缺项不推算，计算另用calculate_facts，不把表中面积读取当作几何测量。
 事实提取衔接：逐一检查用户明确列出的对象，未覆盖对象先用其原词单独检索，再补字段。不得把所有字段词与对象词作AND后以零命中判缺失。默认线性尺寸单位可按default_unit_clauses的原文及适用范围明确引用；不将该单位用于标高、坐标、面积或材料等级。source_bound构造层允许整理该来源的完整原文，未验证工程适用性不妨碍摘录。locate_by_axes的axis_region以boundary和bbox为结果，point为空是正常；按插入点筛选文字用query_entities.spatial_relation=insertion_point_inside。原生句柄缺于索引时用read_geometry的layout_id+entity_paths；一般空间查询用query_spatial回源。表格按next_actions逐页读完用户所需行；图签独立字段读get_drawing_context的frames元数据及来源表格，不重复第一页。
 
 required_calculation_review 非空时，下一步先调用 calculate_facts：明确层次/口径并执行算术，或用 missing_operands 记录具体未绑定项；完成此检查后再继续来源读取，不能把未执行算式推迟到最终答案。若提供 review_group_id，调用时原样回传；每套做法、每个已执行小计分别检查，未知层另记缺口，不用另一套已算结果替代。
@@ -252,7 +253,11 @@ class TaskFocus:
         from cad_agent.analysis.gap_routing import record_result
         record_result(self.s,name,ids,result)
         if self.s.task.data.get('gap_recovery'):self.s.task.save()
-        if name in READS and evidence_ids(result):
+        from cad_agent.analysis.tool_metadata import BUSINESS_TABLE_TOOLS
+        business_read = (name not in BUSINESS_TABLE_TOOLS or
+            (result.get('mode')=='extraction' and result.get('read_coverage',{}).get(
+                'table_read_complete',result.get('table_read_complete',False))))
+        if name in READS and evidence_ids(result) and business_read:
             # A truncated target needs a subsequent read; incidental neighbors
             # do not prove complete coverage of the target source.
             target=next((i for i in result.get('items',[]) if i.get('relationship')=='target'),None)

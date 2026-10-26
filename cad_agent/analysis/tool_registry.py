@@ -29,6 +29,7 @@ from cad_agent.geometry.spatial_sections import MeasureSpatialSections, MeasureE
 from cad_agent.analysis.door_schedule import ReadDoorScheduleTable, TraceDoorSchedule
 from cad_agent.analysis.similarity_search import SimilarObjectSearch
 from cad_agent.analysis.requirement_sources import RequirementSources
+from cad_agent.analysis.business_table_contracts import PlanningMetricsRequest, BuildingScheduleRequest
 
 class SearchArgs(Record):
     alternatives: list[str] = Field(default_factory=list,max_length=8,description='显式替代查询词（每词至多150字符），与query按OR匹配并强制字面分页；是待核候选词，不确认同义或对象功能。match=all时该组仍须与各keywords同时命中。')
@@ -160,6 +161,8 @@ from cad_agent.analysis.source_candidates import SearchSourceRecords
 
 TOOL_SPECS = {
     "search_source_records": (SearchSourceRecords, "按已登记query_intent的target_id发现做法标题候选，精确编号优先；范围独立判断。只列标题、位置、歧义及真实read_assembly参数，不读正文、不扩展子类别。alternatives必须附expansion_reason且不能改变原目标。"),
+    "extract_planning_metrics": (PlanningMetricsRequest, "提取经济技术指标：面积、计容/不计容、容积率、密度、绿地率、停车位。table_id为空时只发现候选；指定表格后按页读取原文，保留指标标签、设计/控制值、单位、证据和冲突。不计算缺项，不把当前页视为整表。"),
+    "extract_building_schedule": (BuildingScheduleRequest, "提取建（构）筑物一览表：逐行读取序号、名称、使用性质、层数、高度和各类面积；合计行单列。table_id为空只列候选；沿next_actions分页，保留合并来源、字段缺失及证据，不确认图中建筑实例身份。"),
     "select_source_records": (SelectSourceRecords, "对本轮已读完整来源记录执行用户明确字面筛选；分别保留纳入和排除记录，不证明全图覆盖或工程适用性。"),
     "read_requirement_sources": (
         RequirementSources,

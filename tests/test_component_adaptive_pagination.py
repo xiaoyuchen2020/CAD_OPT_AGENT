@@ -155,7 +155,9 @@ def test_existing_context_cap_preserves_partial_reading(workspace,stored):
     while offset is not None:
         out=json.loads(s.invoke_tool('get_component_evidence',dict(record_id=r['record_id'],view='openings',offset=offset,limit=20)))
         if 'error' in out:
-            assert out['error']['code']=='AGENT_TOOL_LIMIT';break
+            assert out['error']['code']=='AGENT_POLICY_STOP'
+            assert out['error']['stop_reason']==s.policy.stop_reason
+            break
         seen.extend(i['object_id'] for i in out['items']);offset=out['next_offset']
         assert out['has_more'] and out['pagination']['coverage_scope']=='returned_page_only'
     assert s.policy.geometry_work and s.policy.stop_reason=='tool_context_budget'

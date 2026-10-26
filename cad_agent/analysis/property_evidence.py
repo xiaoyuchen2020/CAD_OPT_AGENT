@@ -237,6 +237,56 @@ def _measurement_fields(oid, sid, data):
         yield field
 
 
+def _business_fields(oid, sid, data, evidence):
+    from cad_agent.analysis.business_tables import clean, field_key, units_in, parse_value, ALIASES
+    groups = data.get('records', []) if data.get('kind')=='building_schedule' else [dict(fields=data.get('fields',[]))]
+    for ri, record in enumerate(groups):
+        for fi, field in enumerate(record['fields']):
+            diagnostics=list(field.get('diagnostics',[]))
+            refs=(_eref(evidence,field['evidence'],'value',sid,diagnostics) +
+                  _eref(evidence,field['header_evidence']+field['label_evidence'],'property',sid,diagnostics) +
+                  _eref(evidence,field['unit_evidence'],'unit',sid,diagnostics))
+            identity=([e for i in record.get('identity',[]) for e in i['evidence']] or
+                      field['label_evidence'] or field.get('scope_evidence',[]) or field['header_evidence'])
+            refs+=_eref(evidence,identity,'subject',sid,diagnostics)
+            for role in ('value','property','subject'):
+                if not any(r.role==role for r in refs): diagnostics.append('MISSING_'+role.upper()+'_SOURCE')
+            quotes='\n'.join(evidence[r.ref_id]['quote'] for r in refs if r.role=='value')
+            if clean(field['raw_text']) not in clean(quotes): diagnostics.append('CELL_TEXT_SOURCE_MISMATCH')
+            parsed,qualifier,_=parse_value(field['raw_text'],field['field'])
+            if parsed!=field['value'] or qualifier!=field['qualifier']: diagnostics.append('CELL_VALUE_SOURCE_MISMATCH')
+            labels=field['source_labels'] or field['header_path']
+            if field_key(labels,ALIASES)!=field['field']: diagnostics.append('BUSINESS_FIELD_SOURCE_MISMATCH')
+            property_quotes=clean('\n'.join(evidence[r.ref_id]['quote'] for r in refs if r.role=='property'))
+            if any(clean(h) not in property_quotes for h in labels): diagnostics.append('HEADER_TEXT_SOURCE_MISMATCH')
+            unit=field['unit']
+            unit_state=field['unit_state'] if field['unit_state'] in ('explicit','conflict') else 'unknown'
+            if unit and not any(r.role=='unit' for r in refs):
+                diagnostics.append('MISSING_UNIT_SOURCE'); unit=None; unit_state='unknown'
+            if unit:
+                declared={u for r in refs if r.role=='unit' for u in
+                          units_in(evidence[r.ref_id]['quote'])+parse_value(evidence[r.ref_id]['quote'],field['field'])[2]}
+                if field.get('unit_basis')=='count_label' and field_key(labels,ALIASES)==field['field']:
+                    declared.add('层' if field['field']=='storeys' else '位' if field['field']=='parking_spaces' else '')
+                if unit not in declared:
+                    diagnostics.append('UNIT_SOURCE_MISMATCH'); unit=None; unit_state='unknown'
+            state='conflict' if field['state']=='conflict' else 'derived' if field['state']=='observed' and not diagnostics else 'unknown'
+            path=['records',ri,'fields',fi,'value'] if data.get('kind')=='building_schedule' else ['fields',fi,'value']
+            subject=record.get('record_id') or field['record_id']
+            value=field['raw_text'] if field['qualifier'] else field['value']
+            out=_field(oid,sid,subject,'source_record',field['field'], ' / '.join(labels),value,
+                'source_nominal',path,data,subject_label=' / '.join(i['text'] for i in record.get('identity',[])) or ' / '.join(field['source_labels']),
+                unit=unit,unit_state=unit_state,state=state,
+                binding_state='source_bound' if state=='derived' else 'candidate',
+                measurement_basis='explicit_business_table_source',diagnostics=sorted(set(diagnostics)))
+            out.source_refs.extend(refs)
+            out.scope.update(data.get('source_scope',{}))
+            out.scope.update(table_id=data['table_id'],row_index=field['row_index'],cell_id=field['cell_id'],
+                header_path=field['header_path'],qualifier=field['qualifier'],qualifiers=field.get('qualifiers',[]),
+                value_kind=field.get('value_kind'),unit_basis=field.get('unit_basis'))
+            yield out
+
+
 def collect_property_evidence(evidence, observations, allowed_snapshots):
     fields, diagnostics = {}, []
     allowed_snapshots = set(allowed_snapshots)
@@ -248,7 +298,9 @@ def collect_property_evidence(evidence, observations, allowed_snapshots):
             continue
         name = observation.get("tool")
         projected = []
-        if name in ("read_table_semantics", "read_door_schedule_table"):
+        if name in ('extract_planning_metrics','extract_building_schedule'):
+            projected = _business_fields(oid,sid,data,evidence)
+        elif name in ("read_table_semantics", "read_door_schedule_table"):
             projected = _table_fields(oid, sid, data, evidence)
         elif name in ("read_dimensions", "get_component_evidence") and data.get("kind") == "dimensions":
             projected = _dimension_fields(oid, sid, data)
@@ -278,6 +330,13 @@ def collect_property_evidence(evidence, observations, allowed_snapshots):
                                 binding_state="candidate", measurement_basis=data.get("operation", ""))]
         for field in projected:
             fields[field.field_id] = field
+    business_conflicts={(o.get('snapshot_id'),o.get('data',{}).get('table_id'),cell)
+        for o in observations.values() if o.get('tool') in ('extract_planning_metrics','extract_building_schedule')
+        for cell in o.get('data',{}).get('read_coverage',{}).get('conflicting_cells',[])}
+    for field in fields.values():
+        if (field.snapshot_id,field.scope.get('table_id'),field.scope.get('cell_id')) in business_conflicts:
+            field.state='conflict'
+            field.diagnostics.append('BUSINESS_TABLE_CROSS_PAGE_CONFLICT')
     _comparisons(fields.values())
     return {key: field.model_dump() for key, field in fields.items()}, diagnostics
 
@@ -287,7 +346,7 @@ def _comparisons(fields):
     for field in fields:
         scope = {k: v for k, v in field.scope.items() if k in (
             "scope_id", "layout_id", "frame_id", "contour_id", "other_object_id",
-            "exclusion_contour_ids", "measurement_context", "batch_id")}
+            "exclusion_contour_ids", "measurement_context", "batch_id", "qualifiers", "value_kind", "qualifier")}
         groups[(field.snapshot_id, field.subject_id, field.property_name, json.dumps(scope, sort_keys=True))].append(field)
     for group in groups.values():
         for field in group:

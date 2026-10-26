@@ -12,7 +12,7 @@ from cad_agent.contracts import stable_id
 from cad_agent.evidence import bind_evidence
 from cad_agent.cad.regions import is_heading
 
-INDEX_VERSION = "general-v1"
+INDEX_VERSION = "general-v3-ruled-source"
 
 
 def intersects(a, b):
@@ -393,8 +393,9 @@ class DrawingIndex:
                             "state": "candidate",
                         }
                     )
+        from cad_agent.cad.ruled_tables import recover
         return sorted(
-            tables, key=lambda t: (t["layout_id"], -t["bbox"][3], t["bbox"][0])
+            recover(self, tables), key=lambda t: (t["layout_id"], -t["bbox"][3], t["bbox"][0])
         )
 
     def read_table(self, table_id, row_offset=0, row_limit=3):

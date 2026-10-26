@@ -1,0 +1,1977 @@
+[
+  {
+    "case_id": "Q05",
+    "snapshot_id": "snap_a286d51bccb116dba9e2ee9b",
+    "claims": [
+      {
+        "text": "原编号1｜种植分支、非种植分支均记录：构造为结构层；材料为钢筋混凝土；厚度未注明。备注：二次振捣、机械抹平，抗渗等级P8。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "evidence_ids": [
+          "ev_b6e901e2c0e1bb7251537347",
+          "ev_0234fedf70f0fe55096494f3"
+        ]
+      },
+      {
+        "text": "原编号2｜种植分支、非种植分支均记录：构造为防水层；材料为非固化改性沥青防水涂料；厚度2.0mm。备注：地下室外缘侧板下翻200mm，与侧墙交界处沿墙翻起做法详标准节点。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "evidence_ids": [
+          "ev_1e6aff767345aa246b79e1df",
+          "ev_f9be04963f27e47419295436"
+        ]
+      },
+      {
+        "text": "原编号3｜种植分支：防水层，4.0mm厚自粘耐根穿刺SBS橡胶改性沥青卷材防水层，备注“化学阻根”。非种植分支：按括号内“非种植区为”展开，材料为弹性体改性沥青防水卷材，原文“3.0厚”，按本工程尺寸单位说明记为3.0mm，备注“上翻梁全包”。共同续文：地下室外缘侧壁下翻200mm接茬，与侧墙交界处沿墙翻起做法详标准节点。两种卷材是明确的分支替代，不叠加为两层。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "evidence_ids": [
+          "ev_d8475867b58614989ae2607d",
+          "ev_16453a1d91217b3941f80aa9",
+          "ev_97c3b4ab503d41d670a7aa9d",
+          "ev_921056766a4c831ac55d7376"
+        ]
+      },
+      {
+        "text": "原编号4｜种植分支、非种植分支均记录：构造为隔离层；材料为无纺布；数量为一道；厚度未注明。规格保留原文“160g/m”，不补写为平方单位；该项未另列备注。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3",
+          "q5"
+        ],
+        "evidence_ids": [
+          "ev_8206a37136f2c8adc6261b97",
+          "ev_34799eea100deff10deb57b2"
+        ]
+      },
+      {
+        "text": "原编号5｜种植分支、非种植分支均记录：构造及材料为C20细石保护层；原文“70厚”，按本工程尺寸单位说明记为70mm。备注：随捣随抹，内配“06@200”单层双向钢筋网片，设间距≤6x6m的分格缝，钢筋置于上表面并在缝内断开，缝宽20mm。续文：缝内嵌密封材料（防水油膏）；分格缝上空铺“3厚SBS改性沥青防水卷材附加层，宽度不小于100”，按本工程尺寸单位说明分别记为厚3mm、宽度不小于100mm。“06@200”保留读取原文，不擅自改写符号。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3",
+          "q5"
+        ],
+        "evidence_ids": [
+          "ev_33b6d5afb638c91e112c7dfe",
+          "ev_fc323d1057639c476642f893",
+          "ev_97c3b4ab503d41d670a7aa9d",
+          "ev_f80c5a8d2baf656ffd08c299"
+        ]
+      },
+      {
+        "text": "原编号6｜种植分支、非种植分支均记录：构造为过滤层；材料为碎石；原文“100厚碎石过滤层”，按本工程尺寸单位说明记为厚100mm。该项未另列备注。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "evidence_ids": [
+          "ev_8cb742c8ff492b72c0c94070",
+          "ev_97c3b4ab503d41d670a7aa9d",
+          "ev_cebcabaa56925ea5eb91fa73"
+        ]
+      },
+      {
+        "text": "原编号7｜种植分支、非种植分支均记录：材料及规格为聚酯无纺土工布（160g/m²）；原文未另列构造名称，厚度未注明。备注：建筑周边上翻140mm高。原文未明确非种植区取消该项，不作取消处理。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "evidence_ids": [
+          "ev_32355efc723e2aef25487d10",
+          "ev_10a98f59bba1c9c05dffa72f"
+        ]
+      },
+      {
+        "text": "原编号8｜原文为“绿化种植具体范围及做法详景观施工图”。种植分支记录该引用说明，本表该项未列具体构造、材料或厚度；非种植分支保留该原始说明，不将其推定为非种植区的构造层，也不补出其他面层做法。",
+        "state": "observed",
+        "question_part_ids": [
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q6"
+        ],
+        "evidence_ids": [
+          "ev_7f84eebf5b1980319aa2d340",
+          "ev_11c48b6b4e345e47124d275a"
+        ]
+      }
+    ],
+    "evidence": {
+      "ev_b6e901e2c0e1bb7251537347": {
+        "evidence_id": "ev_b6e901e2c0e1bb7251537347",
+        "region_id": "region_5b584fa372716633a84171de",
+        "text_span": [
+          0,
+          32
+        ],
+        "quote": "1、结构层：钢筋混凝土结构层，二次振捣，机械抹平（抗渗等级P8）"
+      },
+      "ev_0234fedf70f0fe55096494f3": {
+        "evidence_id": "ev_0234fedf70f0fe55096494f3",
+        "region_id": "region_5b584fa372716633a84171de",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "1"
+      },
+      "ev_1e6aff767345aa246b79e1df": {
+        "evidence_id": "ev_1e6aff767345aa246b79e1df",
+        "region_id": "region_ce33875040fb7760e42c409b",
+        "text_span": [
+          0,
+          55
+        ],
+        "quote": "2、防水层：2.0mm非固化改性沥青防水涂料，地下室外缘侧板下翻200mm，与侧墙交界处沿墙翻起做法详标准节点"
+      },
+      "ev_f9be04963f27e47419295436": {
+        "evidence_id": "ev_f9be04963f27e47419295436",
+        "region_id": "region_ce33875040fb7760e42c409b",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "2"
+      },
+      "ev_d8475867b58614989ae2607d": {
+        "evidence_id": "ev_d8475867b58614989ae2607d",
+        "region_id": "region_4d5be457e18181ce55f04a29",
+        "text_span": [
+          0,
+          69
+        ],
+        "quote": "3、防水层：4.0mm厚自粘耐根穿刺SBS橡胶改性沥青卷材防水层（化学阻根）（非种植区为：3.0厚弹性体改性沥青防水卷材(上翻梁全包)），"
+      },
+      "ev_16453a1d91217b3941f80aa9": {
+        "evidence_id": "ev_16453a1d91217b3941f80aa9",
+        "region_id": "region_4d5be457e18181ce55f04a29",
+        "text_span": [
+          70,
+          104
+        ],
+        "quote": "地下室外缘侧壁下翻200mm接茬，与侧墙交界处沿墙翻起做法详标准节点"
+      },
+      "ev_97c3b4ab503d41d670a7aa9d": {
+        "evidence_id": "ev_97c3b4ab503d41d670a7aa9d",
+        "region_id": "region_2598731a9fc125c02a501e12",
+        "text_span": [
+          0,
+          38
+        ],
+        "quote": "2、本工程所注标高以米为单位，总平面尺寸以米为单位，其余尺寸均以毫米为单位。"
+      },
+      "ev_921056766a4c831ac55d7376": {
+        "evidence_id": "ev_921056766a4c831ac55d7376",
+        "region_id": "region_4d5be457e18181ce55f04a29",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "3"
+      },
+      "ev_8206a37136f2c8adc6261b97": {
+        "evidence_id": "ev_8206a37136f2c8adc6261b97",
+        "region_id": "region_9d4524c1404068a5201dd21e",
+        "text_span": [
+          0,
+          20
+        ],
+        "quote": "4、隔离层：160g/m无纺布隔离层一道"
+      },
+      "ev_34799eea100deff10deb57b2": {
+        "evidence_id": "ev_34799eea100deff10deb57b2",
+        "region_id": "region_9d4524c1404068a5201dd21e",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "4"
+      },
+      "ev_33b6d5afb638c91e112c7dfe": {
+        "evidence_id": "ev_33b6d5afb638c91e112c7dfe",
+        "region_id": "region_42265e0e1c1cd5ce0a0e3986",
+        "text_span": [
+          0,
+          72
+        ],
+        "quote": "5、70厚C20细石保护层随捣随抹，内配06@200单层双向钢筋网片，设间距≤6x6m的分格缝(钢筋置于上表面，钢筋在缝内断开)，缝宽20mm。"
+      },
+      "ev_fc323d1057639c476642f893": {
+        "evidence_id": "ev_fc323d1057639c476642f893",
+        "region_id": "region_ab76798a229af890d0acd02b",
+        "text_span": [
+          0,
+          44
+        ],
+        "quote": "缝内嵌密封材料（防水油膏)分格缝上空铺3厚SBS改性沥青防水卷材附加层，宽度不小于100"
+      },
+      "ev_f80c5a8d2baf656ffd08c299": {
+        "evidence_id": "ev_f80c5a8d2baf656ffd08c299",
+        "region_id": "region_42265e0e1c1cd5ce0a0e3986",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "5"
+      },
+      "ev_8cb742c8ff492b72c0c94070": {
+        "evidence_id": "ev_8cb742c8ff492b72c0c94070",
+        "region_id": "region_ced5da8f71d357bb3db8b2c4",
+        "text_span": [
+          0,
+          11
+        ],
+        "quote": "6、100厚碎石过滤层"
+      },
+      "ev_cebcabaa56925ea5eb91fa73": {
+        "evidence_id": "ev_cebcabaa56925ea5eb91fa73",
+        "region_id": "region_ced5da8f71d357bb3db8b2c4",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "6"
+      },
+      "ev_32355efc723e2aef25487d10": {
+        "evidence_id": "ev_32355efc723e2aef25487d10",
+        "region_id": "region_cde4cb0bcc044e5523597d85",
+        "text_span": [
+          0,
+          31
+        ],
+        "quote": "7、聚酯无纺土工布(160g/m²)，建筑周边上翻140mm高"
+      },
+      "ev_10a98f59bba1c9c05dffa72f": {
+        "evidence_id": "ev_10a98f59bba1c9c05dffa72f",
+        "region_id": "region_cde4cb0bcc044e5523597d85",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "7"
+      },
+      "ev_7f84eebf5b1980319aa2d340": {
+        "evidence_id": "ev_7f84eebf5b1980319aa2d340",
+        "region_id": "region_5ad2dc0371c9bac5d0f02c22",
+        "text_span": [
+          0,
+          1
+        ],
+        "quote": "8"
+      },
+      "ev_11c48b6b4e345e47124d275a": {
+        "evidence_id": "ev_11c48b6b4e345e47124d275a",
+        "region_id": "region_5ad2dc0371c9bac5d0f02c22",
+        "text_span": [
+          1,
+          19
+        ],
+        "quote": "、绿化种植具体范围及做法详景观施工图"
+      }
+    },
+    "regions": {
+      "region_5b584fa372716633a84171de": {
+        "region_id": "region_5b584fa372716633a84171de",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "1、结构层：钢筋混凝土结构层，二次振捣，机械抹平（抗渗等级P8）",
+        "entity_ids": [
+          "ent_b6f31b8110174bcdf2e087b0",
+          "ent_707899af8b3689d56f960af7",
+          "ent_27fe972f0d1aae56b741032c",
+          "ent_095af1e036ddd1e2bcd5af5a"
+        ],
+        "bbox": [
+          353587.2414335066,
+          364461.8423287531,
+          365437.1865532281,
+          364858.94994356454
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_b6f31b8110174bcdf2e087b0",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              364461.8423287531,
+              353828.59979704465,
+              364858.94994356454
+            ]
+          },
+          {
+            "entity_id": "ent_707899af8b3689d56f960af7",
+            "text_span": [
+              1,
+              29
+            ],
+            "entity_text_span": [
+              0,
+              28
+            ],
+            "bbox": [
+              353716.6793033291,
+              364464.9081701445,
+              365437.1865532281,
+              364847.9339546435
+            ]
+          },
+          {
+            "entity_id": "ent_27fe972f0d1aae56b741032c",
+            "text_span": [
+              29,
+              31
+            ],
+            "entity_text_span": [
+              0,
+              2
+            ],
+            "bbox": [
+              359828.7591848593,
+              364461.8423287531,
+              360359.57806164835,
+              364858.94994356454
+            ]
+          },
+          {
+            "entity_id": "ent_095af1e036ddd1e2bcd5af5a",
+            "text_span": [
+              31,
+              32
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              360217.0727943267,
+              364464.9081701445,
+              360635.6623389659,
+              364847.9339546435
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_ce33875040fb7760e42c409b": {
+        "region_id": "region_ce33875040fb7760e42c409b",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "2、防水层：2.0mm非固化改性沥青防水涂料，地下室外缘侧板下翻200mm，与侧墙交界处沿墙翻起做法详标准节点",
+        "entity_ids": [
+          "ent_8ba8f341f003e993974825e9",
+          "ent_46977065c1264afca8435d2a",
+          "ent_7c0685eb4b555a7485d5d6c2"
+        ],
+        "bbox": [
+          353587.2414335066,
+          364026.9310861496,
+          373797.6668392185,
+          364424.03870096104
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_8ba8f341f003e993974825e9",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              364026.9310861496,
+              353828.59979704465,
+              364424.03870096104
+            ]
+          },
+          {
+            "entity_id": "ent_46977065c1264afca8435d2a",
+            "text_span": [
+              1,
+              6
+            ],
+            "entity_text_span": [
+              0,
+              5
+            ],
+            "bbox": [
+              353768.4544512581,
+              364029.996927541,
+              355861.40217445436,
+              364413.02271204
+            ]
+          },
+          {
+            "entity_id": "ent_7c0685eb4b555a7485d5d6c2",
+            "text_span": [
+              6,
+              55
+            ],
+            "entity_text_span": [
+              0,
+              49
+            ],
+            "bbox": [
+              354797.6257895775,
+              364029.996927541,
+              373797.6668392185,
+              364413.02271204
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_4d5be457e18181ce55f04a29": {
+        "region_id": "region_4d5be457e18181ce55f04a29",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "3、防水层：4.0mm厚自粘耐根穿刺SBS橡胶改性沥青卷材防水层（化学阻根）（非种植区为：3.0厚弹性体改性沥青防水卷材(上翻梁全包)），\n地下室外缘侧壁下翻200mm接茬，与侧墙交界处沿墙翻起做法详标准节点\n2",
+        "entity_ids": [
+          "ent_0389db0b65bc529864d2fdae",
+          "ent_2eb4ce593aecf97fc5d2773a",
+          "ent_614d5fbc66a431ee60e48409",
+          "ent_dcc81da92c33dd86461cda29",
+          "ent_0ad88c6a2820ee464b9776bf"
+        ],
+        "bbox": [
+          353587.2414335066,
+          362882.9959279082,
+          378705.74385640153,
+          363989.12745835754
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_0389db0b65bc529864d2fdae",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              363592.0198435461,
+              353828.59979704465,
+              363989.12745835754
+            ]
+          },
+          {
+            "entity_id": "ent_2eb4ce593aecf97fc5d2773a",
+            "text_span": [
+              1,
+              6
+            ],
+            "entity_text_span": [
+              0,
+              5
+            ],
+            "bbox": [
+              353768.4544512581,
+              363595.0856849375,
+              355861.40217445436,
+              363978.1114694365
+            ]
+          },
+          {
+            "entity_id": "ent_614d5fbc66a431ee60e48409",
+            "text_span": [
+              6,
+              69
+            ],
+            "entity_text_span": [
+              0,
+              63
+            ],
+            "bbox": [
+              354798.7214651105,
+              363595.0856849375,
+              378705.74385640153,
+              363978.1114694365
+            ]
+          },
+          {
+            "entity_id": "ent_dcc81da92c33dd86461cda29",
+            "text_span": [
+              70,
+              104
+            ],
+            "entity_text_span": [
+              0,
+              34
+            ],
+            "bbox": [
+              354798.7214651105,
+              363151.2987026889,
+              368333.5936504405,
+              363534.3244871879
+            ]
+          },
+          {
+            "entity_id": "ent_0ad88c6a2820ee464b9776bf",
+            "text_span": [
+              105,
+              106
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              356005.8153744656,
+              362882.9959279082,
+              356126.4945562346,
+              363081.549735314
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_2598731a9fc125c02a501e12": {
+        "region_id": "region_2598731a9fc125c02a501e12",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_0322bcd18b1badd86b1cb0a1",
+        "frame_name": "Model · 未确认图框",
+        "kind": "paragraph",
+        "text": "2、本工程所注标高以米为单位，总平面尺寸以米为单位，其余尺寸均以毫米为单位。",
+        "entity_ids": [
+          "ent_53feed89ef17f856e960c279",
+          "ent_b07fe51edba2267f3c897651",
+          "ent_08e8c8f751f4ef4e7ea53e57"
+        ],
+        "bbox": [
+          255138.1736651603,
+          383835.0795619479,
+          279892.4478516861,
+          384451.5686817611
+        ],
+        "context_region_ids": [
+          "region_e3842f018580fa7ab5a5d358"
+        ],
+        "parts": [
+          {
+            "entity_id": "ent_53feed89ef17f856e960c279",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              255138.1736651603,
+              383851.0181413796,
+              255371.2568848056,
+              384394.2991782145
+            ]
+          },
+          {
+            "entity_id": "ent_b07fe51edba2267f3c897651",
+            "text_span": [
+              1,
+              2
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              255423.8879508746,
+              383835.0795619479,
+              256097.61778938922,
+              384451.56868176063
+            ]
+          },
+          {
+            "entity_id": "ent_08e8c8f751f4ef4e7ea53e57",
+            "text_span": [
+              2,
+              38
+            ],
+            "entity_text_span": [
+              0,
+              36
+            ],
+            "bbox": [
+              255638.1736651603,
+              383835.07956194837,
+              279892.4478516861,
+              384451.5686817611
+            ]
+          }
+        ],
+        "column_key": "(253074.0, 302780.708)",
+        "table_row_key": null
+      },
+      "region_9d4524c1404068a5201dd21e": {
+        "region_id": "region_9d4524c1404068a5201dd21e",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "4、隔离层：160g/m无纺布隔离层一道",
+        "entity_ids": [
+          "ent_ea6b5b0bb93c040f3b108eaa",
+          "ent_c31c9fdcdc2761a10bb5c2b8",
+          "ent_61e6caf15f4eb2e7a790fddb",
+          "ent_e970f7a9247991500fbe0d3f"
+        ],
+        "bbox": [
+          353587.2414335066,
+          362713.321618694,
+          359476.2448358176,
+          363110.42923350545
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_ea6b5b0bb93c040f3b108eaa",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              362713.321618694,
+              353828.59979704465,
+              363110.42923350545
+            ]
+          },
+          {
+            "entity_id": "ent_c31c9fdcdc2761a10bb5c2b8",
+            "text_span": [
+              1,
+              6
+            ],
+            "entity_text_span": [
+              0,
+              5
+            ],
+            "bbox": [
+              353794.3420252226,
+              362716.3874600854,
+              355887.28974841884,
+              363099.4132445844
+            ]
+          },
+          {
+            "entity_id": "ent_61e6caf15f4eb2e7a790fddb",
+            "text_span": [
+              6,
+              12
+            ],
+            "entity_text_span": [
+              0,
+              6
+            ],
+            "bbox": [
+              354884.9249284078,
+              362713.321618694,
+              356332.4393984063,
+              363110.42923350545
+            ]
+          },
+          {
+            "entity_id": "ent_e970f7a9247991500fbe0d3f",
+            "text_span": [
+              12,
+              20
+            ],
+            "entity_text_span": [
+              0,
+              8
+            ],
+            "bbox": [
+              356127.5284787036,
+              362716.3874600854,
+              359476.2448358176,
+              363099.4132445844
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_42265e0e1c1cd5ce0a0e3986": {
+        "region_id": "region_42265e0e1c1cd5ce0a0e3986",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "5、70厚C20细石保护层随捣随抹，内配06@200单层双向钢筋网片，设间距≤6x6m的分格缝(钢筋置于上表面，钢筋在缝内断开)，缝宽20mm。",
+        "entity_ids": [
+          "ent_a6b26014cd946258b3a5c5b7",
+          "ent_df1de1bd07fdb07176876526",
+          "ent_fe9f6f8b597a893b61d78f31",
+          "ent_bb3630c221bc592a05c83d8c",
+          "ent_fc7b36ace6ee697fb34d8d39",
+          "ent_e30d50e7a8924e8a8d02fb97",
+          "ent_f9471790dda45ddd18137d61",
+          "ent_fd6309d6836527ad39c28097",
+          "ent_28cc9dff25793c4e363e966e",
+          "ent_dce1c3d6c809a833cd2e6107",
+          "ent_61f7e5398cc4beaece8ed05b",
+          "ent_04cd1d58b2d62cb88c31653e",
+          "ent_e87daa54ee7b4aaaa86ca27b",
+          "ent_67910120e1236dc8fd744267",
+          "ent_e5d5a19ae39acf48fdfd29e9",
+          "ent_ee011a85bae6c534ad1462a3"
+        ],
+        "bbox": [
+          353587.2414335066,
+          362278.4103760904,
+          369785.9826265123,
+          362675.51799090183
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_a6b26014cd946258b3a5c5b7",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              362278.4103760904,
+              353828.59979704465,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_df1de1bd07fdb07176876526",
+            "text_span": [
+              1,
+              2
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353768.4544512581,
+              362281.4762174818,
+              354187.04399589734,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_fe9f6f8b597a893b61d78f31",
+            "text_span": [
+              2,
+              4
+            ],
+            "entity_text_span": [
+              0,
+              2
+            ],
+            "bbox": [
+              353986.5710318951,
+              362278.4103760904,
+              354469.28775897116,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_bb3630c221bc592a05c83d8c",
+            "text_span": [
+              4,
+              5
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              354348.9970673982,
+              362281.4762174818,
+              354767.58661203744,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_fc7b36ace6ee697fb34d8d39",
+            "text_span": [
+              5,
+              8
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              354567.1136480351,
+              362278.4103760904,
+              355363.2360113471,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_e30d50e7a8924e8a8d02fb97",
+            "text_span": [
+              8,
+              20
+            ],
+            "entity_text_span": [
+              0,
+              12
+            ],
+            "bbox": [
+              355110.7527012895,
+              362281.4762174818,
+              360133.8272369605,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_f9471790dda45ddd18137d61",
+            "text_span": [
+              20,
+              26
+            ],
+            "entity_text_span": [
+              0,
+              6
+            ],
+            "bbox": [
+              357728.1516689341,
+              362278.4103760904,
+              359375.49136879767,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_fd6309d6836527ad39c28097",
+            "text_span": [
+              26,
+              39
+            ],
+            "entity_text_span": [
+              0,
+              13
+            ],
+            "bbox": [
+              358918.9800713009,
+              362281.4762174818,
+              364186.5043605796,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_28cc9dff25793c4e363e966e",
+            "text_span": [
+              39,
+              43
+            ],
+            "entity_text_span": [
+              0,
+              4
+            ],
+            "bbox": [
+              361754.4956195824,
+              362278.4103760904,
+              362815.70956567413,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_dce1c3d6c809a833cd2e6107",
+            "text_span": [
+              43,
+              47
+            ],
+            "entity_text_span": [
+              0,
+              4
+            ],
+            "bbox": [
+              362531.1228385173,
+              362281.4762174818,
+              364205.4810170743,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_61f7e5398cc4beaece8ed05b",
+            "text_span": [
+              47,
+              48
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              363403.5891610654,
+              362278.4103760904,
+              363548.1075139477,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_04cd1d58b2d62cb88c31653e",
+            "text_span": [
+              48,
+              63
+            ],
+            "entity_text_span": [
+              0,
+              15
+            ],
+            "bbox": [
+              363507.1394569235,
+              362281.4762174818,
+              369785.9826265123,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_e87daa54ee7b4aaaa86ca27b",
+            "text_span": [
+              63,
+              64
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              366805.7095987171,
+              362278.4103760904,
+              366950.2279515994,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_67910120e1236dc8fd744267",
+            "text_span": [
+              64,
+              67
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              366909.259894575,
+              362281.4762174818,
+              368165.0285284927,
+              362664.5020019808
+            ]
+          },
+          {
+            "entity_id": "ent_e5d5a19ae39acf48fdfd29e9",
+            "text_span": [
+              67,
+              71
+            ],
+            "entity_text_span": [
+              0,
+              4
+            ],
+            "bbox": [
+              367609.9771446367,
+              362278.4103760904,
+              368815.7094436107,
+              362675.51799090183
+            ]
+          },
+          {
+            "entity_id": "ent_ee011a85bae6c534ad1462a3",
+            "text_span": [
+              71,
+              72
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              368438.3795115006,
+              362281.4762174818,
+              368856.9690561398,
+              362664.5020019808
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_ab76798a229af890d0acd02b": {
+        "region_id": "region_ab76798a229af890d0acd02b",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "缝内嵌密封材料（防水油膏)分格缝上空铺3厚SBS改性沥青防水卷材附加层，宽度不小于100",
+        "entity_ids": [
+          "ent_fefe69c899ab07dc3e839e70",
+          "ent_ff44d8954e457e0eef37cfc8",
+          "ent_3168aa7c19dc1cf6e327fea2",
+          "ent_5cf8e1d11f0bb4e69b09406c",
+          "ent_72219b4702d5afe5334e332a",
+          "ent_07d26450d4abba8f294adef6",
+          "ent_fc61cee8c9fe269b69c379d2",
+          "ent_4ed0a8870f2a0f518e58a089"
+        ],
+        "bbox": [
+          353587.2414335066,
+          361843.4991334868,
+          365753.54381323507,
+          362240.6067482983
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_fefe69c899ab07dc3e839e70",
+            "text_span": [
+              0,
+              12
+            ],
+            "entity_text_span": [
+              0,
+              12
+            ],
+            "bbox": [
+              353587.2414335066,
+              361846.5649748782,
+              358610.31596917764,
+              362229.5907593772
+            ]
+          },
+          {
+            "entity_id": "ent_ff44d8954e457e0eef37cfc8",
+            "text_span": [
+              12,
+              13
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              356204.6404011512,
+              361843.4991334868,
+              356349.1587540335,
+              362240.6067482983
+            ]
+          },
+          {
+            "entity_id": "ent_3168aa7c19dc1cf6e327fea2",
+            "text_span": [
+              13,
+              19
+            ],
+            "entity_text_span": [
+              0,
+              6
+            ],
+            "bbox": [
+              356308.1906970091,
+              361846.5649748782,
+              358819.7279648446,
+              362229.5907593772
+            ]
+          },
+          {
+            "entity_id": "ent_5cf8e1d11f0bb4e69b09406c",
+            "text_span": [
+              19,
+              20
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              357616.8901808312,
+              361843.4991334868,
+              357858.24854436924,
+              362240.6067482983
+            ]
+          },
+          {
+            "entity_id": "ent_72219b4702d5afe5334e332a",
+            "text_span": [
+              20,
+              21
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              357798.1031985828,
+              361846.5649748782,
+              358216.692743222,
+              362229.5907593772
+            ]
+          },
+          {
+            "entity_id": "ent_07d26450d4abba8f294adef6",
+            "text_span": [
+              21,
+              24
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              358016.2197792199,
+              361843.4991334868,
+              358884.601318973,
+              362240.6067482983
+            ]
+          },
+          {
+            "entity_id": "ent_fc61cee8c9fe269b69c379d2",
+            "text_span": [
+              24,
+              41
+            ],
+            "entity_text_span": [
+              0,
+              17
+            ],
+            "bbox": [
+              358637.5215543678,
+              361846.5649748782,
+              365753.54381323507,
+              362229.5907593772
+            ]
+          },
+          {
+            "entity_id": "ent_4ed0a8870f2a0f518e58a089",
+            "text_span": [
+              41,
+              44
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              362345.5034251975,
+              361843.4991334868,
+              363069.5785158116,
+              362240.6067482983
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_ced5da8f71d357bb3db8b2c4": {
+        "region_id": "region_ced5da8f71d357bb3db8b2c4",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "6、100厚碎石过滤层",
+        "entity_ids": [
+          "ent_4a3d5833e18c5d94ec43d11a",
+          "ent_0651ab7d541eb07918a4dd25"
+        ],
+        "bbox": [
+          353587.2414335066,
+          361408.5878908833,
+          357396.979932694,
+          361805.6955056948
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_4a3d5833e18c5d94ec43d11a",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              361408.5878908833,
+              353828.59979704465,
+              361805.6955056948
+            ]
+          },
+          {
+            "entity_id": "ent_0651ab7d541eb07918a4dd25",
+            "text_span": [
+              1,
+              11
+            ],
+            "entity_text_span": [
+              0,
+              10
+            ],
+            "bbox": [
+              353768.4544512581,
+              361411.6537322747,
+              357396.979932694,
+              361794.67951677373
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_cde4cb0bcc044e5523597d85": {
+        "region_id": "region_cde4cb0bcc044e5523597d85",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "7、聚酯无纺土工布(160g/m²)，建筑周边上翻140mm高",
+        "entity_ids": [
+          "ent_6ed3c2f52fc0fa61afbedbb0",
+          "ent_a11993cccc8ea3b7461acc6b"
+        ],
+        "bbox": [
+          353587.2414335066,
+          360964.8009086348,
+          363676.02749170887,
+          361361.90852344624
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_6ed3c2f52fc0fa61afbedbb0",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              360964.8009086348,
+              353828.59979704465,
+              361361.90852344624
+            ]
+          },
+          {
+            "entity_id": "ent_a11993cccc8ea3b7461acc6b",
+            "text_span": [
+              1,
+              31
+            ],
+            "entity_text_span": [
+              0,
+              30
+            ],
+            "bbox": [
+              353768.4544512581,
+              360967.8667500262,
+              363676.02749170887,
+              361350.8925345252
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      },
+      "region_5ad2dc0371c9bac5d0f02c22": {
+        "region_id": "region_5ad2dc0371c9bac5d0f02c22",
+        "layout_id": "layout_3910c8e63d68faa9dba02a69",
+        "frame_id": "frame_29beb78436363e6ceed950fb",
+        "frame_name": "地下室工程做法表",
+        "kind": "paragraph",
+        "text": "8、绿化种植具体范围及做法详景观施工图",
+        "entity_ids": [
+          "ent_03beff02e87f0ad1d96207bd",
+          "ent_7d33207cccca1786ac916154"
+        ],
+        "bbox": [
+          353587.2414335066,
+          360521.0139263863,
+          361303.0662547647,
+          360918.12154119776
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_03beff02e87f0ad1d96207bd",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              353587.2414335066,
+              360521.0139263863,
+              353828.59979704465,
+              360918.12154119776
+            ]
+          },
+          {
+            "entity_id": "ent_7d33207cccca1786ac916154",
+            "text_span": [
+              1,
+              19
+            ],
+            "entity_text_span": [
+              0,
+              18
+            ],
+            "bbox": [
+              353768.4544512581,
+              360524.0797677777,
+              361303.0662547647,
+              360907.1055522767
+            ]
+          }
+        ],
+        "column_key": "(353498.484, 370184.875)",
+        "table_row_key": null
+      }
+    },
+    "provenance": "Frozen 2026-10-26 run: final rejected draft and original parsed source spans; no model calls."
+  },
+  {
+    "case_id": "Q06",
+    "snapshot_id": "snap_387d51baa9bf10359b5cf120",
+    "claims": [
+      {
+        "text": "防水材料及主体厚度：候选正文由“1.5”和“厚聚合物水泥防水涂料Ⅱ型，四周翻高建筑面”连续组成。据此整理，防水材料为聚合物水泥防水涂料Ⅱ型，主体厚度为1.5 mm。毫米单位依据图纸条款“本工程施工图所注尺寸，除总图及标高以米为单位外，其余均以毫米为单位”；该值为原文厚度，不是几何测量值。",
+        "state": "derived",
+        "question_part_ids": [
+          "q1",
+          "q4",
+          "q5",
+          "q6"
+        ],
+        "evidence_ids": [
+          "ev_02d13db33a633ae2a71bb820",
+          "ev_198e62649e094bc2ca765f06",
+          "ev_c4903f4fadf1755b4f5945e0",
+          "ev_e22df143687bfb0780a44da8",
+          "ev_370c9807bd4191e55d60d93f"
+        ]
+      }
+    ],
+    "evidence": {
+      "ev_02d13db33a633ae2a71bb820": {
+        "evidence_id": "ev_02d13db33a633ae2a71bb820",
+        "region_id": "region_ace8aace07e50d2383a29b28",
+        "text_span": [
+          58,
+          61
+        ],
+        "quote": "1.5"
+      },
+      "ev_198e62649e094bc2ca765f06": {
+        "evidence_id": "ev_198e62649e094bc2ca765f06",
+        "region_id": "region_ace8aace07e50d2383a29b28",
+        "text_span": [
+          61,
+          81
+        ],
+        "quote": "厚聚合物水泥防水涂料Ⅱ型，四周翻高建筑面"
+      },
+      "ev_c4903f4fadf1755b4f5945e0": {
+        "evidence_id": "ev_c4903f4fadf1755b4f5945e0",
+        "region_id": "region_43e1dbed992c18d349a34523",
+        "text_span": [
+          0,
+          36
+        ],
+        "quote": "5）本工程施工图所注尺寸，除总图及标高以米为单位外，其余均以毫米为单位。"
+      },
+      "ev_e22df143687bfb0780a44da8": {
+        "evidence_id": "ev_e22df143687bfb0780a44da8",
+        "region_id": "region_14ef6dee2da2bb5b1243c4fb",
+        "text_span": [
+          0,
+          5
+        ],
+        "quote": "现浇楼面时"
+      },
+      "ev_370c9807bd4191e55d60d93f": {
+        "evidence_id": "ev_370c9807bd4191e55d60d93f",
+        "region_id": "region_14ef6dee2da2bb5b1243c4fb",
+        "text_span": [
+          6,
+          9
+        ],
+        "quote": "无地暖"
+      }
+    },
+    "regions": {
+      "region_ace8aace07e50d2383a29b28": {
+        "region_id": "region_ace8aace07e50d2383a29b28",
+        "layout_id": "layout_147c92ecee6af148b7ac8794",
+        "frame_id": "frame_f144fefb74cda737af8bbc83",
+        "frame_name": "装修做法表",
+        "kind": "paragraph",
+        "text": "-管道四周及边角部位用聚合物水泥防水涂料Ⅱ型1.2厚加强，部位为管道四\n周150范围内，墙体边角两边250范围内\n-1.5厚聚合物水泥防水涂料Ⅱ型，四周翻高建筑面300（淋浴处防水涂料防\n水层上翻完成面以上1800、洗手盆处防水涂料防水层上翻完成面以上1200）\n-钢筋筋砼楼板板面清理",
+        "entity_ids": [
+          "ent_cff88178683581a146f49cf1",
+          "ent_926b9603954a476628cd3356",
+          "ent_1719af35ee7e6b5c4656c10e",
+          "ent_3b3268c24c274ae1916bf98b",
+          "ent_e9e65cd03bfa189f66cd9e81",
+          "ent_116932383cc24746c15cb153",
+          "ent_cea6e95963b0ec8f32726c9b",
+          "ent_a426d62d84c0913e235134c2",
+          "ent_cc3d1c6bd0887d627dbf923d",
+          "ent_fdfed7872b7b8439f1f6bb6e",
+          "ent_12b7e1b2b9d576ce69f588bc",
+          "ent_bab7c689a4562b486e81bece",
+          "ent_490d10d6442e842e26fdd06d",
+          "ent_4ca36b189f513228cb80b3f6",
+          "ent_c79b8a201463a3d3ef296e22",
+          "ent_6aa43d6a1a95ad0c554bb07a",
+          "ent_0594869a8c1b86405b50fa34",
+          "ent_fecdb827866eb139a1631331",
+          "ent_8c66b176e60afeb42a541247",
+          "ent_4f1cd4fff514dd14e6d9ecfb",
+          "ent_6020d5fe8fe0ad7c01744538"
+        ],
+        "bbox": [
+          1382986.52410584,
+          -754694.4930245804,
+          1396553.4233457546,
+          -751059.2542796964
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_cff88178683581a146f49cf1",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1382986.52410584,
+              -751609.4452756036,
+              1383087.009781147,
+              -751149.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_926b9603954a476628cd3356",
+            "text_span": [
+              1,
+              22
+            ],
+            "entity_text_span": [
+              0,
+              21
+            ],
+            "bbox": [
+              1383471.653464671,
+              -751634.4930245804,
+              1393809.2523732658,
+              -751059.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_1719af35ee7e6b5c4656c10e",
+            "text_span": [
+              22,
+              25
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1391031.653464671,
+              -751609.4452756036,
+              1391451.1295901826,
+              -751149.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_3b3268c24c274ae1916bf98b",
+            "text_span": [
+              25,
+              35
+            ],
+            "entity_text_span": [
+              0,
+              10
+            ],
+            "bbox": [
+              1391504.796321814,
+              -751634.4930245804,
+              1396533.9914104906,
+              -751059.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_e9e65cd03bfa189f66cd9e81",
+            "text_span": [
+              36,
+              37
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1382986.52410584,
+              -752399.4930245804,
+              1383489.4436147076,
+              -751824.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_116932383cc24746c15cb153",
+            "text_span": [
+              37,
+              40
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1383346.52410584,
+              -752374.4452756036,
+              1383849.9838602738,
+              -751914.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_cea6e95963b0ec8f32726c9b",
+            "text_span": [
+              40,
+              50
+            ],
+            "entity_text_span": [
+              0,
+              10
+            ],
+            "bbox": [
+              1383912.238391555,
+              -752399.4930245804,
+              1388941.4334802316,
+              -751824.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_a426d62d84c0913e235134c2",
+            "text_span": [
+              50,
+              53
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1387512.238391555,
+              -752374.4452756036,
+              1388015.6981459889,
+              -751914.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_cc3d1c6bd0887d627dbf923d",
+            "text_span": [
+              53,
+              56
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1388129.381248698,
+              -752399.4930245804,
+              1389638.139775301,
+              -751824.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_fdfed7872b7b8439f1f6bb6e",
+            "text_span": [
+              57,
+              58
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1382986.52410584,
+              -753139.4452756036,
+              1383087.009781147,
+              -752679.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_12b7e1b2b9d576ce69f588bc",
+            "text_span": [
+              58,
+              61
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1383471.653464671,
+              -753139.4452756036,
+              1383891.1295901826,
+              -752679.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_bab7c689a4562b486e81bece",
+            "text_span": [
+              61,
+              81
+            ],
+            "entity_text_span": [
+              0,
+              20
+            ],
+            "bbox": [
+              1383944.796321813,
+              -753164.4930245804,
+              1393779.4757215402,
+              -752589.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_490d10d6442e842e26fdd06d",
+            "text_span": [
+              81,
+              84
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1391144.796321814,
+              -753139.4452756036,
+              1391648.256076248,
+              -752679.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_4ca36b189f513228cb80b3f6",
+            "text_span": [
+              84,
+              93
+            ],
+            "entity_text_span": [
+              0,
+              9
+            ],
+            "bbox": [
+              1391751.653464671,
+              -753164.4930245804,
+              1396277.92904448,
+              -752589.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_c79b8a201463a3d3ef296e22",
+            "text_span": [
+              94,
+              103
+            ],
+            "entity_text_span": [
+              0,
+              9
+            ],
+            "bbox": [
+              1382986.52410584,
+              -753929.4930245804,
+              1387512.7996856489,
+              -753354.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_6aa43d6a1a95ad0c554bb07a",
+            "text_span": [
+              103,
+              107
+            ],
+            "entity_text_span": [
+              0,
+              4
+            ],
+            "bbox": [
+              1386226.52410584,
+              -753904.4452756036,
+              1386897.8037784183,
+              -753444.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_0594869a8c1b86405b50fa34",
+            "text_span": [
+              107,
+              126
+            ],
+            "entity_text_span": [
+              0,
+              19
+            ],
+            "bbox": [
+              1386997.952677269,
+              -753929.4930245804,
+              1396553.4233457546,
+              -753354.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_fecdb827866eb139a1631331",
+            "text_span": [
+              126,
+              130
+            ],
+            "entity_text_span": [
+              0,
+              4
+            ],
+            "bbox": [
+              1393837.952677269,
+              -753904.4452756036,
+              1394509.2323498474,
+              -753444.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_8c66b176e60afeb42a541247",
+            "text_span": [
+              130,
+              131
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1394609.381248698,
+              -753929.4930245804,
+              1395112.3007575658,
+              -753354.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_4f1cd4fff514dd14e6d9ecfb",
+            "text_span": [
+              132,
+              133
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1382986.52410584,
+              -754669.4452756036,
+              1383087.009781147,
+              -754209.2542796964
+            ]
+          },
+          {
+            "entity_id": "ent_6020d5fe8fe0ad7c01744538",
+            "text_span": [
+              133,
+              143
+            ],
+            "entity_text_span": [
+              0,
+              10
+            ],
+            "bbox": [
+              1383471.653464671,
+              -754694.4930245804,
+              1388500.8485533476,
+              -754119.2542796964
+            ]
+          }
+        ],
+        "column_key": "(1382764.372, 1395264.372)",
+        "table_row_key": null
+      },
+      "region_43e1dbed992c18d349a34523": {
+        "region_id": "region_43e1dbed992c18d349a34523",
+        "layout_id": "layout_147c92ecee6af148b7ac8794",
+        "frame_id": "frame_307d2fdc39fded5095c66c24",
+        "frame_name": "路住宅项目地上住宅及配套用房部分，地下部分另见地下室建筑设计说明。",
+        "kind": "paragraph",
+        "text": "5）本工程施工图所注尺寸，除总图及标高以米为单位外，其余均以毫米为单位。",
+        "entity_ids": [
+          "ent_7fc53ad4e222c2fa983261dc",
+          "ent_33b951095db15d2b9654d866"
+        ],
+        "bbox": [
+          1350264.372355665,
+          -633382.8208673454,
+          1368072.2694517472,
+          -632807.5821224614
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_7fc53ad4e222c2fa983261dc",
+            "text_span": [
+              0,
+              1
+            ],
+            "entity_text_span": [
+              0,
+              1
+            ],
+            "bbox": [
+              1350264.372355665,
+              -633357.7731183686,
+              1350432.1922738098,
+              -632897.5821224614
+            ]
+          },
+          {
+            "entity_id": "ent_33b951095db15d2b9654d866",
+            "text_span": [
+              1,
+              36
+            ],
+            "entity_text_span": [
+              0,
+              35
+            ],
+            "bbox": [
+              1350470.086641379,
+              -633382.8208673454,
+              1368072.2694517472,
+              -632807.5821224614
+            ]
+          }
+        ],
+        "column_key": "(1349964.372, 1373964.372)",
+        "table_row_key": null
+      },
+      "region_14ef6dee2da2bb5b1243c4fb": {
+        "region_id": "region_14ef6dee2da2bb5b1243c4fb",
+        "layout_id": "layout_147c92ecee6af148b7ac8794",
+        "frame_id": "frame_f144fefb74cda737af8bbc83",
+        "frame_name": "装修做法表",
+        "kind": "paragraph",
+        "text": "现浇楼面时\n无地暖",
+        "entity_ids": [
+          "ent_8666123d88de32ab9e93e6c8",
+          "ent_96bb82e5e2b4c6ba78e1fa93"
+        ],
+        "bbox": [
+          1379231.044118341,
+          -749762.8594709798,
+          1382034.0122703381,
+          -748447.8828738685
+        ],
+        "context_region_ids": [],
+        "parts": [
+          {
+            "entity_id": "ent_8666123d88de32ab9e93e6c8",
+            "text_span": [
+              0,
+              5
+            ],
+            "entity_text_span": [
+              0,
+              5
+            ],
+            "bbox": [
+              1379240.014998851,
+              -749087.0370348507,
+              1382034.0122703381,
+              -748447.8828738685
+            ]
+          },
+          {
+            "entity_id": "ent_96bb82e5e2b4c6ba78e1fa93",
+            "text_span": [
+              6,
+              9
+            ],
+            "entity_text_span": [
+              0,
+              3
+            ],
+            "bbox": [
+              1379231.044118341,
+              -749762.8594709798,
+              1380907.4424812333,
+              -749123.7053099975
+            ]
+          }
+        ],
+        "column_key": null,
+        "table_row_key": null
+      }
+    },
+    "provenance": "Frozen 2026-10-26 run: final rejected draft and original parsed source spans; no model calls."
+  }
+]

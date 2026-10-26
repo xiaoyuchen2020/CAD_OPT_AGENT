@@ -59,6 +59,15 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.scope_workflow import bind_scope_call
     args = bind_scope_call(self, name, args)
     snapshot = self.request.snapshot_id
+    if name in ('extract_planning_metrics', 'extract_building_schedule'):
+        from cad_agent.analysis.business_tables import extract_planning_metrics, extract_building_schedule
+        from cad_agent.analysis.business_table_ledger import attach_read_coverage
+        method = extract_planning_metrics if name == 'extract_planning_metrics' else extract_building_schedule
+        target = args.snapshot_id or snapshot
+        if target not in self.allowed_snapshots:
+            raise ValueError('业务表目标图纸未加入本轮用户选定资料。')
+        result = method(self.w, target, args, self.index if target==snapshot else None)
+        return self._register_tree(attach_read_coverage(self, name, result))
     if name == 'read_requirement_sources':
         from cad_agent.analysis.requirement_sources import read
         return self._register_tree(read(self, args))
@@ -214,7 +223,9 @@ def execute(self, name, raw_args, *, bounded=False):
                 raise ValueError('本次局部图像额度已用完。')
             image = vision.render(args)
             self.visual_images[image['image_id']] = image
-            return image | {'delivery': 'attached_to_next_model_request'}
+            return image | {'delivery': 'attached_to_next_model_request',
+                'view_scope': 'local_source_preview', 'engineering_scope_confirmed': False,
+                'scope_note': '此图只展示当前快照和布局的明确选区；不确认楼层归属、房间身份或测量范围。局部名称原文可单独摘录，工程范围疑义另列。'}
         if args.image_id not in self.sent_image_ids:
             raise ValueError('图像尚未发送到当前模型。')
         binding = vision.bind(args)
@@ -391,8 +402,9 @@ def invoke_tool(self, name, raw_args):
         return json.dumps(
             {
                 "error": {
-                    "code": "AGENT_TOOL_LIMIT",
-                    "message": "工具额度已用完，请根据已有证据回答。",
+                    "code": "AGENT_TOOL_LIMIT" if self.calls >= self.w.settings.agent_max_tool_calls else "AGENT_POLICY_STOP",
+                    "message": "工具额度已用完，请根据已有证据回答。" if self.calls >= self.w.settings.agent_max_tool_calls else "探索策略停止："+str(self.policy.stop_reason),
+                    "stop_reason": self.policy.stop_reason,
                 }
             },
             ensure_ascii=False,
@@ -426,7 +438,7 @@ def invoke_tool(self, name, raw_args):
     tick = time.monotonic()
     previous_evidence = dict(self.evidence)
     previous_observations = dict(self.observations)
-    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'spatial_objects', 'spatial_results')
+    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'source_sequences', 'spatial_objects', 'spatial_results')
     registry_before = {k: deepcopy(self.task.data[k]) for k in registry_fields if k in self.task.data}
     def rollback_registry():
         for key in registry_fields:
@@ -682,6 +694,11 @@ def invoke_tool(self, name, raw_args):
             result = working_result(result, archive_ref,
                 assembly_pages=getattr(self.w.settings, 'model_context_codec', True)
                 ) if self.stable_prefix_enabled and result_view != 'full' else result | {"evidence_record": archive_ref}
+    # The deterministic host retrieves the complete canonical observation
+    # directly. Do not serialize geometry/duplicate citations into its receipt.
+    from cad_agent.analysis.source_records import fixed_read_receipt
+    if entry['status']=='completed' and (receipt:=fixed_read_receipt(self,name,result)) is not None:
+        result=receipt
     before_chars = len(json.dumps(result, ensure_ascii=False))
     visible = set(self.policy.seen_evidence)
     encoded = dumps(compact(result, visible)) if self.policy.enabled else json.dumps(result, ensure_ascii=False)
@@ -724,15 +741,20 @@ def invoke_tool(self, name, raw_args):
                 self.policy.cache[cache_key] = full_result
         if full_result.get("kind") in ("relations", "scope_object_candidates", "spatial_object", "spatial_method"):
             self.policy.geometry_work = True
+        from cad_agent.analysis.source_records import fixed_page_progress
+        fresh_source_page = fixed_page_progress(self, name, full_result)
         if name not in CONTROL:self.policy.record(name, full_result, new_evidence, duplicate, len(encoded))
         else:self.policy.response_chars += len(encoded)
+        if fresh_source_page:
+            entry['source_traversal_progress']='new_canonical_page'
+            if self.policy.stop_reason=='no_new_information':self.policy.stop_reason=None
         if name not in CONTROL:
             batch=self.room_batches.get(full_result.get('batch_id')) if name in ('analyze_room_batch','select_room_boundaries','resolve_room_units') else None
             if name=='resolve_room_units' or (batch and batch.get('unit_resolution')):
                 task_ids=list(set(task_ids)|{s['id'] for s in self.task.data['subtasks'] if s['kind']=='constraint'})
             self.task.record(task_ids,name,full_result,
                 {eid:self.evidence[eid] for eid in evidence_ids(full_result) if eid in self.evidence},self.observations,batch,duplicate, action_key=self.policy.key(name, args),
-                track_progress=self.policy.enabled, defer_stall=batch_allowed is not None)
+                track_progress=self.policy.enabled, defer_stall=batch_allowed is not None or fresh_source_page)
             deltas = [s['last_progress'] for s in self.task.data['subtasks'] if s['id'] in task_ids and s.get('last_progress')]
             if deltas and self.policy.enabled and batch_allowed is None:
                 entry['requirement_progress'] = deltas

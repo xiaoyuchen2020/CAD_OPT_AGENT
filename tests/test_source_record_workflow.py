@@ -55,7 +55,7 @@ def test_followup_preserves_literal_filters_and_selected_snapshots():
     plan=route(s)
     assert plan['route']=='source_records'
     assert [f['text'] for f in plan['parts'][0]['filters']]==['岩棉','幕墙']
-    assert plan['parts'][0]['families']==['外墙','外墙面']
+    assert plan['parts'][0]['families']==['地下室外墙','外墙','外墙面','外墙饰面']
     s.request=s.request.model_copy(update={'related_drawings':[NS(snapshot_id='other')]})
     assert route(s)['route']=='agent'
 
@@ -65,7 +65,7 @@ def test_quoted_family_is_a_filter_not_a_requested_family_and_code_survives_foll
     s=routing('只保留不含“内墙”的做法',parent_run_id='prior')
     s.w.store=NS(get=lambda *args:dict(result=dict(source_records=dict(query=prior))))
     plan=route(s)
-    assert plan['parts'][0]['families']==['外墙','外墙面']
+    assert plan['parts'][0]['families']==['地下室外墙','外墙','外墙面','外墙饰面']
     assert plan['parts'][0]['title_codes']==['外墙1']
 
 
@@ -145,8 +145,8 @@ def test_injection_text_is_data_and_distinct_origins_not_deduplicated(example):
     text,aliases=model_text(p['records'],s.evidence,'外墙做法')
     assert '\\n[e900]' in text and '\n[e900]' not in text
     assert aliases['t1']!=aliases['t2']
-    assert text.count('外墙1——有保温')==1
-    assert '逐字相同，来源属于本记录' in text
+    assert text.count('外墙1——有保温')==2
+    assert '逐字相同，来源属于本记录' not in text
     with pytest.raises(RecordError):packets(p,s.evidence,10)
 
 

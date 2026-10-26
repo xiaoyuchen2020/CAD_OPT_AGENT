@@ -24,6 +24,8 @@ from cad_agent.analysis.evidence_ledger import source_context, compact_evidence,
 
 AGENT_VERSION = "grounded-tools-v5.5-self-contained-facts"
 SYSTEM = """
+用户要求某章节第几至第几条时，按requested_clause_coverage检查每条及后续片段，优先执行requested_clause_unread的同章节补读。零命中不代表条文不存在；先读已知章节内缺失条号，再使用问题/已读原文提供的替代词。跨章节同号不能互补，fully_read只是读取覆盖，不是已完成事实整理。
+局部事实与工程范围分别交付：已读名称原文可用source证据标observed；插入点在局部选区内是定位结果，楼层归属和独立房间身份另保留未确认。resolve_drawing_scope未得到唯一范围不否定已读原文；可用render_region核查已知布局和明确bbox的局部源图，但预览不授予楼层、房间身份或测量资格。
 事实提取衔接：逐一检查用户明确列出的对象，未覆盖对象先用其原词单独检索，再补字段。不得把所有字段词与对象词作AND后以零命中判缺失。默认线性尺寸单位可按default_unit_clauses的原文及适用范围明确引用；不将该单位用于标高、坐标、面积或材料等级。source_bound构造层允许整理该来源的完整原文，未验证工程适用性不妨碍摘录。locate_by_axes的axis_region以boundary和bbox为结果，point为空是正常；按插入点筛选文字用query_entities.spatial_relation=insertion_point_inside。原生句柄缺于索引时用read_geometry的layout_id+entity_paths；一般空间查询用query_spatial回源。表格按next_actions逐页读完用户所需行；图签独立字段读get_drawing_context的frames元数据及来源表格，不重复第一页。
 排序/差值/平均/周长使用analyze_measurements，返回值是带口径与对象引用的本地计算结果。追问先get_analysis_results恢复同源原编号/轮廓，再计算或筛选；取消其他高亮必须replace_highlights=true。复杂要求先计划operations并逐一执行；未知结果不等于完成。
 你是 CAD 图纸事实助手。分析当前图纸及用户明确选定的关联图纸，不进行优化策略、规范合规判定、造价推算。
@@ -155,7 +157,8 @@ class CadAgentSession:
                 raise ValueError('候选对象的来源、算法版本或单位策略已改变，请建立新任务重新读取；旧证据仍可查看。')
         self.room_batches = dict(self.task.data['batches'])
         if request.resume_task_id:
-            self.evidence.update(self.task.data['evidence'])
+            for evidence in self.task.data['evidence'].values():
+                self._register(evidence)
             self.observations.update(self.task.data['observations'])
             for batch in self.room_batches.values():
                 result=self._register_tree(RoomBatchService.summary(batch))
@@ -290,6 +293,24 @@ class CadAgentSession:
         # Do not put an unseen tail of a long quote into the model's reference set.
         if len(evidence["quote"]) > 6000:
             raise ValueError("证据过长，请用 read_source_context 分段读取原文。")
+        from cad_agent.evidence import verify_source_evidence
+        from cad_agent.analysis.source_context import check_source_identity
+        from cad_agent.cache import file_stamp
+        sid = evidence['snapshot_id']
+        indexes = getattr(self, '_evidence_indexes', None)
+        if indexes is None:
+            indexes = self._evidence_indexes = {}
+        if sid not in indexes:
+            indexes[sid] = self.index if sid == self.request.snapshot_id else DrawingIndex(self.w, sid)
+        index = indexes[sid]
+        paths = [self.w.store.artifact(sid, n) for n in ('regions.json', 'scene.json')]
+        if tuple(file_stamp(p) for p in paths) != index.signature[2:]:
+            raise ValueError('SOURCE_RECORD_INDEX_CHANGED')
+        previous = self.evidence.get(evidence['evidence_id'])
+        if previous is not None:
+            check_source_identity(previous, evidence)
+        evidence = verify_source_evidence(evidence, snapshot_id=sid,
+            region=index.by_id.get(evidence.get('region_id')), drawing_unit=index.drawing['unit'])
         self.evidence[evidence["evidence_id"]] = evidence
         return compact_evidence(evidence)
 

@@ -220,6 +220,8 @@ def record(session, tool, args, result):
             parent['read_state'] = ('read' if not unread_spans(dict(source_spans=[parent],
                 region_ids=[parent['region_id']], start=0), ledger) else 'unread')
     data['source_recall'] = ledger
+    from cad_agent.analysis.source_sequence import refresh as refresh_sequences
+    refresh_sequences(session)
     if query:
         return {'recall_receipt':{k:deepcopy(query[k]) for k in ('query_id','task_ids','total','returned_candidate_count',
             'unread_source_candidate_count','first_unread_offset','coverage')}}
@@ -244,6 +246,8 @@ def pending_calls(data):
               and execution_state(data, s['id'])['executable'] and accepts_source_prerequisites(s)}
     from cad_agent.analysis.requirement_sources import pending as requirement_pending
     pending = requirement_pending(data)
+    from cad_agent.analysis.source_sequence import pending as sequence_pending
+    pending.extend(sequence_pending(data, active))
     for call in ledger.get('continuations', {}).values():
         ids = sorted(active & set(call['task_ids']))
         if not ids:continue

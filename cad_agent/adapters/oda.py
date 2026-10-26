@@ -129,6 +129,24 @@ class OdaConverter:
                         or not isinstance(result.get("entities"), list)
                         or len(result["entities"]) != result.get("entity_records_in_all_block_definitions")):
                     invalid()
+                export = result.get("dxf_export", {})
+                if not isinstance(export, dict):
+                    invalid()
+                omitted = export.get("omitted_null_block_reference_handles", [])
+                if (not isinstance(omitted, list) or len(omitted) > len(result["entities"])
+                        or any(not isinstance(h, str) or not re.fullmatch(r"[A-Fa-f0-9]{1,16}", h)
+                               for h in omitted)):
+                    invalid()
+                if len(set(omitted)) != len(omitted):
+                    invalid()
+                if omitted:
+                    eligible = {e.get("handle") for e in result["entities"]
+                                if isinstance(e, dict) and isinstance(e.get("handle"), str)
+                                and e.get("type") in ("AcDbBlockReference", "AcDbMInsertBlock")
+                                and "referenced_block" in e and e["referenced_block"] is None
+                                and e.get("attributes") == []}
+                    if not set(omitted) <= eligible:
+                        invalid()
                 if (not isinstance(companion.get("bytes"), int) or companion["bytes"] <= 0
                         or companion["bytes"] > settings.oda_max_result_bytes
                         or not re.fullmatch(r"[a-f0-9]{64}", str(companion.get("sha256", "")))):
@@ -143,6 +161,7 @@ class OdaConverter:
                     "extractor_revision": result.get("extractor_revision"),
                     "input_sha256": digest, "dxf_sha256": companion["sha256"],
                     "json_sha256": sha256(raw_json).hexdigest(),
+                    "omitted_null_block_reference_handles": omitted,
                 })
         except httpx.TimeoutException:
             raise ConversionError("ODA_TIMEOUT", "连接内网转换服务或等待响应超时，请检查网络后重试。", 504) from None

@@ -36,7 +36,8 @@ def decisions(records,content,aliases,evidence,accepted=None):
     if not isinstance(raw,dict) or set(raw)!={'decisions'} or not isinstance(raw['decisions'],list):
         return accepted,[dict(path='decisions',message='只允许 decisions 数组。')]
     lookup={r['key']:r for r in records}; seen=set()
-    reverse={v:k for k,v in aliases.items()}
+    from cad_agent.analysis.source_context import ReferenceAliases
+    reverse=ReferenceAliases(aliases).reverse
     for i,item in enumerate(raw['decisions']):
         path=f'decisions.{i}'
         if not isinstance(item,dict) or not {'record','action'}<=item.keys() or set(item)-{'record','action','notes'}:
@@ -66,45 +67,74 @@ def decisions(records,content,aliases,evidence,accepted=None):
     return accepted,errors
 
 
-def _chunks(record,evidence):
-    title=evidence[record['title_id']]['quote']
-    # The compiler never synthesizes a number or alters ordinal punctuation.
-    # A long source line can be sliced for display but retains its full citation.
-    prefix=title+'\n' if len(title)<500 else ''
-    buffer=prefix;ids=[record['title_id']]
+def _chunks(record, evidence):
+    title_id = record['title_id']; title = evidence[title_id]['quote']
+    prefix = title+'\n' if len(title)<500 else ''
+    buffer=prefix; ids=[title_id]
+    spans=[dict(claim_span=[0,len(title)], evidence_id=title_id, source_span=[0,len(title)])] if prefix else []
+
+    def chunk():
+        text=buffer.rstrip()
+        clipped=[]
+        for span in spans:
+            lo, hi=span['claim_span']; end=min(hi,len(text))
+            if end>lo:
+                clipped.append(span | dict(claim_span=[lo,end], source_span=[span['source_span'][0],span['source_span'][0]+end-lo]))
+        return text,list(ids),clipped
+
     for eid in record['body_ids']:
-        text=evidence[eid]['quote']
+        text=evidence[eid]['quote']; pos=0
         if prefix and text.startswith(prefix):
-            text=text[len(prefix):]
-        if eid==record['title_id'] and prefix:
-            continue
+            pos=len(prefix); text=text[pos:]
+        if eid==title_id and prefix:continue
         for line in text.splitlines(keepends=True) or [text]:
             while line:
                 available=1490-len(buffer)
                 if available<=0 or (eid not in ids and len(ids)>=20):
-                    yield buffer.rstrip(),list(ids)
-                    buffer=prefix;ids=[record['title_id']];available=1490-len(buffer)
+                    yield chunk()
+                    buffer=prefix;ids=[title_id]
+                    spans=[dict(claim_span=[0,len(title)],evidence_id=title_id,source_span=[0,len(title)])] if prefix else []
+                    available=1490-len(buffer)
                 take=min(len(line),available)
                 if take<len(line):
-                    # Never split a decimal, identifier, unit or source marker.
-                    while take>0 and re.match(r'[A-Za-z0-9.−\-]',line[take-1]) and re.match(r'[A-Za-z0-9.−\-]',line[take]):
-                        take-=1
+                    while take>0 and re.match(r'[A-Za-z0-9.−\-]',line[take-1]) and re.match(r'[A-Za-z0-9.−\-]',line[take]):take-=1
                     if take==0:
                         if len(buffer)>len(prefix):
-                            yield buffer.rstrip(),list(ids)
-                            buffer=prefix;ids=[record['title_id']];continue
+                            yield chunk()
+                            buffer=prefix;ids=[title_id]
+                            spans=[dict(claim_span=[0,len(title)],evidence_id=title_id,source_span=[0,len(title)])] if prefix else []
+                            continue
                         raise RecordError('An indivisible source token exceeds claim limits.')
-                buffer+=line[:take];line=line[take:]
+                spans.append(dict(claim_span=[len(buffer),len(buffer)+take],evidence_id=eid,source_span=[pos,pos+take]))
+                buffer+=line[:take];line=line[take:];pos+=take
                 if eid not in ids:ids.append(eid)
             if not buffer.endswith('\n'):buffer+='\n'
-    if buffer.strip():
-        yield buffer.rstrip(),ids
+    if buffer.strip():yield chunk()
+
+
+def literal_claim(session, claim, index):
+    """Verify every non-whitespace character against compiler-owned source spans.
+
+    Used only with the aggregate digest permit. It validates transcription, not
+    arithmetic: ordinal punctuation and local code digits keep their source role.
+    """
+    mapping=getattr(session,'_source_record_claim_sources',{}).get(index)
+    if not mapping or mapping['text']!=claim.text or mapping['ids']!=claim.evidence_ids or claim.evidence_basis!='source':return False
+    end=0
+    for span in mapping['spans']:
+        lo,hi=span['claim_span']; a,b=span['source_span'];eid=span['evidence_id']
+        if eid not in claim.evidence_ids or lo<end or claim.text[end:lo].strip():return False
+        quote=session.evidence.get(eid,{}).get('quote','')
+        if not 0<=a<b<=len(quote) or quote[a:b]!=claim.text[lo:hi]:return False
+        end=hi
+    return bool(mapping['spans']) and not claim.text[end:].strip()
 
 
 def compile_answer(session,packet,choices):
     if set(choices)!={r['key'] for r in packet['records']}:
         raise RecordError('All records need decisions before publication.')
     claims,groups,excluded=[],[],[]
+    session._source_record_claim_sources={}
     gaps=[packet['scope']+'。未明示的单位保留原文，不补齐。']
     by_key={r['key']:r for r in packet['records']}
     for key in choices:
@@ -114,10 +144,11 @@ def compile_answer(session,packet,choices):
             raise RecordError('Selection state changed before compilation.')
         if choice['action']=='exclude':
             excluded.append(dict(record=record['key'],title=record.get('display_title') or session.evidence[record['title_id']]['quote'],
-                source_scope=record['source_scope'],reason='不满足本轮明确字面筛选条件',source_ids=record['source_ids']))
+                source_scope=record['source_scope'],reason='不满足本轮记录身份或明确字面筛选条件',source_ids=record['source_ids']))
             continue
         indexes=[]
-        for text,ids in _chunks(record,session.evidence):
+        for text,ids,spans in _chunks(record,session.evidence):
+            session._source_record_claim_sources[len(claims)]=dict(text=text,ids=ids,spans=spans)
             indexes.append(len(claims))
             claims.append(dict(text=text,state='observed' if record['ready'] else 'unknown',
                 evidence_ids=ids,question_part_ids=record['selected_parts']))
@@ -127,6 +158,9 @@ def compile_answer(session,packet,choices):
             gaps.append(session.evidence[record['title_id']]['quote']+'：显式外部引用仍未解决；本记录原文已保留，未自动叠加引用层次。')
         groups.append(dict(record=record['key'],canonical_record=record['record_id'],claim_indexes=indexes,
             source_scope=record['source_scope'],snapshot_id=record['snapshot_id'],
+            record_type=record.get('record_type','layer_assembly'),
+            binding_basis=record.get('binding_basis'),binding_warnings=record.get('binding_warnings',[]),
+            source_segments={str(i):session._source_record_claim_sources[i]['spans'] for i in indexes},
             title=record.get('display_title') or session.evidence[record['title_id']]['quote'],
             states={k:record[k] for k in ('page_state','binding_state','reference_state','engineering_applicability_state')},
             notes=choice.get('notes',[]),reference_targets=record['reference_targets'],

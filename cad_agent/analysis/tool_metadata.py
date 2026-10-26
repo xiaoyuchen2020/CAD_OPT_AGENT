@@ -11,6 +11,10 @@ GROUPS = {
 READS = {'read_assembly','read_project_sources','read_source_context','read_table','get_evidence','read_table_semantics'}
 READS.add('read_door_schedule_table')
 READS.add('read_requirement_sources')
+BUSINESS_TABLE_TOOLS = {'extract_planning_metrics', 'extract_building_schedule'}
+READS.update(BUSINESS_TABLE_TOOLS)
+GROUPS['sources'].update(BUSINESS_TABLE_TOOLS)
+GROUPS['semantics'].update(BUSINESS_TABLE_TOOLS)
 GROUPS['sources'].add('read_requirement_sources')
 GROUPS['semantics'].update({'read_door_schedule_table', 'trace_door_schedule'})
 GROUPS['components'].update({'read_door_schedule_table', 'trace_door_schedule'})
