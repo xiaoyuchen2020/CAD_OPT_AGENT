@@ -33,7 +33,7 @@ def title_match(text, subject, identifier):
     for name in sorted(variants, key=len, reverse=True):
         if identifier:
             code = normalize(identifier)
-            for variant in variants:
+            for variant in sorted(variants, key=len, reverse=True):
                 if code.startswith(variant):
                     code = code[len(variant):]
                     break

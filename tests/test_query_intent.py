@@ -316,3 +316,10 @@ def test_composite_subject_discovery_retains_explicit_exclusion(session):
     assert result['total']==1
     assert result['items'][0]['scope_state']=='unresolved'
     assert session.task.data['query_intent']['intent']['targets'][0]['conditions'][0]['operator']=='exclude'
+
+
+@pytest.mark.parametrize('identifier', ['内墙面4', '内墙饰面4'])
+def test_complete_alias_identifier_uses_longest_prefix(identifier):
+    assert title_match('内墙4','内墙',identifier)
+    assert title_match(identifier,'内墙',identifier)
+    assert not title_match('内墙40','内墙',identifier)
