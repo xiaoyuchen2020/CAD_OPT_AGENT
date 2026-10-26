@@ -146,7 +146,12 @@ def deliver(session,document,pages,choices):
     if document['binding_state']!='source_bound':gaps.append('部分无明确表头的字段关系仍是候选；原始行列与文字已保留，可逐格核对。')
     if document['diagnostics']:gaps.append('表格来源诊断：'+', '.join(document['diagnostics'])+'；读取覆盖只针对已恢复单元格。')
     draft=dict(claims=claims,missing_information=gaps)
-    SourceRecordAnswer.model_validate(draft);session._source_record_delivery_digest=digest(draft)
+    SourceRecordAnswer.model_validate(draft)
+    session._source_record_claim_sources={}
+    for index,claim in enumerate(claims):
+        mapping=literal_sources(claim,session.evidence)
+        if mapping:session._source_record_claim_sources[index]=mapping
+    session._source_record_delivery_digest=digest(draft)
     result=session.finish(json.dumps(draft,ensure_ascii=False))
     result['table_documents']=dict(version=document['version'],table_id=document['table_id'],snapshot_id=document['snapshot_id'],
         title=document['title'],nodes=[n for n in document['nodes'] if n['kind']!='cell'],items=items,
@@ -155,3 +160,28 @@ def deliver(session,document,pages,choices):
         overlay_url=f'/api/drawings/{document["snapshot_id"]}/table-documents/{document["table_id"]}/overlay.svg',
         model_requests=len(session.runtime_diagnostics['model_requests']))
     return result
+
+
+def literal_sources(claim,evidence):
+    """Prove compiler text from complete cited quotes and inserted separators.
+
+    CAD display decoding that is not exact falls back to normal validation;
+    this proof never grants arbitrary substrings or arithmetic a source permit.
+    """
+    text=claim['text'];ids=claim['evidence_ids'];spans=[];position=0
+    sources=sorted(((eid,evidence[eid]['quote']) for eid in ids if evidence[eid]['quote']),
+                   key=lambda item:-len(item[1]))
+    while position<len(text):
+        match=next(((eid,quote) for eid,quote in sources if text.startswith(quote,position)),None)
+        if match:
+            eid,quote=match;end=position+len(quote)
+            if (spans and spans[-1]['claim_span'][1]==position
+                and (text[position-1].isdigit() or text[position-1] in '.+-eE')
+                and (quote[0].isdigit() or quote[0] in '.+-eE')):
+                return None  # Adjacent cell numbers cannot become a new value.
+            spans.append(dict(claim_span=[position,end],evidence_id=eid,source_span=[0,len(quote)]))
+            position=end
+        elif text[position].isspace() or text[position] in '：； /':
+            position+=1
+        else:return None
+    return dict(text=text,ids=ids,spans=spans,separators='：； /') if spans else None

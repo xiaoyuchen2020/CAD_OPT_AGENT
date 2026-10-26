@@ -120,14 +120,19 @@ def literal_claim(session, claim, index):
     """
     mapping=getattr(session,'_source_record_claim_sources',{}).get(index)
     if not mapping or mapping['text']!=claim.text or mapping['ids']!=claim.evidence_ids or claim.evidence_basis!='source':return False
+    # Only server-owned table compilers may declare punctuation they insert
+    # between exact source pieces. Ordinary source-record spans stay strict.
+    separators = mapping.get('separators', '')
+    if any(c not in '：； /' for c in separators):return False
+    def gap(text):return all(c.isspace() or c in separators for c in text)
     end=0
     for span in mapping['spans']:
         lo,hi=span['claim_span']; a,b=span['source_span'];eid=span['evidence_id']
-        if eid not in claim.evidence_ids or lo<end or claim.text[end:lo].strip():return False
+        if eid not in claim.evidence_ids or lo<end or not gap(claim.text[end:lo]):return False
         quote=session.evidence.get(eid,{}).get('quote','')
         if not 0<=a<b<=len(quote) or quote[a:b]!=claim.text[lo:hi]:return False
         end=hi
-    return bool(mapping['spans']) and not claim.text[end:].strip()
+    return bool(mapping['spans']) and gap(claim.text[end:])
 
 
 def compile_answer(session,packet,choices):
