@@ -5,7 +5,7 @@ from statistics import median
 
 from cad_agent.contracts import stable_id
 
-TABLE_VERSION = 'table-semantics-v1.7-ruled-source'
+TABLE_VERSION = 'table-semantics-v1.8-ruled-source'
 HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目|性能|耐火|适用|部位|类型')
 UNITS = re.compile(r'(?<![A-Za-z])(?:mm[²2]?|cm[²2]?|m[²2]?|MPa|kN|kPa|kg/m[³3]|毫米|厘米|平方米|㎡|米|个|樘|扇)(?![A-Za-z])')
 

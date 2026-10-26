@@ -3,7 +3,7 @@ from collections import defaultdict
 from statistics import median
 from cad_agent.contracts import stable_id
 
-VERSION = 'ruled-source-v1'
+VERSION = 'ruled-source-v2'
 TOL = .11
 
 
@@ -89,7 +89,13 @@ def recover(index, legacy):
                 if not any(t['layout_id']==lid and a-TOL<=t['bbox'][0] and b-TOL<=t['bbox'][1]
                            and t['bbox'][2]<=c+TOL and t['bbox'][3]<=d+TOL for t in legacy):
                     continue
-                vv=[(x,max(b,lo),min(d,hi)) for x,lo,hi in vs if a-TOL<=x<=c+TOL and hi>b and lo<d]
+                # A through-line with neither endpoint on this table is not a
+                # column separator (e.g. an axis crossing the complete grid).
+                # Perimeter rails and columns continuing to a footer still work.
+                crossing=[(x,lo,hi) for x,lo,hi in vs
+                          if a+TOL<x<c-TOL and lo<b-TOL and hi>d+TOL]
+                vv=[(x,max(b,lo),min(d,hi)) for x,lo,hi in vs
+                    if a-TOL<=x<=c+TOL and hi>b and lo<d and (x,lo,hi) not in crossing]
                 xs=sorted({a,c}|{x for x,lo,hi in vv})
                 hh=[v for v in hs if b-TOL<=v[0]<=d+TOL and a-TOL<=v[1] and v[2]<=c+TOL and
                     all(any(abs(x-end)<=TOL for x in xs) for end in v[1:])]
@@ -101,6 +107,7 @@ def recover(index, legacy):
                           row_count=len(ys)-1,rows=[dict(bbox=[a,lo,c,hi],cells=[dict(bbox=[x,lo,z,hi])
                               for x,z in zip(xs,xs[1:])]) for hi,lo in zip(ys,ys[1:])],
                           ruled_source=dict(version=VERSION,instance_path=list(path),horizontal=hh,vertical=vv,
+                                            excluded_through_lines=crossing,
                                             adjustments=[v for v in adjustments if a<=v['coordinate']<=c and b<=v['endpoint']<=d]))
                 try:
                     cells,n,m,diagnostics=grid(index,seed)

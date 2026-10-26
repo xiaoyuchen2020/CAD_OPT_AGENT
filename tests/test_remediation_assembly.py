@@ -150,7 +150,12 @@ def test_frozen_q02_unruled_labels_stay_unresolved_but_have_catalog(frozen_indic
 
 def test_frozen_q20_model_performance_binding_uses_merged_cells_and_headers(frozen_indices):
     index,_=frozen(frozen_indices,'Q20-B')
-    args=SemanticTable(table_id='table_c33ceeb4050f9984b5edb3d4',row_limit=5)
+    # Derived table IDs are parser-version scoped; identify the same frozen
+    # source table by its independently specified header and design codes.
+    matches=[t for t in index.tables if any('FJLM' in c['text'] for r in t['rows'] for c in r['cells'])
+             and any(c['text']=='设计编号' for r in t['rows'] for c in r['cells'])]
+    assert len(matches)==1
+    args=SemanticTable(table_id=matches[0]['table_id'],row_limit=5)
     records=[]
     for _ in range(10):
         page=read_semantic_table(index,args)
