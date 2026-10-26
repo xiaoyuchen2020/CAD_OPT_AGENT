@@ -101,7 +101,12 @@ class TableService:
             for f in c['fragments']:
                 for e in f['evidence']:
                     region=self.index.by_id.get(e['region_id'])
-                    if not region or region.text[slice(*e['text_span'])]!=e['quote']:raise ValueError('TABLE_SOURCE_CHANGED')
+                    from cad_agent.evidence import verify_source_evidence
+                    try:
+                        verify_source_evidence(e,snapshot_id=self.snapshot,region=region,
+                                               drawing_unit=self.index.drawing['unit'])
+                    except ValueError as error:
+                        raise ValueError('TABLE_SOURCE_CHANGED') from error
         return doc | {'historical_version':doc['signature']!=self.signature}
 
     def search(self, args):

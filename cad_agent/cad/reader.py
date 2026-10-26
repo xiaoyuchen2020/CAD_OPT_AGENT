@@ -12,7 +12,7 @@ from ezdxf import bbox as cad_bbox
 from ezdxf.path import make_path
 from cad_agent.contracts import Entity, Diagnostic, stable_id
 
-PARSER_VERSION = "native-dxf-v5.3-source-vocabulary-tables"
+PARSER_VERSION = "native-dxf-v5.3-source-vocabulary-native-tables"
 MAX_ENTITIES = 80000
 ENTITY_BATCH_SIZE = 512
 

@@ -26,13 +26,10 @@ def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit)
     # A quote covering one complete native entity has its own lexical boundary.
     # Adjacent CAD cells can have been concatenated by the legacy region index;
     # never tokenize a user-selected substring as though it were a whole entity.
-    boundary_tokens=[t for t in source_tokens if t['text_span'][0]<start<t['text_span'][1]
-                     or t['text_span'][0]<end<t['text_span'][1]]
-    # Separate entities may split an established list delimiter from its digits.
-    # Preserve that source role; only ambiguous concatenated cell numbers need
-    # complete-entity retokenization (e.g. ordinal 1 adjacent to area 933).
-    contextual=any(t['kind']=='ordinal' or t.get('interpretation')=='thickness_list_marker' for t in boundary_tokens)
-    if boundary_tokens and not contextual and len(parts)==1 and list(parts[0].text_span)==[start,end]:
+    crosses_boundary=any(a<start<b or a<end<b for a,b in (t['text_span'] for t in source_tokens))
+    preserves_context = any(t['kind']=='ordinal' or t.get('interpretation')=='thickness_list_marker'
+                            for t in source_tokens if t['text_span'][0]<end and t['text_span'][1]>start)
+    if crosses_boundary and not preserves_context and len(parts)==1 and list(parts[0].text_span)==[start,end]:
         source_tokens = [dict(t,text_span=[t['text_span'][0]+start,t['text_span'][1]+start])
                          for t in readings(source.text[start:end],snapshot_id+':'+source.region_id+':'+parts[0].entity_id)]
     for token in source_tokens:

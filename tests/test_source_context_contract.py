@@ -137,6 +137,20 @@ def test_assembly_defaults_preserve_spatial_and_unknown_semantics():
     assert restored==original and items==original
 
 
+def test_table_literal_mapping_cannot_merge_numeric_cells_or_authorize_changed_text():
+    from cad_agent.tables.workflow import literal_sources
+    from cad_agent.analysis.source_record_answer import literal_claim
+    from cad_agent.analysis.tool_registry import Claim
+    evidence={k:dict(quote=v) for k,v in [('header','序号'),('one','1'),('area','面积'),('value','933')]}
+    claim=dict(text='序号：1；面积：933',state='derived',evidence_ids=list(evidence))
+    mapping=literal_sources(claim,evidence)
+    session=NS(evidence=evidence,_source_record_claim_sources={0:mapping})
+    assert mapping and literal_claim(session,Claim(**claim),0)
+    assert not literal_claim(session,Claim(**(claim|{'text':'序号：1；面积：1933'})),0)
+    assert literal_sources(claim|{'text':'1933'},evidence) is None
+    assert literal_sources(claim|{'text':'厚度933'},evidence) is None
+
+
 def test_semantics_and_unknown_fields_survive_projection():
     o=dict(observation_id='obs_table',tool='extract_planning_metrics',data=dict(
         preview_url='display',header_path=['面积','不计容'],unit_evidence_id='ev_unit',
