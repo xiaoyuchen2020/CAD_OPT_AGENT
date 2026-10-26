@@ -112,6 +112,17 @@ def test_numeric_projection_only_removes_reproducible_provenance():
     assert result['items'][1]['interpretation']=='thickness_list_marker'
 
 
+def test_business_page_dedup_keeps_referenced_observation():
+    page=dict(kind='planning_metrics',mode='extraction',fields=[],value='same source')
+    observations=[dict(observation_id='obs_old',tool='extract_planning_metrics',data=page),
+                  dict(observation_id='obs_new',tool='extract_planning_metrics',data=page),
+                  dict(observation_id='obs_calc',tool='calculate_facts',
+                       data=dict(input_observation_ids=['obs_old'],value='derived'))]
+    result=bounded_packet(dict(evidence=[],observations=observations),10000)
+    assert {o['observation_id'] for o in result['observations']}=={'obs_old','obs_new','obs_calc'}
+    assert 'context_dependency_gaps' not in result
+
+
 def test_semantics_and_unknown_fields_survive_projection():
     o=dict(observation_id='obs_table',tool='extract_planning_metrics',data=dict(
         preview_url='display',header_path=['面积','不计容'],unit_evidence_id='ev_unit',

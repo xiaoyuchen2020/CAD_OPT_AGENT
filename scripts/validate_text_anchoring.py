@@ -29,7 +29,7 @@ def save(out, name, value):
     (out/name).write_text(json.dumps(public_value(value), ensure_ascii=False, indent=2)+'\n')
 
 
-def source_audit(session):
+def source_audit(session, output=None):
     from cad_agent.analysis.general import DrawingIndex
     indexes = {}
     for evidence in session.evidence.values():
@@ -50,12 +50,31 @@ def source_audit(session):
     for o in packet['observations']:
         erefs, orefs = reference_dependencies(o)
         assert erefs <= shown and orefs <= observed
-    for group in decoded.get('source_groups', []):
-        for line in group['text'].splitlines():
-            alias, quote = line.split('] ', 1)
-            eid = codec(session).reverse[alias[1:].split()[0]]
-            assert json.loads(quote) == session.evidence[eid]['quote']
+    def verify_catalog(value):
+        verified=set()
+        for group in value.get('source_groups', []):
+            for line in group['text'].splitlines():
+                alias, quote = line.split('] ', 1)
+                eid = codec(session).reverse[alias[1:].split()[0]]
+                assert json.loads(quote) == session.evidence[eid]['quote']
+                assert eid not in verified
+                verified.add(eid)
+        return verified
+    assert verify_catalog(decoded)==shown
+    if output:
+        save(output,'model-context.json',dict(packet=packet,messages=messages,stats=codec(session).last_stats))
+    # A deliberately small bounded packet may omit an entire source record.
+    # Independently check every registered quote through the request serializer.
+    catalog_verified=set();evidence=list(session.evidence.values())
+    for offset in range(0,len(evidence),32):
+        page=evidence[offset:offset+32]
+        encoded=encode_messages(session,[dict(role='user',content=json.dumps(dict(evidence=page),ensure_ascii=False))],
+                                restore_read_context=False)
+        actual=verify_catalog(json.loads(encoded[0]['content']))
+        assert actual=={e['evidence_id'] for e in page}
+        catalog_verified.update(actual)
     return dict(anchors_verified=len(session.evidence), bounded_sources=len(shown),
+                catalog_sources_verified=len(catalog_verified),
                 bounded_observations=len(observed), omissions=packet.get('context_omissions', {}),
                 encoded_chars=sum(len(m.get('content','')) for m in messages))
 
@@ -156,7 +175,7 @@ def main():
             result=try_run(s)
         if result is None: raise ValueError('Source workflow did not produce a result')
         save(out,'result.json',result)
-        audit=source_audit(s);save(out,'source-audit.json',audit)
+        audit=source_audit(s,out);save(out,'source-audit.json',audit)
     except Exception as exc:
         error=dict(type=type(exc).__name__,code=getattr(exc,'code',None),message=str(exc))
         save(out,'error.json',error)
@@ -165,6 +184,10 @@ def main():
             ('observations',s.observations),('usage',s.usage),('events',s.journal.snapshot()),
             ('runtime-diagnostics',getattr(s,'runtime_diagnostics',{}))]: save(out,name+'.json',value)
         summary=dict(passed=result is not None and error is None,mode=args.mode,live_model=live,
+            effective_path=('source_records_'+result['source_records']['mode'] if result and result.get('source_records')
+                            else 'agent' if live else args.mode),
+            route=getattr(s,'source_record_route',{}).get('route'),
+            validation_scope='source_integrity_and_sample_checks',
             elapsed_seconds=round(time.monotonic()-started,2),error=error,source_audit=audit,
             model_requests=len(s.usage),input_tokens=sum(u.get('prompt_tokens',0) for u in s.usage),
             output_tokens=sum(u.get('completion_tokens',0) for u in s.usage),

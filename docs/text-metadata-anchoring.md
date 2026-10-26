@@ -26,7 +26,11 @@
 
 已知文字/表格工具可以省略顶层预览和高亮操作；未知字段与未支持工具保留并报告投影诊断。来源标题、表头、单位依据、条件、例外、分页、冲突和工程适用性状态保留。空间任务保留定位元数据；计算任务保留数值身份和单位来源。来源做法投影保留新增语义字段及表头证据，不再依靠字段白名单默默丢弃它们。
 
+数值投影只去掉可由当前原文精确重建的 `raw`、重复绝对跨度和引文摘要；`text_span` 是该条 JSON 解码原文中的 Unicode 字符跨度。裁切前 `source_raw`、无法直接重建的跨度、单位及歧义解释均保留。定位中的 `unit` 只描述 CAD 坐标。账本仍保存完整数值来源。
+
 `ProjectedObservation` 分离可见载荷、所需原文证据和所需工具观测。`bounded_packet()` 在预算内也检查依赖是否齐全，按完整依赖组裁剪；表格数值不能丢掉表头/单位来源单独留下，计算不能丢掉所引观测。依赖环有访问集合，缺失依赖记入 `context_dependency_gaps`；遗漏数量保留在 `context_omissions`。原本就缺失的单位继续是缺项，不推断默认值。
+
+业务表格原有的整页投影和重复页去重继续生效；被计算或其他观测显式引用的旧页 ID 必须保留，不能因内容重复而让引用失效。
 
 最终请求大小由 `final_context_budget.fit_messages()` 按编码后实际字符数检查。字符数不是服务 token；收益必须另看订阅服务实际报告的用量，并同时核查语义覆盖。
 
@@ -46,3 +50,5 @@ python scripts/validate_text_anchoring.py \
 `--reimport` 使用当前解析器重新导入复制的完整 DXF。`planning_metrics` / `building_schedule` 模式直接运行产品解析入口并与 `--reference` 的独立原图参考对照，不把它记为 Agent 端到端通过。
 
 `review` / `agent` 模式要求显式 `--account-data`，沿用现有订阅账号队列，`allow_fallback=false`、`source_read_batching=false`，不复制凭据。不因质量失败挑选重跑。来源锚点通过、流程发布、分项完成和真实语义验收分别记录；有限样本不能证明全项目工程适用性。
+
+验证报告中的 `effective_path` 与 `route` 区分指定 review 模式和真正命中的来源记录复核路径；`passed` 仅表示来源完整性与指定样本断言通过，任务完成情况另看 `task_status`。`model-context.json` 保存实际预算投影；每条已登记引文还会独立通过完整目录编码往返检查，不因预算包中没有原文而跳过检查。
