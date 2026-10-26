@@ -12,7 +12,7 @@ from ezdxf import bbox as cad_bbox
 from ezdxf.path import make_path
 from cad_agent.contracts import Entity, Diagnostic, stable_id
 
-PARSER_VERSION = "native-dxf-v5.1-reading-streams"
+PARSER_VERSION = "native-dxf-v5.2-native-tables"
 MAX_ENTITIES = 80000
 ENTITY_BATCH_SIZE = 512
 
@@ -66,7 +66,21 @@ def walk_entities(entities, diagnostics, layout, path=(), active=(), counter=Non
         counter[0] += 1
         token = str(entity.dxf.get("handle") or f"{index}:{entity.dxftype()}")
         entity_path = (*path, token)
-        if entity.dxftype() == "INSERT":
+        if entity.dxftype() == 'ACAD_TABLE':
+            yield entity,list(entity_path)
+            name=entity.dxf.get('geometry','')
+            if name in active or len(active)>=24:
+                diagnostics.append(Diagnostic(code='NATIVE_TABLE_CYCLE',message='原生表格图形块循环，未继续展开。'))
+                continue
+            extrusion=entity.xtags.get_subclass('AcDbBlockReference').get_first_value(210,(0,0,1))
+            if tuple(extrusion)!=(0,0,1):
+                diagnostics.append(Diagnostic(code='NATIVE_TABLE_OCS_UNSUPPORTED',message='原生表格非平面坐标变换未确认，保留元数据。'))
+                continue
+            try:
+                yield from walk_entities(entity.__virtual_entities__(),diagnostics,layout,entity_path,(*active,name),counter,entity_limit)
+            except (ValueError,AttributeError,TypeError):
+                diagnostics.append(Diagnostic(code='NATIVE_TABLE_EXPANSION_FAILED',message='原生表格图形块无法展开，保留元数据。'))
+        elif entity.dxftype() == "INSERT":
             if entity.mcount > 1:
                 yield from walk_entities(
                     entity.multi_insert(),
@@ -208,6 +222,7 @@ def read_drawing(path: Path, snapshot_id: str):
             )
         )
     texts, primitives, layouts, rectangles, segments = [], [], [], [], []
+    native_tables=[]
     coverage = {}
     unsupported = set()
     for layout in doc.layouts:
@@ -224,7 +239,12 @@ def read_drawing(path: Path, snapshot_id: str):
             ]
             block_name = block_names[-1] if block_names else ""
             eid = stable_id("ent", snapshot_id, layout_id, "/".join(entity_path))
-            if kind in ("TEXT", "MTEXT", "ATTRIB", "ATTDEF"):
+            if kind=='ACAD_TABLE':
+                from cad_agent.tables.native import metadata
+                native_tables.append(metadata(entity,eid,layout_id,entity_path))
+                p=entity.dxf.get('insert',(0,0,0))
+                layout_boxes.append([float(p[0]),float(p[1]),float(p[0])+1,float(p[1])+1])
+            elif kind in ("TEXT", "MTEXT", "ATTRIB", "ATTDEF"):
                 try:
                     text = decode_text(entity)
                     if not text:
@@ -316,6 +336,7 @@ def read_drawing(path: Path, snapshot_id: str):
                             "entity_path": entity_path,
                             "bbox": box,
                             "block_name": block_name,
+                            "exact_linear": kind=='LINE' or (kind in ('LWPOLYLINE','POLYLINE') and not getattr(entity,'has_arc',True)),
                         }
                     )
                     for a, b in zip(pts, pts[1:]):
@@ -380,9 +401,11 @@ def read_drawing(path: Path, snapshot_id: str):
         "lines": primitives,
         "texts": [t.model_dump() for t in texts],
         "unit": units,
+        "native_tables": native_tables,
         "parse_coverage": dict(coverage, batch_size=ENTITY_BATCH_SIZE, root_entity_budget=MAX_ENTITIES,
             traversal_complete=not any(d.code in {'ENTITY_LIMIT', 'BLOCK_CYCLE', 'XREF_UNRESOLVED',
-                'BLOCK_ENTITY_SKIPPED', 'BLOCK_EXPANSION_FAILED'} for d in diagnostics)),
+                'BLOCK_ENTITY_SKIPPED', 'BLOCK_EXPANSION_FAILED','NATIVE_TABLE_CYCLE',
+                'NATIVE_TABLE_OCS_UNSUPPORTED','NATIVE_TABLE_EXPANSION_FAILED'} for d in diagnostics)),
         "preview_note": "原 DXF 坐标矢量预览；字体替代可能影响文字宽度，定位框为实体估算范围。",
     }
     return texts, scene, rectangles, segments, diagnostics

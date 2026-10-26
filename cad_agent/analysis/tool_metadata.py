@@ -49,3 +49,8 @@ OPERATION_TOOLS['geometry'].update(SPATIAL_METHODS | {'bind_spatial_object', 'ge
 OPERATION_TOOLS['relations'].add('measure_elevation_relation')
 OPERATION_TOOLS['arithmetic'].add('measure_elevation_relation')
 
+
+for _family in ('sources', 'semantics'):
+    GROUPS[_family].update({'search_tables','inspect_table','read_table_content','recover_table_region'})
+GROUPS['vision'].update({'recover_table_region','review_table_region'})
+READS.add('read_table_content')
