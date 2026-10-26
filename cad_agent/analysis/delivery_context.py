@@ -7,15 +7,40 @@ from cad_agent.analysis.context_policy import (resolve_context_policy, project_o
     reference_dependencies, observation_closure)
 
 
-def _references(value):
+def _references(value, *, preserve_geometry=False):
     if isinstance(value, list):
-        return [_references(v) for v in value]
+        return [_references(v, preserve_geometry=preserve_geometry) for v in value]
     if not isinstance(value, dict):
         return value
     if 'evidence_id' in value:
         return {'evidence_id': value['evidence_id']}
-    return {k: _references(v) for k, v in value.items()
-            if k not in ('bbox', 'source_lines', 'row_separators', 'table_bbox', 'entity_ids')}
+    evidence = value.get('evidence', {})
+    repeated = {k for k in ('text', 'title', 'text_span') if k in value
+                and isinstance(evidence, dict)
+                and value[k] == evidence.get('text_span' if k == 'text_span' else 'quote')}
+    return {k: _references(v, preserve_geometry=preserve_geometry) for k, v in value.items()
+            if k not in repeated and (preserve_geometry or k not in
+                ('bbox', 'source_lines', 'row_separators', 'table_bbox', 'entity_ids'))}
+
+
+def _factor_source_defaults(data):
+    """Losslessly factor repeated annotations, including unknown semantic keys."""
+    items = data.get('items', [])
+    fragments = [f for item in items for f in item.get('fragments', [])]
+    for nodes, key in ((items, 'item_defaults'), (fragments, 'fragment_defaults')):
+        if key in data or len(nodes) < 2 or not all(isinstance(n, dict) for n in nodes):
+            continue
+        shared = {k: v for k, v in nodes[0].items() if k not in ('evidence', 'fragments')
+                  and all(k in n and n[k] == v for n in nodes)}
+        if shared:
+            data[key] = shared
+            for node in nodes:
+                for field in shared:
+                    node.pop(field)
+    if 'fragment_defaults' in data:
+        data['context_encoding'] = ('item_defaults适用于每个items条目；fragment_defaults适用于各条目的每个fragments条目。'
+                                    '仅合并完全相同且每项均存在的字段；原有缺项仍然缺失。')
+    return data
 
 
 def assembly_observation(observation, policy=None):
@@ -24,15 +49,16 @@ def assembly_observation(observation, policy=None):
     Never project instance applicability from the existence of a source binding.
     Page coverage, external references and source units remain independent limits.
     """
-    if observation.get('tool') != 'read_assembly' or (policy is not None and policy.full_numbers):
+    if observation.get('tool') != 'read_assembly':
         return observation
     data = observation['data']
     binding = data.get('source_binding')
     # Keep unknown/new semantic fields. Only known CAD display/geometry copies
     # are removable from this source-only view; headers retain their source refs.
+    spatial = policy is not None and policy.spatial
     projected = _references({k: v for k, v in data.items()
-                             if k not in ('items', 'preview_url', 'highlight_action')})
-    projected['items'] = [_references(item) for item in data.get('items', [])]
+                             if spatial or k not in ('preview_url', 'highlight_action')},
+                            preserve_geometry=spatial)
     if binding:
         projected['source_binding_state'] = binding['state']
         projected['source_layer_order'] = binding.get('layer_order', 'unverified')
@@ -41,7 +67,7 @@ def assembly_observation(observation, policy=None):
         projected['checks'] = {k: v for k, v in projected.get('checks', {}).items()
                                if k not in ('ownership', 'layer_order')}
     projected['delivery_scope'] = '来源构造记录；逐项提取并引用原文。来源内绑定不等于工程实例适用性；未消费的已读内容属于整理缺口。'
-    return {**observation, 'data': projected}
+    return {**observation, 'data': _factor_source_defaults(projected)}
 
 
 def _reference_ids(value):
@@ -158,6 +184,17 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         before_e, before_o = len(out['evidence']), len(out['observations'])
         out['evidence'].extend(byid[eid] for eid in byid if eid in refs and eid not in retained)
         out['observations'].extend(o for o in linked if o['observation_id'] not in selected_observations)
+        if len(dumps(out)) > limit - 500:
+            # Optional answer templates repeat the same original-source fields.
+            # Prefer the whole bound record to dropping it for these hints.
+            for index in range(before_o, len(out['observations'])):
+                candidate = out['observations'][index]
+                if candidate.get('tool') == 'read_assembly' and candidate['data'].get('delivery_fields'):
+                    candidate = deepcopy(candidate)
+                    candidate['data'].pop('delivery_fields')
+                    candidate['data'].pop('delivery_contract', None)
+                    candidate['data']['delivery_template_omitted_for_budget'] = True
+                    out['observations'][index] = candidate
         if len(dumps(out)) > limit - 500:
             del out['evidence'][before_e:]
             del out['observations'][before_o:]

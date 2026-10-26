@@ -123,6 +123,20 @@ def test_business_page_dedup_keeps_referenced_observation():
     assert 'context_dependency_gaps' not in result
 
 
+def test_assembly_defaults_preserve_spatial_and_unknown_semantics():
+    from cad_agent.analysis.delivery_context import assembly_observation
+    from cad_agent.analysis.context_policy import ContextPolicy
+    items=[dict(order=i,bbox=[0,0,10,10],future_semantic_field={'scope':'candidate'},
+                fragments=[dict(text=str(i),unit_state='unknown',future_flag=True)]) for i in (1,2)]
+    original=deepcopy(items)
+    view=assembly_observation(dict(tool='read_assembly',data=dict(items=items)),ContextPolicy(conservative=True))['data']
+    restored=[]
+    for item in view['items']:
+        restored.append({**view.get('item_defaults',{}),**item,
+                         'fragments':[{**view.get('fragment_defaults',{}),**f} for f in item['fragments']]})
+    assert restored==original and items==original
+
+
 def test_semantics_and_unknown_fields_survive_projection():
     o=dict(observation_id='obs_table',tool='extract_planning_metrics',data=dict(
         preview_url='display',header_path=['面积','不计容'],unit_evidence_id='ev_unit',
