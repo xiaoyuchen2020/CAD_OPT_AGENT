@@ -133,7 +133,9 @@ def deliver(session,document,pages,choices):
             text=item['text'];refs=[e['evidence_id'] for f in item['fragments'] for e in f['evidence']]
             header=next((f for f in item['fields'] if f['header_path'] and f['binding_state']=='source_bound'),None)
             if header:
-                text=header['label']+'：'+text
+                # Quote the cell value so a generated header such as 序号
+                # cannot reinterpret bare source digits as a prose item reference.
+                text=header['label']+'：“'+text+'”'
                 refs.extend(e['evidence_id'] for e in header['label_evidence'])
             combined=list(dict.fromkeys(ids+refs))
             if parts and (len(combined)>20 or len(prefix)+len('；'.join(parts+[text]))>1480):
