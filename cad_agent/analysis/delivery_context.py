@@ -2,6 +2,7 @@
 from copy import deepcopy
 from cad_agent.analysis.efficiency import dumps
 from cad_agent.analysis.assembly_delivery import delivery_fields
+from cad_agent.analysis.business_table_context import TOOLS as BUSINESS_TOOLS, project as business_page, unique_pages
 from cad_agent.analysis.context_policy import (resolve_context_policy, project_observation,
     reference_dependencies, observation_closure)
 
@@ -61,6 +62,8 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         view = project_observation(observation, policy)
         projection_diagnostics.extend(view.diagnostics)
         projected = assembly_observation(view.payload, policy)
+        if observation.get("tool") in BUSINESS_TOOLS and not policy.spatial:
+            projected={**projected,"data":business_page(projected["data"])}
         if observation.get('tool') == 'read_assembly' and include_templates:
             owners = [s['id'] for s in steps if observation['observation_id'] in s.get('observation_ids', []) and 'id' in s]
             fields = delivery_fields(observation['data'], sources, owners)
@@ -71,6 +74,8 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
                     'candidate_requirement_ids 仅说明读取关联，不是字段归属或完成证明；'
                     '未读分页、外部引用和工程实例适用性继续保留缺口。')
         observations.append(projected)
+    referenced_observations = set().union(*(reference_dependencies(o)[1] for o in observations)) if observations else set()
+    observations=unique_pages(observations, protected=referenced_observations)
     out['observations']=observations
     for observation in out['observations']:
         if observation.get('tool') == 'read_assembly':

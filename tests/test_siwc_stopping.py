@@ -32,6 +32,7 @@ def test_plan_expansion_does_not_capture_preplan_round_limit(workspace,demo_byte
     # Isolate dynamic round expansion from the separately tested input cap:
     # full spatial metadata plus the entire legacy tool catalog nearly fills it.
     monkeypatch.setattr('cad_agent.runtimes.responses_subscription.text_limit', lambda _: 150000)
+    monkeypatch.setattr('cad_agent.runtimes.budget_policy.text_limit', lambda _: 150000)
     s.policy.enabled=False
     s.task.auto_plan()
     initial_limit=s.round_limit;calls=[]

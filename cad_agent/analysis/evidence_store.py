@@ -72,6 +72,13 @@ def read_task_record(workspace, task, allowed_snapshots, args):
 
 def working_result(value, ref, limit=18000, *, assembly_pages=True):
     """Keep small packets intact; large results have an honest readback cursor."""
+    if value.get('kind') in ('planning_metrics','building_schedule') and value.get('mode')=='extraction':
+        from cad_agent.analysis.business_table_context import project
+        packet=project(value,include_sources=True)
+        # Canonical fields and all complete source quotes stay together. Never
+        # replace an otherwise bounded business page by a 4000-char JSON prefix.
+        if len(dumps(packet))<=45000:
+            return packet | {'evidence_record':ref}
     if len(dumps(value)) <= limit:
         return value | {"evidence_record": ref}
     keys = ("observation_id", "measurement_id", "batch_id", "status", "kind",
