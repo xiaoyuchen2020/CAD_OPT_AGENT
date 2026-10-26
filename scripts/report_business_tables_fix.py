@@ -28,6 +28,7 @@ def main():
         assert all(hashlib.sha256((p/'product'/f).read_bytes()).hexdigest()==sha for f,sha in manifest.items())
         entry['current_code_matches_frozen']=all(hashlib.sha256((ROOT/f).read_bytes()).hexdigest()==sha for f,sha in manifest.items())
         assert entry['current_code_matches_frozen']
+        if (p/'model-acceptance.json').exists():entry['model_acceptance']=load(p/'model-acceptance.json')
         if kind and (p/'live'/(kind+'-run.json')).exists():
             r=load(p/'live'/(kind+'-run.json'));t=load(p/'live'/(kind+'-task.json'))
             entry['live']={'run_id':r['id'],'status':r['status'],'task_status':t['status'],
@@ -55,7 +56,7 @@ def main():
           [r['values'][k] if r['values'][k] is not None else '原表空白' for k in
            ('ordinal','name','storeys','footprint_area','total_building_area')] for r in buildings]),
       '<p>地下室基底空白没有填零；原表没有独立使用性质、建筑高度、计容和不计容列，不从名称或地上/地下面积推断。合计总建筑面积188875.69㎡独立保留。</p>',
-      '<h2>通用修复范围</h2><ul><li>按CAD块实例来源恢复线框，合并共线相接线段，防止叠加底图混入；小缺口有文字尺度限制并保留调整记录。</li><li>用明确标签、唯一且跨行一致的后置数值列和显式单位识别无表头指标表；序号和多值歧义不猜测。</li><li>支持真实常见表头、备注中的计容否定词、F层数表达和标准百分号转义，原始引文不改写。</li><li>候选发现不计为整表已读；模型上下文保留整页字段及来源引用，不用JSON前缀替代数据页；逐行引用包含序号、名称、数值和单位。</li></ul>',
+      '<h2>通用修复范围</h2><ul><li>按CAD块实例来源恢复线框，合并共线相接线段，防止叠加底图混入；小缺口有文字尺度限制并保留调整记录。</li><li>用明确标签、唯一且跨行一致的后置数值列和显式单位识别无表头指标表；序号和多值歧义不猜测。</li><li>支持真实常见表头、备注中的计容否定词、F层数表达和标准百分号转义，原始引文不改写。</li><li>候选发现不计为整表已读；模型上下文保留整页字段及来源引用，不用JSON前缀替代数据页；逐行引用包含序号、名称、数值和单位；相同读取页去重，防止重复页挤出尚需交付的明细。</li></ul>',
       '<h2>真实订阅运行</h2>']
     for key,title,suffix in [('planning_metrics','规划指标',''),('building_schedule','一览表','-schedule')]:
         live=summary[key].get('live',{})
