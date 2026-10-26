@@ -70,3 +70,5 @@
 `--offline` 是明确的本地固定问题回放，不能作为真实模型通过证据。真实验证默认问题为地下室内墙4，可用 `--question` 改变。`--parent-run-id` / `--resume-task-id` 复验历史与恢复；同一冻结目录用 `--case-name` 保存不同案例，避免覆盖先前结果。代码变化后必须使用新输出目录。运行 completed 只说明流程交付完成，还须检查任务 partial / unknown、引用和图纸原文；候选归属不应记作工程适用性验收通过。
 
 父会话续问只接受已完成的 run；失败但已有证据的任务用 `--resume-task-id` 恢复，不把失败 run 当作 `--parent-run-id`。共享账号繁忙时可用 `--queue-timeout` 单独延长排队等待，不改变模型推理预算。保存结果可用 `scripts/audit_query_intent_validation.py` 核对模型先行、真实原文引用、目标覆盖和正文关键项；审计不会发送模型请求。
+
+本次实现的版本、真实图纸运行与回归边界见 [2026-10-26 验证记录](llm-query-intent-validation-20261026.md)。
