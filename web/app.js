@@ -1,3 +1,4 @@
+import {renderTableDocuments} from './table-documents.mjs';
 import {renderSourceRecords} from './source-records.mjs';
 import {publishedCitations} from './evidence-selection.mjs';
 import {spatialRows,spatialHighlightBounds} from './spatial-results.mjs';
@@ -580,12 +581,12 @@ function showSource(source) {
   const epoch = ++sourceDisplayEpoch;
   $("evidence-drawer").hidden = false;
   const preview = $("region-preview-link");
-  preview.href = `/api/drawings/${encodeURIComponent(S.drawing.snapshot_id)}/sources/${encodeURIComponent(source.region_id)}/preview.svg`;
+  preview.href = source.preview_url || `/api/drawings/${encodeURIComponent(S.drawing.snapshot_id)}/sources/${encodeURIComponent(source.region_id)}/preview.svg`;
 
   locate(source);
   $("evidence-quote").textContent = source.quote || source.text;
   $("evidence-precision").textContent =
-    source.precision === "entity"
+    source.precision === "table_cell" ? "表格单元格边界" : source.precision === "entity"
       ? "实体级估算"
       : source.kind === "table_row"
         ? "表格行级"
@@ -728,11 +729,12 @@ async function extractCurrent() {
   }
 }
 function sourceRecordView(result) {
-  return renderSourceRecords(result,{document,onError:toast,openSource:async citation=>{
+  const handlers={document,onError:toast,openSource:async citation=>{
     const source=await api(citation.evidence_url);
     if(source.snapshot_id!==S.drawing?.id)await selectDrawing(source.snapshot_id);
     showSource(source);
-  }});
+  }};
+  return renderTableDocuments(result,handlers)||renderSourceRecords(result,handlers);
 }
 const welcome = $("chat-messages").innerHTML;
 const runInspector = new RunInspector({

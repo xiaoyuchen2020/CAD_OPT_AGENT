@@ -152,6 +152,8 @@ def test_build_messages_does_not_auto_execute_room_or_source_workflows(session,m
 def test_model_is_called_before_source_discovery(session,monkeypatch):
     from cad_agent.analysis import source_record_workflow
     monkeypatch.setattr(source_record_workflow,'try_run',lambda *a:pytest.fail('legacy source route executed'))
+    from cad_agent.tables import workflow as table_workflow
+    monkeypatch.setattr(table_workflow,'try_run',lambda *a:pytest.fail('table route executed before model'))
     seen=[]
     def turn(messages,tools,timeout):
         seen.append(messages)

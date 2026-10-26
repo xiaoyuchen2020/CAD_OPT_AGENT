@@ -100,6 +100,7 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
     assert {t["function"]["name"] for t in tool_definitions()} == {
         "extract_planning_metrics", "extract_building_schedule",
         "read_requirement_sources", "select_source_records", "search_source_records",
+        'search_tables', 'inspect_table', 'read_table_content', 'recover_table_region', 'review_table_region',
         "read_assembly", "calculate_facts", "resolve_drawing_scope", "inspect_scope_objects", "read_project_sources",
         "plan_task", "analyze_measurements", "get_analysis_results", "check_dimension_chain", "inspect_enclosure",
         "locate_space_labels", "prepare_space_connections", "review_space_connections", "prepare_discovery_review", "review_discovered_spaces",

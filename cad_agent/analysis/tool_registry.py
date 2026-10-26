@@ -318,12 +318,22 @@ def tool_definitions(efficient=False, session=None):
 # Runtime selection is still independently checked by runtimes.registry.
 from cad_agent.analysis.tool_metadata import GROUPS, READS, CONTROL, OPERATION_TOOLS
 
+from cad_agent.tables.contracts import SearchTables, InspectTable, ReadTableContent, RecoverTableRegion, ReviewTableRegion
+TOOL_SPECS.update({
+    'search_tables': (SearchTables, '从原生图元独立发现并按表、分组、字段搜索复杂表格；保留候选与范围缺口。'),
+    'inspect_table': (InspectTable, '分页查看复杂表格层次、诊断和源图元归位情况；不等于读完内容。'),
+    'read_table_content': (ReadTableContent, '按表/分组/字段顺序读取原文、字段、表头和来源；保存read_plan_id并按next_cursor续读，coverage区分选集完整与整表完整。'),
+    'recover_table_region': (RecoverTableRegion, '对已知候选或局部范围做原生拓扑恢复，或准备视觉复核图像；视觉候选不能确认工程事实。'),
+    'review_table_region': (ReviewTableRegion, '仅对实际看过的局部图像提出单元格和文字对应关系；视觉转录保留候选。'),
+})
+
 VISUAL_TOOLS = frozenset({
-    'render_region', 'bind_visual_objects', 'prepare_room_boundaries',
+    'review_table_region', 'render_region', 'bind_visual_objects', 'prepare_room_boundaries',
     'select_room_boundaries', 'prepare_space_connections', 'review_space_connections',
     'prepare_discovery_review', 'review_discovered_spaces',
 })
 MUTATING_TOOLS = frozenset({
+    'read_table_content', 'recover_table_region', 'review_table_region',
     'trace_door_schedule',
     'inspect_spatial_boundary', 'measure_spatial_area', 'measure_spatial_relation',
     'inspect_door_sweep', 'measure_door_sweep_relation',

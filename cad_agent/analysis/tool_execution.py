@@ -48,6 +48,9 @@ def execute(self, name, raw_args, *, bounded=False):
     if name == 'search_source_records':
         from cad_agent.analysis.source_candidates import search
         return search(self, args)
+    from cad_agent.tables.tools import NAMES as TABLE_TOOLS, execute as execute_table
+    if name in TABLE_TOOLS:
+        return execute_table(self,name,args)
     if name == 'read_evidence_record':
         from cad_agent.analysis.evidence_store import read
         return read(self, args)
@@ -438,7 +441,7 @@ def invoke_tool(self, name, raw_args):
     tick = time.monotonic()
     previous_evidence = dict(self.evidence)
     previous_observations = dict(self.observations)
-    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'source_sequences', 'spatial_objects', 'spatial_results')
+    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'source_sequences', 'spatial_objects', 'spatial_results', 'table_reads')
     registry_before = {k: deepcopy(self.task.data[k]) for k in registry_fields if k in self.task.data}
     def rollback_registry():
         for key in registry_fields:
@@ -535,6 +538,7 @@ def invoke_tool(self, name, raw_args):
         revalidates_source = SPATIAL_METHODS | {
             'bind_spatial_object', 'get_spatial_object', 'resolve_drawing_scope',
             'query_property_evidence', 'trace_door_schedule', 'search_source_records',
+            'search_tables', 'inspect_table', 'read_table_content', 'recover_table_region', 'review_table_region',
         }
         if name not in CONTROL and name not in revalidates_source and cache_key in self.policy.cache:
             duplicate = True

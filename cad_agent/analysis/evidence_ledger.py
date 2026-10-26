@@ -11,6 +11,8 @@ def register_observation(self, name, result):
     data = None
     if name in ('extract_planning_metrics', 'extract_building_schedule'):
         data = {k:v for k,v in result.items() if k not in ('observation_id', 'cache_hit')}
+    if name in ('search_tables','inspect_table','read_table_content','recover_table_region','review_table_region'):
+        data = {k:v for k,v in result.items() if k!='observation_id'}
     from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
     if name in SPATIAL_METHODS | {'bind_spatial_object', 'get_spatial_object'}:
         data = {k: v for k, v in result.items() if k != 'observation_id'}

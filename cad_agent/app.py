@@ -51,6 +51,8 @@ def create_app(settings=None):
     app.state.workspace = workspace
     from cad_agent.extensions.table_recovery.api import router as recovery_router
     app.include_router(recovery_router(workspace))
+    from cad_agent.tables.api import router as table_router
+    app.include_router(table_router(workspace))
     from cad_agent.extensions.adaptation.api import router as adaptation_router
     app.include_router(adaptation_router(workspace))
     from cad_agent.analysis.review_api import router as review_router
