@@ -2,6 +2,7 @@
 from copy import deepcopy
 from cad_agent.analysis.efficiency import dumps
 from cad_agent.analysis.assembly_delivery import delivery_fields
+from cad_agent.analysis.business_table_context import TOOLS as BUSINESS_TOOLS, project as business_page, unique_pages
 
 
 def _references(value):
@@ -65,6 +66,8 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     observations = []
     for observation in out.get('observations', []):
         projected = assembly_observation(observation)
+        if observation.get('tool') in BUSINESS_TOOLS:
+            projected={**observation,'data':business_page(observation['data'])}
         if observation.get('tool') == 'read_assembly' and include_templates:
             owners = [s['id'] for s in steps if observation['observation_id'] in s.get('observation_ids', []) and 'id' in s]
             fields = delivery_fields(observation['data'], sources, owners)
@@ -75,6 +78,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
                     'candidate_requirement_ids 仅说明读取关联，不是字段归属或完成证明；'
                     '未读分页、外部引用和工程实例适用性继续保留缺口。')
         observations.append(projected)
+    observations=unique_pages(observations)
     out['observations']=observations
     for observation in out['observations']:
         if observation.get('tool') == 'read_assembly':
@@ -119,7 +123,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     # whose text was omitted cannot be used to assert any construction parameter.
     retained=set()
     for o in observations:
-        if o.get('tool')!='read_assembly':continue
+        if o.get('tool') not in BUSINESS_TOOLS | {'read_assembly'}:continue
         refs=_reference_ids(o)
         if not refs<=byid.keys():continue
         linked=[byid[eid] for eid in byid if eid in refs and eid not in retained]
@@ -134,7 +138,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         'select_room_boundaries','review_space_connections','review_discovered_spaces','read_dimensions'}
     obs=sorted(reversed(observations),key=lambda o:o['tool'] not in priority)
     for o in obs:
-        if o['tool']=='read_assembly':continue
+        if o['tool'] in BUSINESS_TOOLS | {'read_assembly'}:continue
         refs=_reference_ids(o)
         if not refs<=byid.keys():continue
         included={e['evidence_id'] for e in out['evidence']}

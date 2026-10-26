@@ -108,7 +108,10 @@ def _scope(index, table, args):
         raise ValueError('表格不完全属于所选图框。')
     return dict(snapshot_id=index.snapshot, layout_id=table['layout_id'], table_id=table['table_id'],
                 frame_id=args.frame_id or (frames[0]['frame_id'] if len(frames) == 1 else None),
-                bbox=table['bbox'], project_identity_state='unverified')
+                bbox=table['bbox'], project_identity_state='unverified',
+                table_structure=dict(version=table.get('ruled_source',{}).get('version'),
+                    instance_path=table.get('ruled_source',{}).get('instance_path'),
+                    endpoint_adjustments=table.get('ruled_source',{}).get('adjustments',[])))
 
 
 def _discover(index, args, kind):
@@ -176,7 +179,9 @@ def _keyvalue_column(index, table):
         labels=[c for c in row if field_key([c['text']],METRICS)]
         if not labels: continue
         key=field_key([labels[-1]['text']],METRICS)
-        values=[c for c in row if c not in labels and parse_value(c['text'],key)[0] is not None]
+        values=[c for c in row if c not in labels and
+                any(label_cell['column_index']<c['column_index'] for label_cell in labels) and
+                parse_value(c['text'],key)[0] is not None]
         if len(values)!=1: continue
         # Area units cannot come from drawing coordinate units or a guess.
         if key.endswith('_area') and not (parse_value(values[0]['text'],key)[2] or

@@ -39,7 +39,8 @@ def recover(index, legacy):
         text_groups[(t['layout_id'], tuple(t.get('entity_path', [])[:-1]))].append(t)
     recovered = []
     for (lid, path), lines in groups.items():
-        texts = text_groups[(lid,path)] if path else [t for t in index.scene['texts'] if t['layout_id']==lid]
+        texts = [t for (text_lid,text_path),items in text_groups.items()
+                 if text_lid==lid and text_path[:len(path)]==path for t in items]
         if len(texts) < 4:
             continue
         height = median(t['height'] for t in texts)
@@ -89,7 +90,8 @@ def recover(index, legacy):
                 if not any(t['layout_id']==lid and a-TOL<=t['bbox'][0] and b-TOL<=t['bbox'][1]
                            and t['bbox'][2]<=c+TOL and t['bbox'][3]<=d+TOL for t in legacy):
                     continue
-                vv=[(x,max(b,lo),min(d,hi)) for x,lo,hi in vs if a-TOL<=x<=c+TOL and hi>b and lo<d]
+                vv=[(x,max(b,lo),min(d,hi)) for x,lo,hi in vs if a-TOL<=x<=c+TOL and hi>b and lo<d
+                    and (lo>=b-TOL or hi<=d+TOL or abs(x-a)<=TOL or abs(x-c)<=TOL)]
                 xs=sorted({a,c}|{x for x,lo,hi in vv})
                 hh=[v for v in hs if b-TOL<=v[0]<=d+TOL and a-TOL<=v[1] and v[2]<=c+TOL and
                     all(any(abs(x-end)<=TOL for x in xs) for end in v[1:])]

@@ -146,7 +146,7 @@ def grid(index, table):
     if source:
         all_h,all_v=source['horizontal'],source['vertical']
         if source['instance_path']:
-            texts=[t for t in texts if t.get('entity_path',[])[:-1]==source['instance_path']]
+            texts=[t for t in texts if t.get('entity_path',[])[:len(source['instance_path'])]==source['instance_path']]
     height=median(t['height'] for t in texts) if texts else 1
     raw_cells=[cell for row in table['rows'] for cell in row['cells']]
     cluttered=0
