@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 VERSION = 'context-policy-v1'
 SOURCE_TOOLS = {'read_assembly', 'read_source_context', 'read_requirement_sources', 'get_evidence'}
 TABLE_TOOLS = {'read_table', 'read_table_semantics', 'read_door_schedule_table',
-               'extract_planning_metrics', 'extract_building_schedule'}
+               'extract_planning_metrics', 'extract_building_schedule',
+               'search_tables', 'inspect_table', 'read_table_content'}
 CALCULATION_TOOLS = {'calculate_facts', 'analyze_measurements', 'check_dimension_chain'}
 # A tool being exposed does not prove its results were observed. This set only
 # controls what metadata must survive when an actual result is serialized.

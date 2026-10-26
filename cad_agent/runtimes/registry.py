@@ -34,8 +34,11 @@ def run_agent(session, history=None):
     attempts = []
     try:
         with session.metrics.measure("runtime_total"):
-            from cad_agent.analysis.source_record_workflow import try_run
-            result = try_run(session, history)
+            from cad_agent.tables.workflow import try_run as try_table
+            result = try_table(session, history)
+            if result is None:
+                from cad_agent.analysis.source_record_workflow import try_run
+                result = try_run(session, history)
             if result is None:
                 result = get_runtime(name).run(session, history)
                 if getattr(session, 'source_record_fallback', None):
