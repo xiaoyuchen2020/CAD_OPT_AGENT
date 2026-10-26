@@ -97,6 +97,10 @@ def handoff(session,reason):
 def try_run(session,history=None):
     query=route(session,history)
     session.source_record_route=query
+    if query['route']=='business_tables':
+        from cad_agent.analysis.business_table_routing import handoff as business_handoff
+        business_handoff(session, query)
+        return None
     if query['route']!='source_records':
         return None
     event=session.journal.start('workflow','来源记录整理')
@@ -134,7 +138,12 @@ def try_run(session,history=None):
         session._remaining()
         result=session.finish(json.dumps(draft,ensure_ascii=False))
         session.journal.end(event)
-        result['source_records']=dict(version=packet['version'],query=query,groups=groups,excluded=excluded,
+        quality=dict(source_bound=sum(g['states']['binding_state']=='source_bound' for g in groups),
+            candidates=sum(g['states']['binding_state']!='source_bound' for g in groups),
+            unresolved_hits=len(packet['unresolved_hits']),
+            unresolved_references=sum(g['states']['reference_state']=='unresolved' for g in groups),
+            excluded=len(excluded),scope_exhaustive=False,engineering_verified=False)
+        result['source_records']=dict(quality=quality,version=packet['version'],query=query,groups=groups,excluded=excluded,
             unresolved_hits=packet['unresolved_hits'],discovery_complete=packet['discovery_complete'],
             scope=packet['scope'],source_pages=packet['source_pages'],source_count=len(packet['records']),
             preparation_seconds=packet['preparation_seconds'],workflow_seconds=round(time.monotonic()-started,3),

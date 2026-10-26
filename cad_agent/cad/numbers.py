@@ -219,9 +219,15 @@ def readings(text, source_key='', entity_ordinals=()):
     result.sort(key=lambda t:t['text_span'])
     projected = mask_ordinals(text,result).translate(_TRANSLATION)
     references = []
-    for m in re.finditer(r'第(\d+(?:[、,，]\d+)*)[项层条节]',projected):
-        for n in re.finditer(r'\d+',m[1]):
-            a,b = m.start(1)+n.start(),m.start(1)+n.end()
+    # Explicit references to source list items are not model identifiers.
+    # Keep bare 编号/型号 and decimal or alphanumeric codes on the identity path.
+    reference_pattern = (r'第(?P<item>\d+(?:[、,，]\d+)*)[项层条节]'
+                         r'|(?:原编号|原序号|序号)\s*[:：]?\s*'
+                         r'(?P<source>\d+(?:[、,，]\d+)*)(?![\d.A-Za-z_—–~～-])')
+    for m in re.finditer(reference_pattern, projected):
+        group = 'item' if m['item'] is not None else 'source'
+        for n in re.finditer(r'\d+',m[group]):
+            a,b = m.start(group)+n.start(),m.start(group)+n.end()
             references.append((a,b))
             result.append(dict(kind='ordinal_reference',status='confirmed',value=n.group(),raw=text[a:b],
                 text_span=[a,b],interpretation='explicit_reference',role=''))

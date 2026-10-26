@@ -25,7 +25,7 @@ def assembly_observation(observation):
         return observation
     data = observation['data']
     binding = data.get('source_binding')
-    keys = ('record_id', 'target_region_id', 'snapshot_id', 'heading_start', 'view', 'relation_basis', 'offset',
+    keys = ('record_id', 'target_region_id', 'snapshot_id', 'heading_start', 'anchor_entity_id', 'view', 'relation_basis', 'offset',
             'total', 'has_more', 'next_offset', 'checks', 'diagnostics',
             'title_evidence', 'reference_reads', 'source_binding', 'source_scope',
             'default_unit_clauses', 'unit_candidates')
@@ -86,6 +86,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     evidence=out.pop('evidence',[]);observations=out.pop('observations',[])
     contexts=out.pop('source_contexts',[])
     out['evidence']=[];out['observations']=[];out['source_contexts']=[]
+    previous_omissions=out.get('context_omissions', {})
     out['context_omissions']={'evidence_count':len(evidence),'observation_count':len(observations),
         'source_context_count':len(contexts),'note':'完整记录已保存。未装入本次整理包不等于不存在；不得声称穷尽来源或完整完成。'}
     # Menus/attempt histories are not source evidence. Keep the newest attempt
@@ -133,13 +134,22 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         'select_room_boundaries','review_space_connections','review_discovered_spaces','read_dimensions'}
     obs=sorted(reversed(observations),key=lambda o:o['tool'] not in priority)
     for o in obs:
-        if o['tool']!='read_assembly':add('observations',o,limit-500)
+        if o['tool']=='read_assembly':continue
+        refs=_reference_ids(o)
+        if not refs<=byid.keys():continue
+        included={e['evidence_id'] for e in out['evidence']}
+        before=len(out['evidence'])
+        out['evidence'].extend(byid[eid] for eid in byid if eid in refs and eid not in included)
+        if not add('observations',o,limit-500):del out['evidence'][before:]
     included={e['evidence_id'] for e in out['evidence']}
     for eid in order:
         if eid not in included:add('evidence',byid[eid],limit-500)
     for c in reversed(contexts):add('source_contexts',c,limit-500)
     out['context_omissions'].update(evidence_count=len(evidence)-len(out['evidence']),
         observation_count=len(observations)-len(out['observations']),source_context_count=len(contexts)-len(out['source_contexts']))
+    for key, count in previous_omissions.items():
+        if key.endswith('_count') and isinstance(count, int):
+            out['context_omissions'][key] = out['context_omissions'].get(key, 0) + count
     # The immutable question and task requirements have small schema bounds;
     # if metadata nevertheless expands, retain the actual task text and gaps.
     if len(dumps(out))>limit:

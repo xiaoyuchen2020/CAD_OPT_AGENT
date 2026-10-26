@@ -27,7 +27,10 @@ def infer_operations(text):
         'geometry': r'测距|净宽|几何距离|测量.{0,12}(宽|长|厚|距离|间距)|(?:间距|宽度|长度|厚度).{0,8}(测量|量出)|量.{0,4}出来',
         'vision': r'看.{0,3}图|局部图|图像核对',
     }
-    return sorted(k for k,v in rules.items() if re.search(v,text,re.I))
+    result={k for k,v in rules.items() if re.search(v,text,re.I)}
+    from cad_agent.analysis.business_table_routing import literal_business_read
+    if literal_business_read(text): result.discard('arithmetic')
+    return sorted(result)
 
 
 def planned_operations(text, proposed):

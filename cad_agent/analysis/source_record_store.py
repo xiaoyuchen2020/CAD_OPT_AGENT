@@ -8,7 +8,9 @@ from cad_agent.contracts import stable_id
 from cad_agent.analysis import assembly
 from cad_agent.cad.numbers import VERSION as NUMBER_VERSION
 
-VERSION = 'source-record-store-v1'
+# v1 pages can contain evidence slices that lost an ordinal or list thickness.
+# Rebuild those pages while retaining the stable source and number identities.
+VERSION = 'source-record-store-v2'
 
 
 def digest(value):
@@ -30,6 +32,40 @@ def verify_sources(value, index):
     elif isinstance(value, list):
         for child in value:
             verify_sources(child, index)
+
+
+def read_table_page(workspace, index, args):
+    """Business adapters share the canonical source validation/cache discipline.
+
+    This cache stores semantic pages, never business conclusions or read credit.
+    Every caller still registers its own observation and pagination coverage.
+    """
+    from cad_agent.semantics.tables import TABLE_VERSION, read_semantic_table
+    paths = [workspace.store.artifact(index.snapshot, n) for n in ('regions.json', 'scene.json')]
+    stamps = tuple(file_stamp(p) for p in paths)
+    if stamps != index.signature[2:]:
+        raise ValueError('SOURCE_RECORD_INDEX_CHANGED')
+    hashes = workspace_cache(workspace, '_source_record_hashes', max_entries=16).get_or_build(
+        stamps, lambda: [hashlib.sha256(p.read_bytes()).hexdigest() for p in paths])
+    signature = dict(version=VERSION, parser=TABLE_VERSION, snapshot=index.snapshot,
+                     source_hashes=hashes, arguments=args.model_dump())
+    key = stable_id('source_table_page', digest(signature))
+    hit = False
+    try:
+        saved = workspace.store.get('source_table_page', key)
+        page = saved['page']
+        if saved['signature'] != signature or saved['digest'] != digest(page):
+            raise ValueError('SOURCE_RECORD_CACHE_MISMATCH')
+        verify_sources(page, index)
+        hit = True
+    except (KeyError, ValueError, TypeError):
+        page = read_semantic_table(index, args)
+        verify_sources(page, index)
+        workspace.store.put('source_table_page', key,
+                            dict(signature=signature, digest=digest(page), page=page))
+    if tuple(file_stamp(p) for p in paths) != stamps:
+        raise ValueError('SOURCE_RECORD_INDEX_CHANGED')
+    return deepcopy(page), hit
 
 
 def read_page(session, index, args):

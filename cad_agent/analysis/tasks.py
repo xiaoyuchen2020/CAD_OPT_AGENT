@@ -48,6 +48,9 @@ def natural_parts(question):
 
 
 def draft_kind(text):
+    from cad_agent.analysis.business_table_routing import literal_business_read
+    if literal_business_read(text):
+        return 'lookup'
     if user_unit_policy(text) and not re.search('哪些|列出|面积|高亮|轮廓|计算|多少',text): return 'constraint'
     if any(x in text for x in ('比较', '对比', '关联', '综合', '判断')): return 'compare'
     if any(x in text for x in ('面积', '测量', '长度', '距离')): return 'measure'
@@ -161,6 +164,14 @@ class TaskLedger:
         self.ensure_coverage()
 
     def ensure_coverage(self):
+        from cad_agent.analysis.source_sequence import requests
+        sequences = requests(self.data.get('question', ''))
+        if sequences:
+            self.data.setdefault('source_sequences', dict(snapshot_id=self.data['snapshot_id'],
+                source_sha256=self.data['source_sha256'], records=[dict(r, items=[],
+                    task_ids=[s['id'] for s in self.data['subtasks'] if r['quote'] in s['requirement']
+                              and (not r['chapter_hint'] or r['chapter_hint'] in s['requirement'])],
+                    chapter_candidates=[], state='chapter_unresolved') for r in sequences]))
         for step in self.data['subtasks']:
             targets=coverage_targets(step['requirement'])
             step['coverage_unparsed_list']=bool(re.search(r'、|和|与|及|分别|各自|同时|比较|对比',step['requirement'])) and not targets
@@ -453,6 +464,7 @@ class TaskLedger:
     def coverage_summary(self):
         self.ensure_coverage()
         from cad_agent.analysis.recall import coverage_feedback
+        from cad_agent.analysis.source_sequence import summary as sequence_summary
         return {'requirements':[{'requirement_id':s['id'],'source_read':s.get('source_read',False),
                     'items':deepcopy(s['coverage']),'overflow':s.get('coverage_overflow',False),
                     'unparsed_list':s.get('coverage_unparsed_list',False),
@@ -460,6 +472,7 @@ class TaskLedger:
                     'gap_kind':s.get('gap_kind','not_checked')} for s in self.data['subtasks']],
                 'ready_to_stop':self.coverage_ready(),
                 'source_coverage':coverage_feedback(self.data),
+                'requested_clause_coverage':sequence_summary(self.data),
                 'note':'source_candidate仅表示同条原文出现对象和字段线索，仍须复核归属和完整性；unread_source、not_matched_in_checked_scope、attribution_unknown、missing_input分别保留，均不等于完成。'}
 
     def coverage_ready(self):
@@ -469,6 +482,8 @@ class TaskLedger:
         and explicit object/field lists must actually reach delivery first.
         """
         self.ensure_coverage()
+        if any(r['state'] != 'fully_read' for r in self.data.get('source_sequences', {}).get('records', [])):
+            return False
         for step in self.data['subtasks']:
             if step.get('coverage_overflow'):return False
             concrete_block=(step['status']=='waiting_input' or
@@ -551,6 +566,11 @@ class TaskLedger:
             unresolved=[c for c in s.get('coverage',[]) if c['state']!='addressed']
             if unresolved and s['status']=='completed':
                 s.update(status='partial',reason='对象字段尚未全部交付：'+'；'.join(c['object']+' / '+c['field'] for c in unresolved))
+            sequences=[r for r in self.data.get('source_sequences', {}).get('records', [])
+                       if s['id'] in r['task_ids'] and r['state'] != 'fully_read']
+            if sequences:
+                s.update(status='partial', gap_kind='unread_source',
+                         reason='指定章节条文尚未完整读取：'+'；'.join(r['quote'] for r in sequences))
             # An unavailable target measurement does not undo an applied unit
             # convention. Only source-owned resolved units discharge this
             # narrow constraint; arbitrary claims and unknown units cannot.

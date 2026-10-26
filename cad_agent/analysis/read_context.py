@@ -130,6 +130,7 @@ def matching_read_page(observations, args):
                 and data.get('target_region_id') == args.get('region_id')
                 and (not args.get('snapshot_id') or data.get('snapshot_id') == args['snapshot_id'])
                 and data.get('heading_start') == args.get('heading_start')
+                and data.get('anchor_entity_id') == args.get('anchor_entity_id')
                 and data.get('view') == args.get('view', 'record')
                 and data.get('offset', 0) == args.get('offset', 0)
                 and (data.get('has_more') is False or len(data.get('items', [])) >= args.get('limit', 5))):

@@ -154,6 +154,62 @@ def test_valid_response_but_unreadable_dxf_aborts(tmp_path):
         assert not list((tmp_path/'data').glob('.import-*'))
 
 
+def null_block_export(result):
+    result.update(extractor_revision='20261026.1', entities=[{
+        'handle': '1FAF', 'type': 'AcDbBlockReference', 'referenced_block': None,
+        'attributes': [], 'diagnostics': [{'code': 'NULL_BLOCK_REFERENCE'}],
+    }], entity_records_in_all_block_definitions=1,
+        dxf_export={'omitted_null_block_reference_handles': ['1FAF']})
+
+
+def test_null_block_export_is_partial_and_keeps_original_and_warning_on_cache(tmp_path, demo_bytes):
+    server = OdaServer(demo_bytes, mutate=null_block_export)
+    app = create_app(config(tmp_path))
+    attach(app, server)
+    with TestClient(app) as client:
+        response = client.post('/api/drawings', files={'file': ('drawing.dwg', DWG)})
+        assert response.status_code == 201, response.text
+        drawing = response.json()
+        assert drawing['status'] == 'partial'
+        assert drawing['index_coverage']['traversal_complete'] is False
+        assert drawing['text_count'] == 29
+        assert drawing['conversion']['extractor_revision'] == '20261026.1'
+        assert drawing['conversion']['omitted_null_block_reference_handles'] == ['1FAF']
+        warning = next(d for d in drawing['diagnostics'] if d['code'] == 'ODA_NULL_BLOCK_REFERENCE')
+        assert '1FAF' in warning['message'] and '1 个' in warning['message']
+        sid = drawing['id']
+        assert client.get(f'/api/drawings/{sid}/source').content == DWG
+        assert client.get(f'/api/drawings/{sid}/oda-json').json()['entities'][0]['handle'] == '1FAF'
+        assert client.get(f'/api/drawings/{sid}/preview').status_code == 200
+        scene = json.loads(app.state.workspace.store.artifact(sid, 'scene.json').read_text())
+        assert scene['parse_coverage']['traversal_complete'] is False
+        count = len(server.requests)
+        cached = client.post('/api/drawings', files={'file': ('drawing.dwg', DWG)}).json()
+        assert cached['diagnostics'] == drawing['diagnostics']
+        assert len(server.requests) == count
+
+
+@pytest.mark.parametrize('change', [
+    lambda r: r.update(dxf_export=[]),
+    lambda r: r['dxf_export'].update(omitted_null_block_reference_handles=['FFFF']),
+    lambda r: r['dxf_export'].update(omitted_null_block_reference_handles=['1FAF', '1FAF']),
+    lambda r: r['dxf_export'].update(omitted_null_block_reference_handles=[{}]),
+    lambda r: r['entities'][0].update(attributes=[{'text': 'must not lose this'}]),
+    lambda r: r['entities'][0].update(referenced_block='valid block'),
+])
+def test_invalid_omission_metadata_does_not_publish_drawing(tmp_path, demo_bytes, change):
+    def mutate(result):
+        null_block_export(result)
+        change(result)
+    app = create_app(config(tmp_path))
+    attach(app, OdaServer(demo_bytes, mutate=mutate))
+    with TestClient(app) as client:
+        response = client.post('/api/drawings', files={'file': ('drawing.dwg', DWG)})
+        assert response.status_code == 502
+        assert response.json()['error']['code'] == 'ODA_RESULT_MISMATCH'
+        assert client.get('/api/drawings').json()['items'] == []
+
+
 def test_total_timeout_and_result_bound(tmp_path, demo_bytes):
     settings = config(tmp_path, oda_timeout_seconds=.004)
     server = OdaServer(demo_bytes, states=('running',))

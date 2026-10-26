@@ -38,7 +38,7 @@ class DetailTrace(Record):
 
 class SemanticTable(Record):
     table_id: str
-    header_rows: list[int] | None = Field(default=None, min_length=1, max_length=4)
+    header_rows: list[int] | None = Field(default=None, max_length=4)
     row_offset: int = Field(default=0, ge=0)
     row_limit: int = Field(default=3, ge=1, le=5)
 

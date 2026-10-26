@@ -72,6 +72,11 @@ def selected_for_call(session, name):
     if not data.get('active_scope_by_task') and not data.get('unresolved_scope_by_task'):
         return None
     if any(i in data.get('unresolved_scope_by_task', {}) for i in owners(session)):
+        # A source crop can help resolve conflicting titles. Its finite bbox,
+        # layout, source identity and image limits are checked by VisionService;
+        # it does not establish an engineering scope or clear this unresolved flag.
+        if name == 'render_region':
+            return None
         raise ValueError('SCOPE_UNRESOLVED：本次要求尚无唯一合格范围；请先核对候选及冲突标题。')
     keys = {data.get('active_scope_by_task', {}).get(i) for i in owners(session)} - {None}
     if not keys:

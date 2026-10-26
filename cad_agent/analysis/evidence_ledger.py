@@ -9,6 +9,8 @@ from cad_agent.cad.regions import is_heading, clause_level
 
 def register_observation(self, name, result):
     data = None
+    if name in ('extract_planning_metrics', 'extract_building_schedule'):
+        data = {k:v for k,v in result.items() if k not in ('observation_id', 'cache_hit')}
     from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
     if name in SPATIAL_METHODS | {'bind_spatial_object', 'get_spatial_object'}:
         data = {k: v for k, v in result.items() if k != 'observation_id'}
@@ -101,7 +103,7 @@ def register_observation(self, name, result):
         data={k:v for k,v in result.items() if k not in ("highlight_action",)}
     if name in ('calculate_facts','resolve_drawing_scope','read_project_sources','read_assembly','select_source_records'):data={k:v for k,v in result.items() if k!='observation_id'}
     if data is not None:
-        snapshot_id = data.get("snapshot_id", self.request.snapshot_id) if name in ('read_door_schedule_table', 'read_assembly') else self.request.snapshot_id
+        snapshot_id = data.get("snapshot_id", self.request.snapshot_id) if name in ('read_door_schedule_table', 'read_assembly', 'extract_planning_metrics', 'extract_building_schedule') else self.request.snapshot_id
         oid = stable_id(
             "obs", snapshot_id, name, json.dumps(data, sort_keys=True)
         )

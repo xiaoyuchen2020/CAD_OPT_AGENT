@@ -141,6 +141,8 @@ python -m pytest -q tests/test_room_geometry.py
 
 新增共享工具 `query_annotations`、`locate_by_axes`、`trace_detail`、`read_table_semantics`，复用现有实体身份、空间索引、表格候选和原文证据。网页从“浏览结构”进入轴网/索引/标高列表，从表格原文进入表头、单位和合并关系视图。对象与关系保留候选或未解决状态。功能边界及冻结真实图纸验证见 [公共语义组件](docs/semantic-components.md)。
 
+经济技术指标与建（构）筑物一览表可分别通过 `extract_planning_metrics`、`extract_building_schedule` 提取，支持候选表发现、逐页字段读取、原文证据、缺失与冲突，并复用来源记录的缓存校验。接口、字段及完整性边界见 [业务表格提取](docs/business-table-extraction.md)。
+
 ## 表格恢复固定方法试点
 
 新增独立的表格恢复诊断、冻结输入、固定方法 Docker 隔离执行、独立验证和原图叠加接口。现有表格组件及 Agent 工具保持原行为，不接入 LLM 动态生成代码；输出保留候选与待复核状态。环境准备、接口和真实样本证据见 [第一阶段说明](docs/table-recovery-stage1.md)。

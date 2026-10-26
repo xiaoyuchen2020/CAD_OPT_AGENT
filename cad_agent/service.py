@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 from cad_agent.analysis.query import answer_facts
 from cad_agent.config import Settings
-from cad_agent.contracts import SourceRegion, ExtractionRequest, stable_id
+from cad_agent.contracts import SourceRegion, ExtractionRequest, Diagnostic, stable_id
 from cad_agent.cad.reader import read_drawing, PARSER_VERSION
 from cad_agent.cad.regions import build_regions
 from cad_agent.building.masonry import (
@@ -134,6 +134,15 @@ class Workspace:
                 if converted:
                     raise ConversionError("ODA_DXF_UNREADABLE", "内网转换返回的 DXF 无法解析或建立来源索引。") from None
                 raise
+            omitted = converted.metadata.get("omitted_null_block_reference_handles", []) if converted else []
+            if omitted:
+                diagnostics.append(Diagnostic(
+                    code="ODA_NULL_BLOCK_REFERENCE",
+                    message=f"原 DWG 有 {len(omitted)} 个无目标定义且无附带属性的块引用，转换 DXF 时未保留这些引用。"
+                            "其几何无法恢复，当前图纸仅部分解析；原 DWG 和 ODA JSON 保留异常对象记录。"
+                            + " 对象句柄：" + ", ".join(omitted[:12]) + (" 等。" if len(omitted) > 12 else "。"),
+                ))
+                scene["parse_coverage"]["traversal_complete"] = False
             scene["frames"] = frames
             scene["snapshot_id"] = snapshot_id
             self.store.write_json(folder / "scene.json", scene)

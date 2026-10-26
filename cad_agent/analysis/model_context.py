@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from cad_agent.analysis.efficiency import dumps
 
-VERSION = 'model-context-v1.4'
+VERSION = 'model-context-v1.5'
 GUIDANCE = ('模型上下文编码：e/r/d/o/n 后接数字分别是本任务的证据/区域/图纸/观测/数值短ID，'
     '可直接用于原工具参数和最终JSON引用字段；不要编造或改写。source_groups按图纸及已绑定来源记录分组，'
     '每行是“[证据ID 区域ID] JSON原文字符串”，JSON解码后的文字是原文；'
@@ -271,12 +271,17 @@ class ModelContextCodec:
         visit(value)
         return owners, records
 
-    def encode_messages(self, messages):
-        """One dictionary per request, not per run. Keep call IDs/reasoning opaque."""
+    def encode_messages(self, messages, *, restore_read_context=True):
+        """Encode supplied sources; only exploration may restore the full read ledger.
+
+        Bounded synthesis packets already select whole records and their quotes.
+        Restoring pages, ready-state summaries or navigation from session history
+        would undo that selection and its omission counts.
+        """
         seen = {}
         read_stats = {}
         source_messages = messages
-        if self.optimize_reads and self.profile == 'assembly_lookup':
+        if restore_read_context and self.optimize_reads and self.profile == 'assembly_lookup':
             from cad_agent.analysis.read_context import project_messages
             source_messages, read_stats = project_messages(messages, self.canonical_observations, self.canonical_evidence)
         result = [deepcopy(message) for message in source_messages]
@@ -302,7 +307,7 @@ class ModelContextCodec:
             # Do not authorize assistant-authored "evidence" as source definitions.
             encoded = self.ids(value) if message.get('role') == 'assistant' else self._packet(value, seen)
             message[key] = prefix + dumps(encoded)
-        if self.profile == 'assembly_lookup':
+        if restore_read_context and self.profile == 'assembly_lookup':
             ready = []
             for observation in self.canonical_observations.values():
                 data = observation.get('data', {})
@@ -324,11 +329,12 @@ class ModelContextCodec:
                     engineering_applicability_state=binding.get('engineering_applicability_state', 'unverified')))
             if ready:
                 result.append({'role': 'developer', 'content': '已读来源状态（数据）：' + dumps(self.ids(ready))})
-        if self.optimize_reads and self.profile == 'assembly_lookup' and self.read_frontier:
+        if restore_read_context and self.optimize_reads and self.profile == 'assembly_lookup' and self.read_frontier:
             result.append({'role': 'developer', 'content': '待处理来源标题（导航数据）：' + dumps(self.ids(self.read_frontier))})
         self.last_stats = dict(version=VERSION, profile=self.profile,
             before_chars=len(dumps(messages)), after_chars=len(dumps(result)),
-            unique_sources=len(seen), alias_count=len(self.reverse), read_working_set=read_stats)
+            unique_sources=len(seen), alias_count=len(self.reverse), read_working_set=read_stats,
+            restore_read_context=restore_read_context)
         return result
 
 
@@ -356,11 +362,11 @@ def enabled(session):
     return getattr(session.w.settings, 'model_context_codec', True)
 
 
-def encode_messages(session, messages):
+def encode_messages(session, messages, *, restore_read_context=True):
     if not enabled(session):
         return messages
     c = codec(session)
-    result = c.encode_messages(messages)
+    result = c.encode_messages(messages, restore_read_context=restore_read_context)
     diagnostics = getattr(session, 'runtime_diagnostics', None)
     if diagnostics is not None:
         # Persist for audit only; not included in task/model context.

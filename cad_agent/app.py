@@ -25,6 +25,8 @@ from cad_agent.geometry.room_batch import RoomBatchQuery, UnitConfirmation, Scop
 from cad_agent.analysis.tasks import TaskLedger, TaskUnitConfirmation, TaskBatchNavigation
 from cad_agent.semantics.service import SemanticService
 from cad_agent.semantics.contracts import AnnotationQuery, AxisLocation, DetailTrace, SemanticTable
+from cad_agent.analysis.business_table_contracts import PlanningMetricsRequest, BuildingScheduleRequest
+from cad_agent.analysis.business_tables import extract_planning_metrics, extract_building_schedule
 from cad_agent.components.contracts import ContextQuery, DimensionQuery, RelationQuery
 from cad_agent.components.service import ComponentService
 from cad_agent.geometry.contracts import GeometryRead, SpatialQuery, GeometryMeasure, RoomMeasure, RoomDiscover, RoomContoursRead, RoomAreaMeasure
@@ -567,6 +569,14 @@ def create_app(settings=None):
     @app.post("/api/drawings/{snapshot_id}/semantics/table")
     def table_semantics(snapshot_id: str, payload: SemanticTable):
         return SemanticService(workspace, snapshot_id).table(payload)
+
+    @app.post("/api/drawings/{snapshot_id}/business/planning-metrics")
+    def planning_metrics(snapshot_id: str, payload: PlanningMetricsRequest):
+        return extract_planning_metrics(workspace, snapshot_id, payload)
+
+    @app.post("/api/drawings/{snapshot_id}/business/building-schedule")
+    def building_schedule(snapshot_id: str, payload: BuildingScheduleRequest):
+        return extract_building_schedule(workspace, snapshot_id, payload)
 
     @app.post("/api/drawings/{snapshot_id}/geometry/read")
     def read_geometry(snapshot_id: str, payload: GeometryRead):

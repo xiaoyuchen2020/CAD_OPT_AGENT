@@ -28,3 +28,24 @@ test('coverage gaps outside record groups are never hidden by pagination',()=>{
  const view=renderSourceRecords({source_records:{groups:[group(0)]},claims:[{text:'来源原文'},{text:'另有命中边界未核实',state:'unknown'}]},{document,openSource:()=>{}});
  assert.equal(view.children.at(-1).textContent,'另有命中边界未核实');
 });
+test('quality remains visible when every read record is excluded',()=>{
+ const view=renderSourceRecords({source_records:{groups:[],quality:{source_bound:0,candidates:0,unresolved_hits:4,unresolved_references:0},excluded:[{title:'踢脚1',reason:'记录身份不符'}]},claims:[{text:'未据此断言整图不存在'}]},{document,openSource:()=>{}});
+ assert.ok(view.children[1].textContent.includes('未归属命中 4 处'));
+ assert.ok(view.children[1].textContent.includes('不表示整图穷尽'));
+ assert.equal(view.children.at(-1).textContent,'未据此断言整图不存在');
+});
+test('chapter and clause records are labelled separately from assemblies',()=>{
+ const g={...group(0),record_type:'source_section'};
+ const view=renderSourceRecords({source_records:{groups:[g]},claims:[{text:'门窗原文'}]},{document,openSource:()=>{}});
+ assert.ok(view.children[1].children[0].children[0].textContent.includes('章节原文'));
+});
+test('alternative source proofs expose their limits alongside delivered text',()=>{
+ for(const [basis,type,note] of [
+  ['explicit_title_and_numbered_closed_row','layer_assembly','表头未识别'],
+  ['explicit_heading_bounded_source_paragraph','source_section','原文未分层编号'],
+ ]){
+  const g={...group(0),record_type:type,binding_basis:basis};
+  const view=renderSourceRecords({source_records:{groups:[g]},claims:[{text:'来源原文'}]},{document,openSource:()=>{}});
+  assert.ok(view.children[1].children[0].children[1].textContent.includes(note));
+ }
+});

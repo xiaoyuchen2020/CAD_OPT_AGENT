@@ -1,6 +1,7 @@
 """Evidence is an exact span in an immutable region, never model coordinates."""
 
 from hashlib import sha256
+import re
 from cad_agent.contracts import Evidence, SourceRegion, stable_id
 from cad_agent.cad.reader import union_box
 from cad_agent.cad.numbers import VERSION as NUMBER_VERSION, region_readings
@@ -25,6 +26,21 @@ def bind_evidence(snapshot_id, source: SourceRegion, start: int, end: int, unit)
         a,b = token["text_span"]
         if start <= a < b <= end:
             atoms.append({**token, "source_span":[a,b], "text_span":[a-start,b-start]})
+        elif (token.get('interpretation') == 'thickness_list_marker'
+              and start == a + 1 and b <= end):
+            # A CAD cell may contain the complete quantity but not its separate
+            # leading list hyphen. Preserve the parent reading and identity;
+            # never reparse an arbitrary substring or strip a genuine minus.
+            atoms.append({**token, "source_span":[a,b], "source_raw":token['raw'],
+                          "raw":source.text[start:b], "text_span":[0,b-start]})
+        elif token['kind'] == 'ordinal':
+            # The digits and their list delimiter may be separate CAD text
+            # entities. Keep the established ordinal only if ALL digits survive.
+            digits = re.search(r'\d+', token['raw'])
+            if digits and start <= a + digits.start() < a + digits.end() <= end:
+                lo, hi = max(a, start), min(b, end)
+                atoms.append({**token, "source_span":[a,b], "source_raw":token['raw'],
+                              "raw":source.text[lo:hi], "text_span":[lo-start,hi-start]})
     return Evidence(
         evidence_id=stable_id(
             "ev", snapshot_id, source.region_id, str(start), str(end)

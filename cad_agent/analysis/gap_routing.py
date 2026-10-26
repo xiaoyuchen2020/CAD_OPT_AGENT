@@ -15,7 +15,7 @@ RULES = {
     'visual_identity': ('先核对原生来源，再看同对象局部图；视觉候选不是工程确认。', ['read_geometry', 'render_region']),
     'single_side_connection': ('补读同一开口的另一侧关系；单侧邻近不能证明双侧通行。', ['get_component_evidence', 'render_region']),
     'calculation_inputs': ('复用已有计算输入清单，补齐来源后重新计算，不重放旧操作数。', ['calculate_facts']),
-    'no_new_evidence': ('读取已命中而未读的来源；没有新的已知入口时停止换词重试。', ['read_source_context']),
+    'no_new_evidence': ('优先补读同章节的指定条文或已命中来源；再用已有分项跨条款入口。没有新入口时停止换词重试。', ['read_source_context', 'read_requirement_sources']),
 }
 REFS = ('table_id', 'cell_id', 'region_id', 'batch_id', 'object_id', 'record_id',
         'calculation_key', 'layout_id', 'bbox', 'entity_ids', 'snapshot_id')
@@ -207,7 +207,7 @@ def _proposals(session, gap):
     elif kind == 'no_new_evidence':
         from cad_agent.analysis.recall import pending_calls
         for call in pending_calls(session.task.data):
-            if call.get('tool') in ('read_source_context', 'read_assembly') and set(call['task_ids']) & set(gap['task_ids']):
+            if call.get('tool') in ('read_source_context', 'read_assembly', 'read_requirement_sources') and set(call['task_ids']) & set(gap['task_ids']):
                 yield call['tool'], call['arguments']
 
 

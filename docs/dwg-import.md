@@ -26,6 +26,8 @@
 
 可识别但存在代理对象、缺失字体、展开数量上限等诊断的 DXF，仍沿用现有 `partial` 状态；这不是转换失败，也不代表已完整识别工程内容。工作台现有 80,000 展开图元上限保持不变。
 
+ODA 提取器 `20261026.1` 支持无目标块定义、且无附带属性的空块引用：原始 DWG 保持不变，ODA JSON 保留对象句柄、位置及 `NULL_BLOCK_REFERENCE` 诊断，导出 DXF 的内存副本排除这些无法展开的引用。JSON 的 `dxf_export.omitted_null_block_reference_handles` 记录具体句柄；后端校验其对应原始实体后，在图纸诊断中显示 `ODA_NULL_BLOCK_REFERENCE`，图纸标记为 `partial`，`index_coverage.traversal_complete=false`。不会为缺失块定义推断几何。空块引用若带有属性，提取器仍停止导出，以免丢失附带文字。
+
 ## 来源与下载
 
 - `name`、`source_format`：用户上传的名称和格式，DWG 导入保持 `DWG`。

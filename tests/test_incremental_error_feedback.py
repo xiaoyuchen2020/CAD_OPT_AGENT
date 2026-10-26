@@ -67,7 +67,7 @@ def test_repeated_failure_terminates_without_model_loop(workspace, demo_bytes):
         assert json.loads(s.invoke_tool("search_sources", bad))["error"]["code"] == "INVALID_TOOL_INPUT"
     assert json.loads(s.invoke_tool("search_sources", bad))["error"]["code"] == "REPEATED_TOOL_FAILURE"
     assert s.policy.stop_reason == "repeated_tool_failure"
-    assert json.loads(s.invoke_tool("search_sources", bad))["error"]["code"] == "AGENT_TOOL_LIMIT"
+    assert json.loads(s.invoke_tool("search_sources", bad))["error"]["code"] == "AGENT_POLICY_STOP"
 
 
 def test_controls_and_observation_id_churn_are_not_progress(workspace, demo_bytes):

@@ -351,6 +351,7 @@ class ReadAssembly(Record):
     region_id: str
     snapshot_id: str = ''
     heading_start: int | None = Field(default=None, ge=0)
+    anchor_entity_id: str | None = None
     view: Literal['record','catalog'] = 'record'
     offset: int = Field(default=0,ge=0)
     limit: int = Field(default=12,ge=1,le=12)

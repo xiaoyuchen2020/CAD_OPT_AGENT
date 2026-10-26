@@ -7,7 +7,7 @@ def property_term(field):
     return re.sub(r'(?:原文|做法|情况|分别|是什么|有哪些|多少|[？?])', '', field).strip()
 
 
-BOUND_READS = {'read_assembly', 'read_table_semantics'}
+BOUND_READS = {'read_assembly', 'read_table_semantics', 'extract_planning_metrics', 'extract_building_schedule'}
 
 
 def _registered(source, registry, snapshot):
@@ -42,6 +42,21 @@ def _bound_records(tool, result, registry, observations):
     if (not sid or not data.get(key) or result.get(key) != data[key] or
             result.get('snapshot_id') != sid or observation.get('snapshot_id') != sid):return []
     if any(result.get(k) != value for k, value in data.items()):return []
+    if tool in ('extract_planning_metrics','extract_building_schedule'):
+        records=[]
+        groups=data.get('records',[]) if tool=='extract_building_schedule' else [dict(fields=data.get('fields',[]))]
+        for group in groups:
+            for field in group['fields']:
+                if field['state']!='observed':continue
+                identity_sources=([e for i in group.get('identity',[]) for e in i['evidence']] or
+                                  field['label_evidence'] or field.get('scope_evidence',[]) or field['header_evidence'])
+                identity=_registered_all(identity_sources,registry,sid)
+                values=_registered_all(field['evidence'],registry,sid)
+                headers=_registered_all(field['header_evidence']+field['label_evidence'],registry,sid)
+                if identity and values and headers:
+                    records.append(dict(identity=identity,fields=[dict(values=values,headers=headers,
+                        labels=field['header_path']+field['source_labels'])],proof=[]))
+        return records
     if tool == 'read_assembly':
         binding = data.get('source_binding') or {}
         basis = binding.get('basis')

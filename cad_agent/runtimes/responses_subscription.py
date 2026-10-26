@@ -374,10 +374,8 @@ class ResponsesSubscriptionRuntime:
                 if final_only:
                     session.policy.stop_reason = reason or ("answer_repair" if recovery == "repair_answer" else "exploration_budget")
                     final_input = session.final_context(controls, session.policy.stop_reason)
-                    text = dumps(final_input)
-                    if sum(len(m.get('content', '')) for m in encode_messages(session, [{'role': 'user', 'content': text}])) > controls.FINAL_CONTEXT_CHARS:
-                        raise fail("CONTEXT_BUDGET", "最终回答上下文超过上限；未继续调用模型。")
-                    messages = [{"role": "user", "content": text}]
+                    from cad_agent.analysis.final_context_budget import fit_messages
+                    final_messages = fit_messages(session, final_input, controls.FINAL_CONTEXT_CHARS)
                 if session.focused_enabled and not final_only and not stable:
                     messages=session.focus.messages(messages)
                 budget = for_session(session)
@@ -407,7 +405,7 @@ class ResponsesSubscriptionRuntime:
                         "strict": False} for t in definitions]}]
                 choice = "none" if final_only else "required" if not completed_tool or recovery == "retrieve_evidence" else "auto"
                 payload = {"model": session.w.settings.model, "instructions": instructions,
-                    "input": encode_messages(session, messages), "tools": tools, "tool_choice": choice,
+                    "input": final_messages if final_only else encode_messages(session, messages), "tools": tools, "tool_choice": choice,
                     "parallel_tool_calls": False, "store": False, "stream": True,
                     "reasoning": {"effort": session.w.settings.reasoning_effort}, "include": ["reasoning.encrypted_content"]}
                 if budget:

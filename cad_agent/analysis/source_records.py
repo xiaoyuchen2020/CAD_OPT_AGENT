@@ -5,10 +5,12 @@ import time
 from cad_agent.analysis.general import DrawingIndex
 from cad_agent.analysis.source_record_store import verify_sources
 from cad_agent.analysis.source_record_query import matches
-from cad_agent.cad.assembly_headings import HEADING, FAMILY
+from cad_agent.cad.assembly_headings import HEADING, FAMILY, source_titles
 from cad_agent.cad.numbers import evidence_readings
+from cad_agent.cad.source_vocabulary import identities, canonical, normalized_code, record_type
+from cad_agent.analysis.source_sections import context as section_context, narrowed_families
 
-VERSION = 'source-records-v1'
+VERSION = 'source-records-v2'
 
 
 class RecordError(ValueError):
@@ -16,7 +18,7 @@ class RecordError(ValueError):
 
 
 def families_for(region, plan):
-    found = {m[1] for m in HEADING.finditer(region.text)} or {m[0] for m in FAMILY.finditer(region.text)}
+    found = {m[0] for m in FAMILY.finditer(region.text)}
     return [p['id'] for p in plan['parts'] if found.intersection(p['families']) or ('*' in p['families'] and (found or any(f['text'] in region.text for f in p['filters'] if f['operator'] in ('含','含有','包含'))))]
 
 
@@ -24,19 +26,30 @@ def discover(index, plan):
     targets, loose = [], []
     for region in index.regions:
         owners = families_for(region, plan)
+        headings = source_titles(region.text)
+        inherited={m.start():narrowed_families(section_context(index,region,m.start()),m[0]) for m in headings}
+        owners += [p['id'] for p in plan['parts'] if any(set(fs).intersection(canonical(f) for f in p['families']) for fs in inherited.values())]
+        if not owners:
+            owners=[p['id'] for p in plan['parts'] if '*' in p['families'] and any(normalized_code(line.strip())==c for line in region.text.splitlines() for c in p['title_codes'])]
         if not owners:
             continue
-        headings = list(HEADING.finditer(region.text))
+        headings = source_titles(region.text)
         for heading in headings:
-            ids = [p['id'] for p in plan['parts'] if '*' in p['families'] or heading[1] in p['families']]
+            ids = [p['id'] for p in plan['parts'] if '*' in p['families'] or (identities(heading[0])|set(inherited.get(heading.start(),[]))).intersection(canonical(f) for f in p['families'])]
             if ids:
                 targets.append(dict(snapshot_id=index.snapshot, region_id=region.region_id,
                     heading_start=heading.start() if len(headings)>1 else None, task_ids=ids, entry='heading'))
         # Identity cells of unnumbered tables are short and have no layer markers.
         # Other lexical hits remain explicit unresolved candidates, never lost.
-        if not headings:
-            loose.append(dict(snapshot_id=index.snapshot, region_id=region.region_id,
-                heading_start=None, task_ids=owners, entry='text_match'))
+        for part in getattr(region,'parts',[]):
+            text=region.text[slice(*part.text_span)]
+            if len(text)>240:continue
+            local=region.model_copy(update={'text':text})
+            ids=families_for(local,plan)
+            ids += [p['id'] for p in plan['parts'] if '*' in p['families'] and any(normalized_code(line.strip())==c for line in text.splitlines() for c in p['title_codes'])]
+            if ids:
+                loose.append(dict(snapshot_id=index.snapshot,region_id=region.region_id,heading_start=None,
+                    anchor_entity_id=part.entity_id,task_ids=sorted(set(ids)),entry='text_match'))
     def order(t):
         r=index.by_id[t['region_id']]
         return (r.layout_id,r.frame_id or '',str(r.column_key),-r.bbox[3],r.bbox[0],t['heading_start'] or 0,r.region_id)
@@ -45,12 +58,16 @@ def discover(index, plan):
 
 def page_read(session, target, offset, limit=12):
     from cad_agent.analysis.read_context import matching_read_page
-    args = {k:target[k] for k in ('snapshot_id','region_id','heading_start')}
+    args = {k:target.get(k) for k in ('snapshot_id','region_id','heading_start','anchor_entity_id')}
     args.update(view='record',offset=offset,limit=limit)
     existing = matching_read_page(session.observations,args)
     if existing:
         return existing['data']
-    returned=json.loads(session.invoke_tool('read_assembly', args|dict(task_ids=target['task_ids'],result_view='full')))
+    session._source_record_active_page=args
+    try:
+        returned=json.loads(session.invoke_tool('read_assembly', args|dict(task_ids=target['task_ids'],result_view='full')))
+    finally:
+        session._source_record_active_page=None
     if returned.get('error'):
         raise RecordError(str(returned['error']))
     if session.trace:
@@ -59,6 +76,37 @@ def page_read(session, target, offset, limit=12):
     if not observation:
         raise RecordError('Canonical page observation is absent.')
     return observation['data']
+
+
+def fixed_read_receipt(session, name, result):
+    """Host reads consume the canonical observation, not a serialized model page.
+
+    Keep the ordinary tool wire limit. Only an active, matching fixed-source read
+    can use this receipt; all evidence, items and geometry remain in the normal
+    observation/archive and are verified by page_read/read_record.
+    """
+    active=getattr(session,'_source_record_active_page',None)
+    if name!='read_assembly' or not active or result.get('error') or result.get('view')!='record':return None
+    if any(result.get(k)!=active.get(a) for k,a in (('snapshot_id','snapshot_id'),
+            ('target_region_id','region_id'),('heading_start','heading_start'),('anchor_entity_id','anchor_entity_id'),('offset','offset'))):return None
+    keys=('version','record_id','snapshot_id','target_region_id','heading_start','anchor_entity_id',
+          'view','offset','total','has_more','next_offset','observation_id','evidence_record')
+    return {k:result[k] for k in keys if k in result}|dict(fixed_source_receipt=True)
+
+
+def fixed_page_progress(session, name, result):
+    """Traversal progress is distinct from acceptance; repeats earn no credit."""
+    active=getattr(session,'_source_record_active_page',None)
+    if name!='read_assembly' or not active or result.get('error') or not result.get('items'):
+        return False
+    if any(result.get(k)!=active.get(a) for k,a in (('snapshot_id','snapshot_id'),
+            ('target_region_id','region_id'),('heading_start','heading_start'),('anchor_entity_id','anchor_entity_id'),('offset','offset'))):return False
+    seen=getattr(session,'_source_record_traversed_pages',None)
+    if seen is None:seen=session._source_record_traversed_pages=set()
+    key=(result.get('snapshot_id'),result.get('record_id'),result.get('offset'))
+    if key in seen:return False
+    seen.add(key)
+    return True
 
 
 def read_record(session,index,target,packet):
@@ -85,6 +133,7 @@ def read_record(session,index,target,packet):
     binding=first.get('source_binding') or {}
     identity=[e['evidence_id'] for f in binding.get('fields',[]) if f['column_index'] in binding.get('identity_columns',[]) for e in f.get('evidence',[])]
     title=identity[0] if identity else first['title_evidence']['evidence_id']
+    identity_text='\n'.join(session.evidence[e]['quote'] for e in identity or [title])
     body=list(dict.fromkeys(i['evidence']['evidence_id'] for i in items))
     refs=list(first.get('reference_reads',[]))
     # Named external/internal documents are dependencies too, even without a
@@ -102,10 +151,12 @@ def read_record(session,index,target,packet):
                     snapshot_id=index.snapshot,query=quote,reference_kind='unspecified',
                     reference_evidence_id=eid,reference_quote=quote))))
     return dict(record_id=first['record_id'],snapshot_id=index.snapshot,target_region_id=target['region_id'],
-        heading_start=target.get('heading_start'),title_id=title,title_ids=identity or [title],
-        display_title='\n'.join(session.evidence[e]['quote'] for e in identity or [title]),body_ids=body,source_ids=list(dict.fromkeys([title]+body)),
+        heading_start=target.get('heading_start'),anchor_entity_id=target.get('anchor_entity_id'),title_id=title,title_ids=identity or [title],
+        display_title=identity_text,identity_text=identity_text,identity_families=binding.get('local_identity_families',[]),context_families=first.get('section_families',[]),record_type=first.get('record_type',record_type(identity_text)),
+        body_ids=body,source_ids=list(dict.fromkeys([title]+body+[e['evidence_id'] for e in binding.get('local_identity_evidence',[])]+([first['section_context']['evidence']['evidence_id']] if first.get('section_context') else []))),
         source_scope=first['source_scope'],binding=binding,task_ids=target['task_ids'],entry=target['entry'],
         page_state='complete',binding_state=binding.get('state','unresolved'),
+        binding_basis=binding.get('basis'),binding_warnings=binding.get('warnings',[]),
         reference_state='unresolved' if refs or binding.get('layer_completeness')=='requires_reference_read' else 'none',
         engineering_applicability_state='unverified',
         ready=binding.get('state')=='source_bound',pages=len(pages),
@@ -130,7 +181,7 @@ def build(session,plan):
         a,b=discover(index,plan);targets+=a;loose+=b
     visited={};covered=set()
     def add(target, reference_only=False):
-        key=(target['snapshot_id'],target['region_id'],target.get('heading_start'))
+        key=(target['snapshot_id'],target['region_id'],target.get('heading_start'),target.get('anchor_entity_id'))
         if key in visited:
             return visited[key]
         if len(packet['records'])>=session.w.settings.source_record_max_records:
@@ -145,7 +196,7 @@ def build(session,plan):
         record.update(key='a'+str(len(packet['records'])+1),reference_only=reference_only)
         visited[key]=record;packet['records'].append(record)
         for item in record['items']:
-            covered.add((record['snapshot_id'],item['region_id']))
+            covered.update((record['snapshot_id'],eid) for eid in item['evidence'].get('entity_ids',[]))
         parts=[p for p in plan['parts'] if p['id'] in record['task_ids']]
         record['selected_parts']=[p['id'] for p in parts if matches(record,session.evidence,p)] if not reference_only else target['task_ids']
         return record
@@ -155,19 +206,31 @@ def build(session,plan):
     # stays a visible unresolved hit and triggers continuation, not false coverage.
     for target in loose:
         session._remaining()
-        key=(target['snapshot_id'],target['region_id'])
+        key=(target['snapshot_id'],target.get('anchor_entity_id'))
         if key in covered:
             continue
         region=indexes[target['snapshot_id']].by_id[target['region_id']]
         from cad_agent.analysis.assembly import ruled_band,_source_spans,_row_binding
         index=indexes[target['snapshot_id']]
-        band,_=ruled_band(index,region)
+        anchor=target.get('anchor_entity_id')
+        parts=[p for p in region.parts if p.entity_id==anchor] if anchor else []
+        geometry_region=region.model_copy(update={'entity_ids':[anchor],'bbox':parts[0].bbox}) if parts else region
+        band,_=ruled_band(index,geometry_region)
         binding=_row_binding(index,region,band,_source_spans(index,region,band)) if band else None
-        if binding and binding['state']=='source_bound':
-            identity=[e for f in binding['fields'] if f['column_index'] in binding['identity_columns'] for e in f['evidence']]
-            if identity:
-                target=target|{'region_id':identity[0]['region_id'],'entry':'table_identity'}
-            add(target)
+        if binding and binding.get('identity_columns') and binding.get('headers',{}).get('state')=='source_bound':
+            # Keep the native anchor that established this row. Redirecting to
+            # a merged identity cell can select another envelope or reread an
+            # already-read unruled section. Identity is derived from fields.
+            existing=next((r for r in packet['records'] if r['snapshot_id']==target['snapshot_id']
+                and r.get('row_structure') and r['row_structure']['bbox']==band['bbox']
+                and r['source_scope']['layout_id']==region.layout_id
+                and r['source_scope']['frame_id']==region.frame_id),None)
+            if existing:
+                existing['task_ids']=sorted(set(existing['task_ids'])|set(target['task_ids']))
+                existing['selected_parts']=[p['id'] for p in plan['parts'] if p['id'] in existing['task_ids']
+                    and matches(existing,session.evidence,p)]
+                continue
+            add(target|{'entry':'table_identity'})
         else:
             # A keyword in a waterproofing note, catalog or reference list is
             # not a construction-row identity. Preserve its locator separately.
