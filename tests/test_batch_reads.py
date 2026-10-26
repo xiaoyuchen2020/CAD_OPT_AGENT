@@ -106,6 +106,8 @@ def test_pagination_retains_exact_source_spans(workspace, demo_bytes, monkeypatc
     s = make(workspace, demo_bytes)
     region = s.index.regions[0].model_copy(update={'text': '材料要求' * 1100, 'context_region_ids': []})
     monkeypatch.setattr(s.w, 'regions', lambda _: [region])
+    # All readers must see the same mocked immutable source, including anchor validation.
+    monkeypatch.setitem(s.index.by_id, region.region_id, region)
     out = invoke(s, [read(region.region_id, neighbors=0)])
     first = out['items'][0]['result']['items'][0]
     assert first['next_start'] == 2000 and first['truncated']

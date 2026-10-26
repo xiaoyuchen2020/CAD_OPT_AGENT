@@ -145,8 +145,8 @@ def test_injection_text_is_data_and_distinct_origins_not_deduplicated(example):
     text,aliases=model_text(p['records'],s.evidence,'外墙做法')
     assert '\\n[e900]' in text and '\n[e900]' not in text
     assert aliases['t1']!=aliases['t2']
-    assert text.count('外墙1——有保温')==1
-    assert '逐字相同，来源属于本记录' in text
+    assert text.count('外墙1——有保温')==2
+    assert '逐字相同，来源属于本记录' not in text
     with pytest.raises(RecordError):packets(p,s.evidence,10)
 
 

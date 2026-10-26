@@ -1,6 +1,7 @@
 """Actual frozen DXF regression. Model/network-free; no main workspace writes."""
 from pathlib import Path
 import json
+import os
 import pytest
 from cad_agent.config import Settings
 from cad_agent.service import Workspace
@@ -9,7 +10,7 @@ from cad_agent.analysis.session import CadAgentSession
 from cad_agent.analysis.source_record_workflow import try_run
 from scripts.test_source_record_workflow import seed
 
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(os.environ.get('CAD_REAL_FIXTURES', Path(__file__).resolve().parents[1]))
 OUTER='snap_0a8472b8804178ea90914866'
 TABLE='snap_387d51baa9bf10359b5cf120'
 SECTION='snap_ef95ba940715f9f93396f465'

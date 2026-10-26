@@ -2,6 +2,8 @@
 from copy import deepcopy
 from cad_agent.analysis.efficiency import dumps
 from cad_agent.analysis.assembly_delivery import delivery_fields
+from cad_agent.analysis.context_policy import (resolve_context_policy, project_observation,
+    reference_dependencies, observation_closure)
 
 
 def _references(value):
@@ -15,29 +17,21 @@ def _references(value):
             if k not in ('bbox', 'source_lines', 'row_separators', 'table_bbox', 'entity_ids')}
 
 
-def assembly_observation(observation):
+def assembly_observation(observation, policy=None):
     """A source record fits with its citations; geometry stays in the stored record.
 
     Never project instance applicability from the existence of a source binding.
     Page coverage, external references and source units remain independent limits.
     """
-    if observation.get('tool') != 'read_assembly':
+    if observation.get('tool') != 'read_assembly' or (policy is not None and policy.full_numbers):
         return observation
     data = observation['data']
     binding = data.get('source_binding')
-    keys = ('record_id', 'target_region_id', 'snapshot_id', 'heading_start', 'anchor_entity_id', 'view', 'relation_basis', 'offset',
-            'total', 'has_more', 'next_offset', 'checks', 'diagnostics',
-            'title_evidence', 'reference_reads', 'source_binding', 'source_scope',
-            'default_unit_clauses', 'unit_candidates')
-    projected = _references({k: data[k] for k in keys if k in data})
-    # The complete header evidence and role mapping suffice here; source geometry
-    # is reproducible through observation_id and must not displace the source text.
-    if binding:
-        projected['source_binding'].pop('headers', None)
-    projected['items'] = [_references({k: item[k] for k in (
-        'order', 'region_id', 'column_index', 'source_field_roles',
-        'source_binding_state', 'text_span', 'evidence', 'truncated') if k in item})
-        for item in data.get('items', [])]
+    # Keep unknown/new semantic fields. Only known CAD display/geometry copies
+    # are removable from this source-only view; headers retain their source refs.
+    projected = _references({k: v for k, v in data.items()
+                             if k not in ('items', 'preview_url', 'highlight_action')})
+    projected['items'] = [_references(item) for item in data.get('items', [])]
     if binding:
         projected['source_binding_state'] = binding['state']
         projected['source_layer_order'] = binding.get('layer_order', 'unverified')
@@ -50,21 +44,23 @@ def assembly_observation(observation):
 
 
 def _reference_ids(value):
-    if isinstance(value, dict):
-        if 'evidence_id' in value:
-            return {value['evidence_id']}
-        return set().union(*(_reference_ids(v) for v in value.values())) if value else set()
-    if isinstance(value, list):
-        return set().union(*(_reference_ids(v) for v in value)) if value else set()
-    return set()
+    return reference_dependencies(value)[0]
 
 
 def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     out=deepcopy(packet)
     sources = {e['evidence_id']: e for e in out.get('evidence', [])}
+    from cad_agent.analysis.typed_requirements import requirement_type
+    policy = resolve_context_policy(
+        [requirement_type(c, step) for step in steps for c in step.get('coverage', [])],
+        [op for step in steps for op in step.get('operations', [])],
+        [o.get('tool') for o in out.get('observations', [])])
     observations = []
+    projection_diagnostics = []
     for observation in out.get('observations', []):
-        projected = assembly_observation(observation)
+        view = project_observation(observation, policy)
+        projection_diagnostics.extend(view.diagnostics)
+        projected = assembly_observation(view.payload, policy)
         if observation.get('tool') == 'read_assembly' and include_templates:
             owners = [s['id'] for s in steps if observation['observation_id'] in s.get('observation_ids', []) and 'id' in s]
             fields = delivery_fields(observation['data'], sources, owners)
@@ -80,9 +76,35 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         if observation.get('tool') == 'read_assembly':
             observation['question_part_ids'] = [s['id'] for s in steps
                 if observation['observation_id'] in s.get('observation_ids', []) and 'id' in s]
-    # Deduplicate repeated geometry/quotes before deciding a whole record cannot fit.
-    # This projection also applies below the cap, avoiding contradictory old fields.
-    if len(dumps(out))<=limit:return out
+    # Validate dependency closure even below the budget. An archived ID without
+    # its source definition cannot support a visible field or calculation.
+    by_observation = {o['observation_id']: o for o in observations}
+    missing_dependencies = []
+    valid = []
+    for observation in observations:
+        linked, refs, missing = observation_closure(observation, by_observation)
+        absent = (refs - sources.keys()) | missing
+        if absent:
+            missing_dependencies.append(dict(observation_id=observation['observation_id'],
+                                             missing_ids=sorted(absent)))
+        else:
+            valid.append(observation)
+    out['observations'] = valid
+    if missing_dependencies:
+        out['context_dependency_gaps'] = missing_dependencies
+        invalid_ids = {item['observation_id'] for item in missing_dependencies}
+        invalid_refs = set().union(*(_reference_ids(o) for o in observations if o['observation_id'] in invalid_ids))
+        valid_refs = set().union(*(_reference_ids(o) for o in valid)) if valid else set()
+        # Keep a source if a surviving complete record also needs it.
+        removed_refs = invalid_refs - valid_refs
+        out['evidence'] = [e for e in out.get('evidence', []) if e['evidence_id'] not in removed_refs]
+        omissions = out.setdefault('context_omissions', {})
+        omissions['observation_count'] = omissions.get('observation_count', 0) + len(missing_dependencies)
+        omissions['evidence_count'] = omissions.get('evidence_count', 0) + len(removed_refs & sources.keys())
+    if projection_diagnostics:
+        out['context_projection_diagnostics'] = sorted(set(projection_diagnostics))
+    if len(dumps(out)) <= limit:
+        return out
     evidence=out.pop('evidence',[]);observations=out.pop('observations',[])
     contexts=out.pop('source_contexts',[])
     out['evidence']=[];out['observations']=[];out['source_contexts']=[]
@@ -115,35 +137,32 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
         out[key].append(item)
         if len(dumps(out))>budget:out[key].pop();return False
         return True
-    # Keep source binding and its whole citations atomic. A reference-only record
-    # whose text was omitted cannot be used to assert any construction parameter.
-    retained=set()
-    for o in observations:
-        if o.get('tool')!='read_assembly':continue
-        refs=_reference_ids(o)
-        if not refs<=byid.keys():continue
-        linked=[byid[eid] for eid in byid if eid in refs and eid not in retained]
-        before=len(out['evidence'])
-        out['evidence'].extend(linked)
-        if add('observations',o,limit-1000):retained.update(refs)
-        else:del out['evidence'][before:]
+    # A field/record and all header/unit/calculation dependencies are a single
+    # budget unit. Never leave their numeric sources as unlabelled leftovers.
+    owned = set().union(*(_reference_ids(o) for o in observations)) if observations else set()
+    retained = set()
+    selected_observations = set()
+    priority = {'read_assembly', 'calculate_facts', 'read_dimensions',
+                'extract_planning_metrics', 'extract_building_schedule'}
+    for observation in sorted(observations, key=lambda o: o['tool'] not in priority):
+        if observation['observation_id'] in selected_observations:
+            continue
+        linked, refs, missing = observation_closure(observation, by_observation)
+        if missing or not refs <= byid.keys():
+            continue
+        before_e, before_o = len(out['evidence']), len(out['observations'])
+        out['evidence'].extend(byid[eid] for eid in byid if eid in refs and eid not in retained)
+        out['observations'].extend(o for o in linked if o['observation_id'] not in selected_observations)
+        if len(dumps(out)) > limit - 500:
+            del out['evidence'][before_e:]
+            del out['observations'][before_o:]
+        else:
+            retained.update(refs)
+            selected_observations.update(o['observation_id'] for o in linked)
     for eid in order:
-        if eid not in retained and add('evidence',byid[eid],limit*.72 if observations else limit-1000):
-            retained.add(eid)
-    priority={'calculate_facts','analyze_measurements','measure_geometry','measure_room_area',
-        'select_room_boundaries','review_space_connections','review_discovered_spaces','read_dimensions'}
-    obs=sorted(reversed(observations),key=lambda o:o['tool'] not in priority)
-    for o in obs:
-        if o['tool']=='read_assembly':continue
-        refs=_reference_ids(o)
-        if not refs<=byid.keys():continue
-        included={e['evidence_id'] for e in out['evidence']}
-        before=len(out['evidence'])
-        out['evidence'].extend(byid[eid] for eid in byid if eid in refs and eid not in included)
-        if not add('observations',o,limit-500):del out['evidence'][before:]
-    included={e['evidence_id'] for e in out['evidence']}
-    for eid in order:
-        if eid not in included:add('evidence',byid[eid],limit-500)
+        if eid not in retained and eid not in owned:
+            if add('evidence', byid[eid], limit - 500):
+                retained.add(eid)
     for c in reversed(contexts):add('source_contexts',c,limit-500)
     out['context_omissions'].update(evidence_count=len(evidence)-len(out['evidence']),
         observation_count=len(observations)-len(out['observations']),source_context_count=len(contexts)-len(out['source_contexts']))
@@ -153,7 +172,7 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     # The immutable question and task requirements have small schema bounds;
     # if metadata nevertheless expands, retain the actual task text and gaps.
     if len(dumps(out))>limit:
-        out={k:v for k,v in out.items() if k in ('question','task','evidence','observations','context_omissions','instruction','validation_issue','answer_contract','field_issues','validated_claims','validated_user_inputs','user_conditions','repair_targets')}
+        out={k:v for k,v in out.items() if k in ('question','task','evidence','observations','context_omissions','context_dependency_gaps','context_projection_diagnostics','instruction','validation_issue','answer_contract','field_issues','validated_claims','validated_user_inputs','user_conditions','repair_targets')}
     if len(dumps(out))>limit:
         out['task']={'subtasks':[{k:s[k] for k in ('id','requirement','status','reason') if k in s} for s in steps]}
     # Previously validated clauses remain cached in the session even when the

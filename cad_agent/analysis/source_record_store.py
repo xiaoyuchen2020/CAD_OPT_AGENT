@@ -7,6 +7,7 @@ from cad_agent.cache import workspace_cache, file_stamp
 from cad_agent.contracts import stable_id
 from cad_agent.analysis import assembly
 from cad_agent.cad.numbers import VERSION as NUMBER_VERSION
+from cad_agent.evidence import verify_source_evidence
 
 # v1 pages can contain evidence slices that lost an ordinal or list thickness.
 # Rebuild those pages while retaining the stable source and number identities.
@@ -21,12 +22,8 @@ def verify_sources(value, index):
     if isinstance(value, dict):
         if {'evidence_id', 'snapshot_id', 'region_id', 'text_span', 'quote'} <= value.keys():
             region = index.by_id.get(value['region_id'])
-            span = value['text_span']
-            if (not region or value['snapshot_id'] != index.snapshot or len(span) != 2
-                    or not all(type(x) is int for x in span) or not 0 <= span[0] < span[1] <= len(region.text)
-                    or region.text[span[0]:span[1]] != value['quote']
-                    or index.evidence(region, *span)['evidence_id'] != value['evidence_id']):
-                raise ValueError('SOURCE_RECORD_SPAN_MISMATCH')
+            verify_source_evidence(value, snapshot_id=index.snapshot, region=region,
+                                   drawing_unit=index.drawing['unit'])
         for child in value.values():
             verify_sources(child, index)
     elif isinstance(value, list):

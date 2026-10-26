@@ -73,3 +73,29 @@ def validate_proposal(proposal, regions):
         raise ValueError("Quote absent or ambiguous")
     start = r.text.index(quote)
     return r, start, start + len(quote)
+
+
+def verify_source_evidence(evidence, *, snapshot_id, region, drawing_unit):
+    """Verify a snapshot-local anchor; offsets are Unicode code points [start,end).
+
+    Never normalize source text, relocate an anchor, infer a quantity's unit, or
+    trust supplied geometry. Old numeric catalogs are rebuilt from the source.
+    The drawing unit describes CAD coordinates, not every number in the quote.
+    """
+    value = evidence.model_dump() if isinstance(evidence, Evidence) else dict(evidence)
+    span = value.get('text_span')
+    if (region is None or value.get('snapshot_id') != snapshot_id
+            or value.get('region_id') != region.region_id
+            or not isinstance(span, (list, tuple)) or len(span) != 2
+            or not all(type(n) is int for n in span)
+            or not 0 <= span[0] < span[1] <= len(region.text)
+            or region.text[span[0]:span[1]] != value.get('quote')):
+        raise ValueError('SOURCE_RECORD_SPAN_MISMATCH')
+    expected = bind_evidence(snapshot_id, region, *span, drawing_unit).model_dump()
+    if value.get('evidence_id') != expected['evidence_id']:
+        raise ValueError('SOURCE_RECORD_SPAN_MISMATCH: evidence identity')
+    for key in ('layout_id', 'frame_id', 'entity_ids', 'bbox', 'component_boxes',
+                'highlight_regions', 'source_parts', 'coordinate_space', 'unit'):
+        if key in value and value[key] != expected.get(key, []):
+            raise ValueError('SOURCE_RECORD_LOCATION_MISMATCH: ' + key)
+    return expected

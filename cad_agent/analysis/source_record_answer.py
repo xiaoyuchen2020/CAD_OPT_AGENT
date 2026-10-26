@@ -36,7 +36,8 @@ def decisions(records,content,aliases,evidence,accepted=None):
     if not isinstance(raw,dict) or set(raw)!={'decisions'} or not isinstance(raw['decisions'],list):
         return accepted,[dict(path='decisions',message='只允许 decisions 数组。')]
     lookup={r['key']:r for r in records}; seen=set()
-    reverse={v:k for k,v in aliases.items()}
+    from cad_agent.analysis.source_context import ReferenceAliases
+    reverse=ReferenceAliases(aliases).reverse
     for i,item in enumerate(raw['decisions']):
         path=f'decisions.{i}'
         if not isinstance(item,dict) or not {'record','action'}<=item.keys() or set(item)-{'record','action','notes'}:

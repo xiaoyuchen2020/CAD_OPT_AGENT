@@ -157,7 +157,8 @@ class CadAgentSession:
                 raise ValueError('候选对象的来源、算法版本或单位策略已改变，请建立新任务重新读取；旧证据仍可查看。')
         self.room_batches = dict(self.task.data['batches'])
         if request.resume_task_id:
-            self.evidence.update(self.task.data['evidence'])
+            for evidence in self.task.data['evidence'].values():
+                self._register(evidence)
             self.observations.update(self.task.data['observations'])
             for batch in self.room_batches.values():
                 result=self._register_tree(RoomBatchService.summary(batch))
@@ -287,6 +288,24 @@ class CadAgentSession:
         # Do not put an unseen tail of a long quote into the model's reference set.
         if len(evidence["quote"]) > 6000:
             raise ValueError("证据过长，请用 read_source_context 分段读取原文。")
+        from cad_agent.evidence import verify_source_evidence
+        from cad_agent.analysis.source_context import check_source_identity
+        from cad_agent.cache import file_stamp
+        sid = evidence['snapshot_id']
+        indexes = getattr(self, '_evidence_indexes', None)
+        if indexes is None:
+            indexes = self._evidence_indexes = {}
+        if sid not in indexes:
+            indexes[sid] = self.index if sid == self.request.snapshot_id else DrawingIndex(self.w, sid)
+        index = indexes[sid]
+        paths = [self.w.store.artifact(sid, n) for n in ('regions.json', 'scene.json')]
+        if tuple(file_stamp(p) for p in paths) != index.signature[2:]:
+            raise ValueError('SOURCE_RECORD_INDEX_CHANGED')
+        previous = self.evidence.get(evidence['evidence_id'])
+        if previous is not None:
+            check_source_identity(previous, evidence)
+        evidence = verify_source_evidence(evidence, snapshot_id=sid,
+            region=index.by_id.get(evidence.get('region_id')), drawing_unit=index.drawing['unit'])
         self.evidence[evidence["evidence_id"]] = evidence
         return compact_evidence(evidence)
 
