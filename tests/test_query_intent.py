@@ -295,3 +295,22 @@ def test_content_exclusion_requires_full_record_and_rejects_conflict(session):
         read_pages={'0':dict(observation_id='o',returned=1,total=1,has_more=False,next_offset=None)})}
     session.observations={'o':dict(data=dict(items=[dict(evidence=dict(quote='25厚保温砂浆'))]))}
     assert any('QUERY_EXCLUSION_CONFLICT' in e for e in delivery_issues(session,parsed))
+
+
+@pytest.mark.parametrize('subject,identifier', [('内墙4','4'),('内墙4','内墙4'),('内墙','内墙4'),('内墙','4')])
+def test_model_can_bind_complete_subject_and_separate_number(subject,identifier):
+    assert title_match('内墙4',subject,identifier)
+    assert not title_match('内墙40',subject,identifier)
+    assert not title_match('内墙14',subject,identifier)
+    assert not title_match('内墙4A',subject,identifier)
+
+
+def test_composite_subject_discovery_retains_explicit_exclusion(session):
+    session.request=session.request.model_copy(update={'question':'帮我找下内墙4做法，不要地下室的。'})
+    value=intent();target=value['targets'][0]
+    target['subject']['value']='内墙4'
+    target['conditions'][0].update(operator='exclude',question_quote='不要地下室的')
+    result=call(session,'search_source_records',dict(target_id='wall4',query_intent=value))
+    assert result['total']==1
+    assert result['items'][0]['scope_state']=='unresolved'
+    assert session.task.data['query_intent']['intent']['targets'][0]['conditions'][0]['operator']=='exclude'

@@ -39,7 +39,12 @@ def title_match(text, subject, identifier):
                     break
             # A title may have a scope prefix; a following digit/letter belongs
             # to the code and must not turn 内墙40 into 内墙4.
-            hit = re.search(re.escape(name + code) + r'(?![0-9a-z])', text)
+            # Models may bind subject='内墙4', identifier='4', or bind the
+            # class and complete identifier separately. Do not append the same
+            # identifier twice; retain token boundaries (14 is not 4).
+            suffix = re.search(r'[a-z0-9]+$', name)
+            needle = name if code and suffix and suffix.group() == code else name + code
+            hit = re.search(re.escape(needle) + r'(?![0-9a-z])', text)
             if hit and len(text[:hit.start()]) <= 24:
                 return True
         elif re.match(r'.{0,20}?' + re.escape(name) + r'(?:[a-z]?\d+[a-z]?|$|[（(])', text):
