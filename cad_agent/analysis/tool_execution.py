@@ -42,6 +42,10 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
     args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    from cad_agent.extensions.programs.contracts import TOOLS as PROGRAM_TOOLS
+    if name in PROGRAM_TOOLS:
+        from cad_agent.analysis.task_programs import HANDLERS
+        return HANDLERS[name](self, args)
     if name in ("develop_method", "run_task_method"):
         from cad_agent.analysis.task_methods import develop, read
         return (develop if name == "develop_method" else read)(self, args)
@@ -544,6 +548,8 @@ def invoke_tool(self, name, raw_args):
             'query_property_evidence', 'trace_door_schedule', 'search_source_records',
             'search_tables', 'inspect_table', 'read_table_content', 'recover_table_region', 'review_table_region',
         }
+        from cad_agent.extensions.programs.contracts import TOOLS as PROGRAM_TOOLS
+        revalidates_source.update(PROGRAM_TOOLS)
         if name not in CONTROL and name not in revalidates_source and cache_key in self.policy.cache:
             duplicate = True
             full_result = self.policy.cache[cache_key]

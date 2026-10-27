@@ -153,6 +153,13 @@ def create_app(settings=None):
             "default": "native",
             "model": settings.model,
             "code_execution_enabled": False,
+            "task_code_capabilities": {
+                "authorization": "explicit_question_or_request_switch",
+                "runtime": "responses_subscription", "model": "gpt-6.1-sol",
+                "editable_tools": ["read_assembly.source_spans"],
+                "programs": "versioned_multi_module_contracts",
+                "global_tool_mutation": False,
+            },
             "automatic_fallback_default": False,
         }
 

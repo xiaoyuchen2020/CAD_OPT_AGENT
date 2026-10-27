@@ -200,7 +200,8 @@ class CadAgentSession:
         from cad_agent.analysis.model_context import GUIDANCE, enabled
         from cad_agent.analysis.query_intent import enabled as intent_enabled, PROMPT as INTENT_PROMPT
         from cad_agent.analysis.task_methods import PROMPT as METHOD_PROMPT, enabled as methods_enabled
-        return (METHOD_PROMPT if methods_enabled(self) else '') + self._base_system_prompt + ('\n' + GUIDANCE if enabled(self) else '') + (INTENT_PROMPT if intent_enabled(self) else '')
+        from cad_agent.analysis.task_programs import PROMPT as PROGRAM_PROMPT
+        return (METHOD_PROMPT + PROGRAM_PROMPT if methods_enabled(self) else '') + self._base_system_prompt + ('\n' + GUIDANCE if enabled(self) else '') + (INTENT_PROMPT if intent_enabled(self) else '')
 
     @property
     def _base_system_prompt(self):

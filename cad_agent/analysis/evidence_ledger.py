@@ -9,7 +9,8 @@ from cad_agent.cad.regions import is_heading, clause_level
 
 def register_observation(self, name, result):
     data = None
-    if name in ("develop_method", "run_task_method"):
+    from cad_agent.extensions.programs.contracts import RESULT_TOOLS
+    if name in {"develop_method", "run_task_method"} | RESULT_TOOLS:
         data = {k:v for k,v in result.items() if k != "observation_id"}
     if name in ('extract_planning_metrics', 'extract_building_schedule'):
         data = {k:v for k,v in result.items() if k not in ('observation_id', 'cache_hit')}
@@ -123,6 +124,8 @@ def register_observation(self, name, result):
         scope = capture_scope(self, name, result)
         if scope:
             observation["task_method_scope"] = scope
+        if name == 'read_assembly' and self.trace:
+            observation['tool_arguments'] = dict(self.trace[-1].get('arguments', {}))
         self.observations[oid] = observation
         from cad_agent.analysis.query_intent import enabled as intent_enabled
         if intent_enabled(self) and name == 'read_assembly':

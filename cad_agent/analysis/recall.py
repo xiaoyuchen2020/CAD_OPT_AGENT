@@ -116,7 +116,8 @@ def record(session, tool, args, result):
         current = {}
     source_reads = {'read_source_context', 'read_assembly', 'read_table_semantics', 'read_project_sources', 'get_evidence', 'read_requirement_sources'}
     if result.get('admitted') and result.get('evidence'):
-        source_reads.update({'develop_method','run_task_method'})
+        from cad_agent.extensions.programs.contracts import RESULT_TOOLS
+        source_reads.update({'develop_method','run_task_method'} | RESULT_TOOLS)
     if tool not in ({'search_sources', 'query_entities'} | source_reads) and not current:
         return {}
     if not current and not result.get('query_id') and tool not in source_reads:

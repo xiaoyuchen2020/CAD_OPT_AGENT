@@ -364,11 +364,13 @@ def read_assembly(s,args):
     if sid not in s.allowed_snapshots:
         raise ValueError('来源图纸不在本轮授权清单。')
     index = s.index if sid == s.request.snapshot_id else DrawingIndex(s.w, sid)
-    if s.w.settings.source_record_workflow:
-        from cad_agent.analysis.source_record_store import read_page
-        result = read_page(s, index, args)
-    else:
-        result = read(index,args)
+    def native_read():
+        if s.w.settings.source_record_workflow:
+            from cad_agent.analysis.source_record_store import read_page
+            return read_page(s, index, args)
+        return read(index,args)
+    from cad_agent.analysis.task_programs import routed_read
+    result = routed_read(s, index, args, native_read)
     from cad_agent.analysis.default_units import candidates
     result['default_unit_clauses'] = [
         dict(evidence=index.evidence(r), applicability='requires_explicit_unit_evidence_binding')

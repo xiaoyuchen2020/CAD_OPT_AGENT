@@ -4,6 +4,7 @@ from statistics import median
 from copy import deepcopy
 from functools import wraps
 from bisect import bisect_left, bisect_right
+from cad_agent.extensions.programs import kernels
 
 from cad_agent.contracts import stable_id
 from cad_agent.analysis.text_units import read_unit_candidates
@@ -67,7 +68,7 @@ def _cached(kind, key):
             if not hasattr(index,'w') or not hasattr(index,'signature'):return fn(index,*args)
             from cad_agent.cache import workspace_cache
             cache=workspace_cache(index.w,'_assembly_'+kind,max_entries=2048,max_bytes=64*1024*1024)
-            value=cache.get_or_build((VERSION,index.signature,key(*args)),lambda:fn(index,*args),
+            value=cache.get_or_build((VERSION,kernels.version(),index.signature,key(*args)),lambda:fn(index,*args),
                 lambda v:len(repr(v))*2)
             return deepcopy(value) if kind!='spans' else value
         return call
@@ -172,37 +173,8 @@ def _ruled_band(index, target, layer=None, collect=False):
 
 @_cached('spans', lambda target,band:(target.layout_id,target.frame_id,tuple(band['bbox']),tuple(band['column_edges'])))
 def _source_spans(index, target, band):
-    a,b,c,d = band['bbox']
-    selected = {t['entity_id']: t for t in index.scene['texts'] if t['layout_id'] == target.layout_id
-                and a <= t['origin'][0] < c and b <= t['origin'][1] < d and abs(t.get('rotation',0)) < .1}
-    result = []
-    regions = ({r.region_id:r for eid in selected for r,_ in index.entity_sources.get(eid,[])}.values()
-               if hasattr(index,'entity_sources') else index.scope(target.layout_id,target.frame_id))
-    for region in regions:
-        if region.layout_id!=target.layout_id or (target.frame_id and region.frame_id!=target.frame_id):continue
-        parts = [p for p in region.parts if p.entity_id in selected]
-        if not parts:
-            continue
-        # Group adjacent parts only; a region may cross columns or table rows.
-        spans = []
-        for p in sorted(parts,key=lambda p:p.text_span):
-            col = max(i for i,edge in enumerate(band['column_edges'][:-1]) if edge <= selected[p.entity_id]['origin'][0])
-            start,end = p.text_span
-            if spans and col == spans[-1][2] and (start <= spans[-1][1] or not region.text[spans[-1][1]:start].strip()):
-                spans[-1][1] = max(end,spans[-1][1])
-            else:
-                spans.append([start,end,col])
-        for start,end,col in spans:
-            result.append((region,start,end,col,'ruled_row_candidate'))
-    reading_height=median(t['height'] for t in selected.values()) if selected else 1
-    def order(value):
-        r,start,end,col,_ = value
-        source_texts = [selected[p.entity_id] for p in r.parts if p.entity_id in selected
-                        and p.text_span[0] < end and p.text_span[1] > start]
-        # Baseline quantization only affects reading order, never membership.
-        return (col,-round(max(t['origin'][1] for t in source_texts)/max(reading_height*.3,.01)),
-                min(t['origin'][0] for t in source_texts),r.region_id,start)
-    return sorted(result,key=order)
+    from cad_agent.extensions.programs.kernels import read
+    return read(index, target, band)
 
 
 def _fragments(index, region, start, end):

@@ -1,5 +1,7 @@
 # 任务内动态方法：第一阶段
 
+第二、第三阶段已在开发分支扩展：真实工具内核修订、多模块程序和跨输入复用见 [任务内工具修订与新程序](task-tool-revisions-programs.md)。本文描述第一阶段独立方法接口。
+
 `ChatRequest.dynamic_methods="task_verified"` 开启当前任务的动态方法；默认 `off`，旧的 `adaptation_policy_id` 旁路保持独立。网页高级选项提供“允许动态方法”。本阶段仅支持 GPT-6.1 Sol / `responses_subscription`，关闭付费回退。
 
 也可直接在本轮问题中写“允许使用动态代码”或“现有工具不足时允许使用动态代码”，无需勾选开关。有效权限由服务端统一解析，工具列表、执行入口、来源范围记录和运行日志共用同一判定。日志 `code_execution_authorization` 区分问题明确授权、问题明确禁止和手动开关；保留原始请求字段。

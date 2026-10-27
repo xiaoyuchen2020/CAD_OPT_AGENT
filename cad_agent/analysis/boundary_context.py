@@ -10,6 +10,9 @@ def numeric_evidence(value):
     """Model-authored choice rationales cannot become numeric evidence by echo."""
     if isinstance(value,list):return [numeric_evidence(v) for v in value]
     if not isinstance(value,dict):return value
+    if value.get('kind') == 'program_result':
+        return [dict(value=item['value'],unit=item['unit']) for item in value.get('items',[]) if item.get('numeric')]
+    if value.get('kind') == 'tool_revision':return {}
     if value.get('kind') == 'task_method_result':
         return [{k:v for k,v in item.items() if k in ('length','distance','area','row_index','column_index','row_span','column_span')}
                 for item in value.get('items', [])]

@@ -6,6 +6,7 @@ import time
 from cad_agent.cache import workspace_cache, file_stamp
 from cad_agent.contracts import stable_id
 from cad_agent.analysis import assembly
+from cad_agent.extensions.programs import kernels
 from cad_agent.cad.numbers import VERSION as NUMBER_VERSION
 from cad_agent.evidence import verify_source_evidence
 
@@ -75,6 +76,7 @@ def read_page(session, index, args):
     source_hashes = cache.get_or_build(tuple(file_stamp(p) for p in paths),
         lambda: [hashlib.sha256(p.read_bytes()).hexdigest() for p in paths])
     signature = dict(version=VERSION, parser=assembly.VERSION, numbers=NUMBER_VERSION,
+                     kernel=kernels.version(),
                      snapshot=index.snapshot, source_hashes=source_hashes,
                      arguments=args.model_dump() | {'snapshot_id': index.snapshot})
     key = stable_id('source_record_page', digest(signature))

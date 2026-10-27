@@ -19,6 +19,9 @@ def route(session, history=None):
                 scope='selected_drawings' if session.request.related_drawings else 'current_drawing',
                 snapshot_ids=[session.request.snapshot_id]+[d.snapshot_id for d in session.request.related_drawings],
                 all_results=True, action='extract')
+    from cad_agent.analysis.task_methods import enabled as dynamic_enabled
+    if dynamic_enabled(session):
+        plan['reason']='dynamic_authorized_agent_route'; return plan
     if not session.w.settings.source_record_workflow or session.request.source_record_mode == 'agent':
         plan['reason']='disabled_or_explicit_agent'; return plan
     if session.request.resume_task_id or session.request.selected_practice_id:

@@ -160,9 +160,18 @@ from cad_agent.analysis.source_record_selection import SelectSourceRecords
 from cad_agent.analysis.source_candidates import SearchSourceRecords
 
 from cad_agent.analysis.task_methods import DevelopMethod, RunTaskMethod
+from cad_agent.extensions.programs import contracts as program_contracts
 from cad_agent.analysis.method_authorization import authorization as method_authorization
 
 TOOL_SPECS = {
+    "inspect_tool_implementation": (program_contracts.InspectTool, "读取可修订工具的真实内核源码、哈希和受保护契约。当前开放read_assembly片段分组排序。"),
+    "revise_tool": (program_contracts.ReviseTool, "基于原生read_assembly观测及base_sha256微调真实内核；隔离对比、独立回归后安装本任务版本。返回下一步read_assembly调用；修订记录本身不是事实。"),
+    "execute_tool_version": (program_contracts.ExecuteToolVersion, "将本任务已验证工具版本应用到另一原生read_assembly观测；重新验证后绑定该目标，失败不安装。"),
+    "develop_program": (program_contracts.DevelopProgram, "已有工具不足时，用已读取局部和contract DAG生成多模块Python程序。宿主独立核验全部节点、来源、字段变换和计算，返回本轮可引用结果。"),
+    "execute_program": (program_contracts.ExecuteProgram, "在新原生读取输入上执行本任务或已登记程序，重新核验，不继承旧输入结论。"),
+    "read_program_result": (program_contracts.ReadResult, "分页读取本任务已验证程序结果，每页重新核验代码、来源和契约；不执行或重新生成代码。"),
+    "register_program": (program_contracts.RegisterProgram, "同一程序至少两组不同图纸来源输入执行验证后登记为experimental，供后续显式复用；不更改默认工具或证明工程语义。"),
+    "list_programs": (program_contracts.ListPrograms, "分页查看实验性程序的适用契约；新输入必须执行并独立验证。"),
     "develop_method": (DevelopMethod, "已有工具无法满足具体要求时，在已读取局部生成Python方法、隔离执行并独立验证。baseline_observation_id绑定真实已有读取，gap描述缺口；五类method限定输出。自动返回首批验证结果及method_id，原文证据可引用，候选不证明归属/完整性。"),
     "run_task_method": (RunTaskMethod, "读取当前任务已验证方法的后续结果页，每次重新核对来源与独立验证；不重生成代码。选集读取完成不证明目标完整。"),
     "search_source_records": (SearchSourceRecords, "按已登记query_intent的target_id发现做法标题候选，精确编号优先；范围独立判断。只列标题、位置、歧义及真实read_assembly参数，不读正文、不扩展子类别。alternatives必须附expansion_reason且不能改变原目标。"),
@@ -279,7 +288,7 @@ def tool_definitions(efficient=False, session=None):
             },
         }
         for name, (schema, desc) in TOOL_SPECS.items()
-        if name not in ('develop_method', 'run_task_method') or (session is not None and method_authorization(session.request)['mode'] == 'task_verified' and session.request.runtime == 'responses_subscription' and session.w.settings.model == 'gpt-6.1-sol')
+        if name not in ({'develop_method', 'run_task_method'} | program_contracts.TOOLS) or (session is not None and method_authorization(session.request)['mode'] == 'task_verified' and session.request.runtime == 'responses_subscription' and session.w.settings.model == 'gpt-6.1-sol')
         if name != 'batch_read_sources' or (session is not None and session.request.source_read_batching)
         if session is None or runtime_supports(name, session.request.runtime, session.w.settings.provider)
         if name not in ('finish_analysis','request_toolset') or (session is not None and session.focused_enabled)
@@ -352,13 +361,15 @@ MUTATING_TOOLS = frozenset({
     'prepare_discovery_review', 'review_discovered_spaces', 'analyze_measurements',
     'get_analysis_results',
 }) | CONTROL
+MUTATING_TOOLS = MUTATING_TOOLS | program_contracts.TOOLS
+
 RUNTIMES = frozenset({'native', 'responses_subscription', 'codex_subscription', 'codex', 'deepseek_harness'})
 
 
 def runtime_supports(name, runtime, provider):
     if name not in TOOL_SPECS or runtime not in RUNTIMES:
         return False
-    if name in {'develop_method', 'run_task_method'}:
+    if name in {'develop_method', 'run_task_method'} | program_contracts.TOOLS:
         return provider == 'responses_subscription' and runtime == 'responses_subscription'
     if name in {'finish_analysis', 'request_toolset'}:
         return runtime in {'native', 'responses_subscription'}

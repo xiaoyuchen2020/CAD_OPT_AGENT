@@ -84,8 +84,12 @@ def capture_scope(session, name, result):
         return None
     args = session.trace[-1].get('arguments', {}) if session.trace else {}
     if name == 'read_assembly':
-        target = session.index.by_id.get(result.get('target_region_id'))
-        if target is None or result.get('snapshot_id') != session.request.snapshot_id:
+        sid=result.get('snapshot_id')
+        if sid not in session.allowed_snapshots:return None
+        from cad_agent.analysis.general import DrawingIndex
+        index=session.index if sid==session.request.snapshot_id else DrawingIndex(session.w,sid)
+        target = index.by_id.get(result.get('target_region_id'))
+        if target is None:
             return None
         band = result.get('row_structure')
         return dict(layout_id=target.layout_id, bbox=list(band['bbox'] if band else target.bbox))
@@ -165,7 +169,7 @@ def develop(session, args):
     # One development per method/scope/task even if the model changes its prose.
     if mid in ledger:
         return read(session, RunTaskMethod(method_id=mid))
-    if len(ledger) >= 2:
+    if len(ledger) >= 2 or len(ledger)+len(session.task.data.get('task_programs',{}))>=4:
         raise ValueError('TASK_METHOD_TASK_LIMIT')
     runtime(session.w.settings.data_dir)  # Refuse unavailable isolation BEFORE model use.
     bundle = prepare(session.index, scope['table_id']) if scope.get('table_id') else prepare_region(session.index, scope['layout_id'], scope['bbox'])
