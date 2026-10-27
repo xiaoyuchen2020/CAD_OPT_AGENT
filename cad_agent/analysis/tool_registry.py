@@ -113,6 +113,7 @@ class InspectArgs(Record):
 
 
 class Claim(Record):
+    query_target_ids: list[str] = Field(default_factory=list, max_length=20, description="本条结论对应查询意图中的target_id；同一要求包含多个对象时分别填写。")
     property_evidence_ids: list[str] = Field(default_factory=list, max_length=20,
         description="可选：query_property_evidence 已返回的字段证据ID；保留对象、属性口径、单位及冲突，不替代原文或工具观察引用。")
     property_assertions: list[PropertyAssertion] = Field(default_factory=list, max_length=20,
@@ -156,7 +157,10 @@ class FinalAnswer(Record):
 
 from cad_agent.analysis.source_record_selection import SelectSourceRecords
 
+from cad_agent.analysis.source_candidates import SearchSourceRecords
+
 TOOL_SPECS = {
+    "search_source_records": (SearchSourceRecords, "按已登记query_intent的target_id发现做法标题候选，精确编号优先；范围独立判断。只列标题、位置、歧义及真实read_assembly参数，不读正文、不扩展子类别。alternatives必须附expansion_reason且不能改变原目标。"),
     "extract_planning_metrics": (PlanningMetricsRequest, "提取经济技术指标：面积、计容/不计容、容积率、密度、绿地率、停车位。table_id为空时只发现候选；指定表格后按页读取原文，保留指标标签、设计/控制值、单位、证据和冲突。不计算缺项，不把当前页视为整表。"),
     "extract_building_schedule": (BuildingScheduleRequest, "提取建（构）筑物一览表：逐行读取序号、名称、使用性质、层数、高度和各类面积；合计行单列。table_id为空只列候选；沿next_actions分页，保留合并来源、字段缺失及证据，不确认图中建筑实例身份。"),
     "select_source_records": (SelectSourceRecords, "对本轮已读完整来源记录执行用户明确字面筛选；分别保留纳入和排除记录，不证明全图覆盖或工程适用性。"),
@@ -274,6 +278,12 @@ def tool_definitions(efficient=False, session=None):
         if session is None or runtime_supports(name, session.request.runtime, session.w.settings.provider)
         if name not in ('finish_analysis','request_toolset') or (session is not None and session.focused_enabled)
     ]
+    if session is not None:
+        from cad_agent.analysis.query_intent import enabled as intent_enabled, tool_schema
+        if intent_enabled(session):
+            for tool in result:
+                if tool["function"]["name"] in {"plan_task", "search_source_records"}:
+                    tool_schema(tool["function"]["parameters"])
     if efficient:
         for tool in result:
             props = tool["function"]["parameters"].get("properties", {})

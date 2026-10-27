@@ -46,6 +46,7 @@ def setup_batch(tmp_path, workspace, demo_bytes, capacity, batch_mode=False):
 
 @pytest.mark.parametrize('capacity,batch_mode', [(1,False), (2,False), (2,True)])
 def test_frozen_batch_isolated_bounded_and_no_replay(tmp_path, workspace, demo_bytes, monkeypatch, capacity, batch_mode):
+    monkeypatch.setenv('CAD_LLM_QUERY_INTENT', '0')  # Frozen model script predates query contracts.
     from cad_agent.analysis.session import CadAgentSession
     from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
     # The original frozen budget hook installs process-wide class patches; restore

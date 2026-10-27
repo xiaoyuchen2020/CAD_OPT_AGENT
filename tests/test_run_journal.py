@@ -41,7 +41,7 @@ def full_section(w, run_id, event_id, name):
 
 
 def test_background_journal_keeps_real_tool_results_and_validation_repair(tmp_path, demo_bytes, monkeypatch):
-    app=create_app(Settings(data_dir=tmp_path/'journal'))
+    app=create_app(Settings(llm_query_intent=False, data_dir=tmp_path/'journal'))
     with TestClient(app) as client:
         w=app.state.workspace
         d=w.ingest('demo.dxf', demo_bytes)

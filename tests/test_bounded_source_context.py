@@ -44,9 +44,9 @@ def test_final_packet_fits_without_reintroducing_archived_pages():
     original = populate(session)
     packet = bounded_packet(original, 12000, include_templates=False)
     before = deepcopy((packet, session.evidence, session.observations))
-    # The old codec expands this already bounded packet past the final budget.
+    # Both checkpoints and final encoding respect the bounded selection.
     restored = encode_messages(session, [{'role': 'user', 'content': dumps(packet)}])
-    assert sum(len(m['content']) for m in restored) > 100000
+    assert sum(len(m['content']) for m in restored) <= 12000
     messages = fit_messages(session, packet, 12000)
     assert sum(len(m['content']) for m in messages) <= 12000
     assert (packet, session.evidence, session.observations) == before

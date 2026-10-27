@@ -11,6 +11,8 @@ def fit_messages(session, packet, limit):
     original = packet
     budget = len(dumps(packet))
     attempts = []
+    if not hasattr(session, 'runtime_diagnostics'):
+        session.runtime_diagnostics = {}
     diagnostics = session.runtime_diagnostics.setdefault('final_context_fit', [])
     record = dict(limit=limit, attempts=attempts)
     diagnostics.append(record)

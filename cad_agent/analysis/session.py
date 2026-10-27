@@ -198,7 +198,8 @@ class CadAgentSession:
     @property
     def system_prompt(self):
         from cad_agent.analysis.model_context import GUIDANCE, enabled
-        return self._base_system_prompt + ('\n' + GUIDANCE if enabled(self) else '')
+        from cad_agent.analysis.query_intent import enabled as intent_enabled, PROMPT as INTENT_PROMPT
+        return self._base_system_prompt + ('\n' + GUIDANCE if enabled(self) else '') + (INTENT_PROMPT if intent_enabled(self) else '')
 
     @property
     def _base_system_prompt(self):
@@ -231,6 +232,10 @@ class CadAgentSession:
 
     def offered_tools(self, planning_only=False):
         tools=tool_definitions(self.policy.enabled,self)
+        from cad_agent.analysis.query_intent import enabled
+        if enabled(self) and not self.task.data.get("query_intent"):
+            names = {"plan_task"} if self.task.needs_plan else {"plan_task", "search_source_records", "get_drawing_overview", "read_project_sources", "request_toolset"}
+            return [t for t in tools if t["function"]["name"] in names]
         if self.focused_enabled and planning_only:
             names=self.focus.names()
             if self.task.data.get("evidence_records"):names.add("read_evidence_record")
@@ -244,7 +249,7 @@ class CadAgentSession:
         result = self.focus.messages(messages) if self.focused_enabled else messages
         if self.focused_enabled and result and result[0].get("role")=="system":result=[dict(result[0],content=self.system_prompt)]+result[1:]
         from cad_agent.analysis.model_context import encode_messages
-        result = encode_messages(self, result)
+        result = encode_messages(self, result, restore_read_context=not final_only)
         self.policy.model_requests.append({
             "message_chars": len(dumps(result)), "final_only": final_only,
             "stop_reason": self.policy.stop_reason,
@@ -324,6 +329,9 @@ class CadAgentSession:
         # the existing agent loop. Every harness receives the same tool record.
         self.focus.has_history=bool(history)
         batch_context = None
+        from cad_agent.analysis.query_intent import enabled as intent_enabled
+        if intent_enabled(self):
+            self._batch_prepared = True
         if not getattr(self, "_batch_prepared", False):
             self._batch_prepared = True
             args = None if self.request.resume_task_id else RoomBatchService(self.w, self.request.snapshot_id).infer_request(self.request.question)
@@ -429,7 +437,8 @@ class CadAgentSession:
 
     def final_context(self, controls, reason):
         """Shared, bounded local reads before synthesis; never searches or executes code."""
-        soft_stop = reason in ("subscription_answer_reserve", "exploration_budget", "subscription_exploration_budget", "tool_context_budget", "soft_budget_no_progress")
+        from cad_agent.analysis.query_intent import enabled as intent_enabled
+        soft_stop = not intent_enabled(self) and reason in ("subscription_answer_reserve", "exploration_budget", "subscription_exploration_budget", "tool_context_budget", "soft_budget_no_progress")
         if (soft_stop and not self.coverage.reserve_used and not self.validation_issue
                 and self._remaining() > 45
                 and sum(u.get("total_tokens", 0) for u in self.usage) < controls.total_budget(self)-controls.FINAL_CONTEXT_CHARS
@@ -452,7 +461,7 @@ class CadAgentSession:
                     controls.remember_context("read_source_context", value)
             finally:
                 self.policy.stop_reason = self.policy.stop_reason or previous
-        packet={"question": self.request.question, "evidence": compact(list(self.evidence.values())),
+        packet={"query_intent": self.task.data.get("query_intent"), "question": self.request.question, "evidence": compact(list(self.evidence.values())),
                 "task": {"subtasks":[{k:s[k] for k in ("id","requirement","status","reason","operations")} for s in self.task.data["subtasks"]],"pending_operations":self.task.pending_work(),"unit_policy":self.task.data.get("unit_policy")},
                 "source_contexts": controls.source_contexts, "observations": synthesis_observations(self.observations, final=True),
                 "evidence_coverage": self.coverage.summary(), "validation_issue": self.validation_issue,
@@ -491,6 +500,9 @@ class CadAgentSession:
         titles. No extra inference or geometry measurement is needed here.
         """
         self.scope_recovery_feedback=[]
+        from cad_agent.analysis.query_intent import enabled
+        if enabled(self):
+            return False
         for old in list(self.room_batches.values()):
             if old['scope'] or old.get('scope_diagnostics',{}).get('complete'):continue
             service=RoomBatchService(self.w,self.request.snapshot_id)

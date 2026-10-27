@@ -123,6 +123,11 @@ class TaskFocus:
         return all(s['delivered'] or s['id'] in self.read_ids for s in steps)
 
     def names(self):
+        from cad_agent.analysis.query_intent import enabled as intent_enabled
+        if intent_enabled(self.s) and not self.s.task.data.get('query_intent'):
+            return {'plan_task'} if self.s.task.needs_plan else {
+                'plan_task', 'search_source_records', 'get_drawing_overview',
+                'read_project_sources', 'request_toolset'}
         names=self._names()
         if self.s.task.needs_plan:return names
         # Required work does not spend the optional expansion allowance. The
@@ -289,7 +294,7 @@ class TaskFocus:
         if not ids:ids=set(nodes)
         eids={e for i in ids for e in nodes[i]['evidence_ids']}
         oids={o for i in ids for o in nodes[i]['observation_ids']}
-        context={'reusable_batches':[{'batch_id':b['batch_id'],'unit':b['unit'],'total':b['total']} for b in self.s.room_batches.values()], 'question':self.s.request.question,'task':self.state(),
+        context={'query_intent':self.s.task.data.get('query_intent'), 'reusable_batches':[{'batch_id':b['batch_id'],'unit':b['unit'],'total':b['total']} for b in self.s.room_batches.values()], 'question':self.s.request.question,'task':self.state(),
             'drawing':{k:self.s.drawing[k] for k in ('name','unit','layouts')},
             'related_drawings':[d.model_dump() for d in self.s.request.related_drawings],
             'evidence_coverage':self.s.coverage.summary(),

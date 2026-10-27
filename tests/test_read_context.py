@@ -34,9 +34,9 @@ def build(observation=None):
     return c
 
 
-def test_checkpoint_restores_whole_source_and_binding_without_mutating_history():
+def test_exploration_restores_whole_source_and_binding_without_mutating_history():
     c = build()
-    messages = [{'role': 'user', 'content': dumps({'context_omissions': {'evidence_count': 1}})}]
+    messages = [{'role': 'user', 'content': dumps({'question': '继续读取来源'})}]
     before = deepcopy(messages)
     output = c.encode_messages(messages)
     page = json.loads(output[0]['content'][len(PREFIX):])
@@ -46,6 +46,19 @@ def test_checkpoint_restores_whole_source_and_binding_without_mutating_history()
     assert '已读来源状态' in output[-1]['content']
     assert messages == before
     assert c.canonical_evidence[E] == evidence()
+
+
+
+def test_bounded_checkpoint_keeps_omissions_without_restoring_history():
+    c = build()
+    messages = [{'role': 'user', 'content': dumps({'context_omissions': {'evidence_count': 1}})}]
+    before = deepcopy(messages)
+    output = c.encode_messages(messages)
+    assert len(output) == 1
+    assert json.loads(output[0]['content'])['context_omissions'] == {'evidence_count': 1}
+    assert '5厚砂浆' not in dumps(output)
+    assert not c.last_stats['restore_read_context']
+    assert messages == before and c.canonical_evidence[E] == evidence()
 
 
 def test_repeated_pages_use_single_definition_preserving_protocol_and_state():

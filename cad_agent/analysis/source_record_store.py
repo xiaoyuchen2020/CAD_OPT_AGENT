@@ -11,7 +11,7 @@ from cad_agent.evidence import verify_source_evidence
 
 # v1 pages can contain evidence slices that lost an ordinal or list thickness.
 # Rebuild those pages while retaining the stable source and number identities.
-VERSION = 'source-record-store-v2'
+VERSION = 'source-record-store-v3-table-entity-boundaries'
 
 
 def digest(value):

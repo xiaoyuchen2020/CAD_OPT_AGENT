@@ -279,13 +279,15 @@ def grid(index, table):
         rotated=[t for t in chosen if abs(t.get('rotation',0))>.1]
         ids=[t['entity_id'] for t in chosen]
         normalized,normalizations=normalized_cell_text(chosen)
+        evidence=[e for eid in ids for e in index.entity_evidence(eid)]
         cells.append(dict(cell_id=stable_id('semanticcell',table['table_id'],TABLE_VERSION,str(bounds)),
             row_index=r0,column_index=c0,row_span=r1-r0,column_span=c1-c0,bbox=bounds,
             text='\n'.join(t['text'] for t in chosen),entity_ids=ids,
             normalized_text=normalized,normalizations=normalizations,
             diagnostics=['ROTATED_CELL_TEXT_REQUIRES_REVIEW'] if rotated else [],
             excluded_overlay_entity_ids=excluded,
-            evidence=[e for eid in ids for e in index.entity_evidence(eid)],state='candidate'))
+            region_ids=list(dict.fromkeys(e['region_id'] for e in evidence)),
+            evidence=evidence,state='candidate'))
     return cells,n,m,sorted(set(diagnostics))
 
 

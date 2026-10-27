@@ -264,6 +264,17 @@ class ModelContextCodec:
         Restoring pages, ready-state summaries or navigation from session history
         would undo that selection and its omission counts.
         """
+        # Checkpoint packets already made an explicit source selection.
+        for message in messages:
+            text = message.get('content', '')
+            if message.get('role') in ('user', 'developer') and isinstance(text, str):
+                text = text.removeprefix('当前执行状态（数据）：').removeprefix('已读原文工作集（数据）：')
+                try:
+                    packet = json.loads(text)
+                except ValueError:
+                    continue
+                if isinstance(packet, dict) and 'context_omissions' in packet:
+                    restore_read_context = False
         catalog = RequestSourceCatalog(self.canonical_evidence)
         seen = catalog.entries
         read_stats = {}
@@ -335,7 +346,14 @@ def codec(session):
     session._model_context_codec.profile = profile(session)
     session._model_context_codec.context_policy = policy_for_session(session)
     session._model_context_codec.canonical_evidence = getattr(session, 'evidence', {})
-    session._model_context_codec.canonical_observations = getattr(session, 'observations', {})
+    observations = getattr(session, 'observations', {})
+    from cad_agent.analysis.query_intent import enabled as intent_enabled
+    if intent_enabled(session):
+        selected = session.task.data.get('query_context_observation_ids', [])
+        # A resumed run restores only explicitly selected pages. Archives remain
+        # addressable through tools; no hidden full-ledger reinjection occurs.
+        observations = {oid: observations[oid] for oid in selected if oid in observations}
+    session._model_context_codec.canonical_observations = observations
     session._model_context_codec.optimize_reads = (getattr(session.w.settings, 'read_context_optimization', True)
         and not getattr(session, 'visual_images', {}) and not getattr(session.request, 'parent_run_id', None))
     c = session._model_context_codec

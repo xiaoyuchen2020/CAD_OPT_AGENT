@@ -97,6 +97,21 @@ def semantic_table(workspace,tmp_path):
     return d,s,table
 
 
+def test_recovered_table_overview_respects_source_frame(semantic_table):
+    d,s,t=semantic_table
+    assert t.get('ruled_source')
+    index=s.index
+    index.drawing['frames']=[dict(frame_id='selected'),dict(frame_id='other')]
+    for region in index.regions:
+        region.frame_id='selected'
+    for row in t['rows']:
+        for cell in row['cells']:
+            assert set(cell['region_ids'])=={e['region_id'] for e in cell['evidence']}
+    selected=index.outline('tables',layout_id=t['layout_id'],frame_id='selected')
+    assert t['table_id'] in {item['table_id'] for item in selected['items']}
+    assert index.outline('tables',frame_id='other')['total']==0
+
+
 def test_multilevel_headers_units_merges_and_no_fill(semantic_table):
     d,s,t=semantic_table
     result=s.table(SemanticTable(table_id=t['table_id'],row_limit=5))
