@@ -18,7 +18,7 @@ def main():
     args=parser.parse_args()
     suffix='' if args.sample=='primary' else '-'+args.sample
     old=harness.OUT.with_name(harness.OUT.name+suffix)
-    harness.OUT=harness.ROOT/('artifacts/business-tables-fixed-final-v4-20261026'+suffix)
+    harness.OUT=harness.ROOT/('artifacts/business-tables-fixed-final-v6-20261026'+suffix)
     w=harness.setup()
     try:
         source=json.loads((old/'input.json').read_text());sid=source['drawing']['id']

@@ -12,7 +12,7 @@ from cad_agent.contracts import stable_id
 from cad_agent.evidence import bind_evidence
 from cad_agent.cad.regions import is_heading
 
-INDEX_VERSION = "general-v3-ruled-source"
+INDEX_VERSION = "general-v4-nested-ruled-source"
 
 
 def intersects(a, b):

@@ -14,7 +14,7 @@ from cad_agent.analysis.business_table_contracts import METRICS, BUILDING
 from cad_agent.semantics.contracts import SemanticTable
 from cad_agent.semantics.tables import grid, TABLE_VERSION
 
-VERSION = 'business-tables-v2-source-grid'
+VERSION = 'business-tables-v3.2-source-structure'
 ALIASES = {
     'land_area': ('用地面积', '总用地面积', '建设用地面积', '规划建设用地面积', '净用地面积'),
     'total_building_area': ('总建筑面积', '建筑总面积', '建筑面积', '总面积'),
@@ -27,12 +27,12 @@ ALIASES = {
     'parking_spaces': ('停车位', '停车位数量', '停车位数', '停车泊位', '机动车停车位',
                        '非机动车停车位', '机动车停车位数', '非机动车停车位数', '机动车位', '非机动车位',
                        '机动车位数量','非机动车位数量','地上停车位','地下停车位','装卸停车位'),
-    'ordinal': ('序号', '编号', '建筑编号'), 'name': ('名称', '建筑名称', '建筑物名称', '建构筑物名称', '单体名称'),
-    'use': ('使用性质', '使用功能', '建筑功能', '建筑性质'),
+    'ordinal': ('序号', '编号', '建筑编号', '子项编号'), 'name': ('名称', '建筑名称', '建筑物名称', '建构筑物名称', '单体名称', '楼号', '子项', '子项名称', '栋号', '内容'),
+    'use': ('使用性质', '使用功能', '建筑功能', '建筑性质', '属性', '主要功能'),
     'storeys': ('层数', '楼层数', '建筑层数', '地上层数', '地下层数'),
-    'height': ('高度', '建筑高度', '建筑物高度'),
+    'height': ('高度', '建筑高度', '建筑物高度', '建筑总高度'),
 }
-UNITS = {'㎡': 'm2', 'm²': 'm2', 'm2': 'm2', '平方米': 'm2',
+UNITS = {'㎡': 'm2', 'm²': 'm2', 'm2': 'm2', '平方米': 'm2', '平米': 'm2',
          '万平方米': '万m2', '万㎡': '万m2', 'hm2': 'hm2', '公顷': 'hm2', '亩': '亩',
          'mm': 'mm', '毫米': 'mm', 'cm': 'cm', '厘米': 'cm', 'm': 'm', '米': 'm',
          '%': '%', '％': '%', '个': '个', '辆': '辆', '位': '位', '个车位': '位', '层': '层'}
@@ -58,11 +58,20 @@ def field_key(path, allowed):
         for key in allowed:
             if name in ALIASES[key]:
                 return key
+        if 'parking_spaces' in allowed and re.fullmatch(
+            r'(?:地上|地下室?|地面|室内|室外)?(?:非机动车|机动车|小汽车|装卸车|装卸|汽车|自行车)?(?:停车位|停车泊位|车位)(?:数量|数)?', name):
+            return 'parking_spaces'
+        if 'height' in allowed and re.fullmatch(r'(?:建筑)?(?:规划|消防|地上|地下)(?:建筑)?高度', name):
+            return 'height'
+        if 'total_building_area' in allowed and re.fullmatch(
+            r'(?:住宅/配套|住宅|配套)?(?:地上|地下室?)(?:总)?建筑面积', name):
+            return 'total_building_area'
     return None
 
 
 def units_in(text):
     value = clean(text)
+    value = re.sub(r'(?<![A-Za-z])M(?=[2²]|\)|$)', 'm', value)
     units = {clean(k): v for k, v in UNITS.items()}
     parts = re.findall(r'\(([^)]+)\)', value)
     if value.startswith('单位:'): parts.append(value[3:])
@@ -83,15 +92,19 @@ def _headers(index, table, kind):
     rows = []
     for r in range(min(n, 4)):
         row = [c for c in cells if c['row_index'] == r]
-        texts = [label(c['text']) for c in row if c['text'].strip()]
+        texts = [label(c.get('normalized_text',c['text'])) for c in row if c['text'].strip()]
         if not texts or any(re.match(r'^[+\-]?\d', t) for t in texts): break
         title = len(row) == 1 and row[0]['column_span'] == m and TITLE[kind].search(row[0]['text'])
         known = [t in LABEL_HEADERS | VALUE_HEADERS | {'单位', '序号', '备注', '计容', '不计容', '基底'}
                  or field_key([t], BUILDING if kind=='building_schedule' else METRICS) for t in texts]
         schedule_header = (kind=='building_schedule' and
             any(field_key([t],BUILDING)=='name' for t in texts) and sum(bool(k) for k in known)>=3
-            and sum(bool(k) for k in known)*2>=len(texts))
-        if title or schedule_header or (len(texts) >= 2 and all(known)):
+            and sum(bool(k) for k in known)*3>=len(texts))
+        unit_row = bool(rows) and all(units_in(c.get('normalized_text',c['text'])) or
+            clean(c['text']) in {'(户)','户'} or field_key([c.get('normalized_text',c['text'])],BUILDING) or
+            re.fullmatch(r'\(从[^()]{1,30}到[^()]{1,20}高度\)',clean(c['text'])) or
+            label(c['text']) in {'地上','地下','规划','消防','住宅','配套'} for c in row if c['text'].strip())
+        if title or schedule_header or unit_row or (len(texts) >= 2 and all(known)):
             rows.append(r)
         else: break
     return rows
@@ -116,28 +129,57 @@ def _scope(index, table, args):
 
 def _discover(index, args, kind):
     candidates = []
+    diagnostics = []
     allowed = METRICS if kind == 'planning_metrics' else BUILDING
     for table in index.tables:
         try: scope = _scope(index, table, args)
         except ValueError: continue
         # Existing table envelope only; nearby titles never establish ownership.
         cells = [c for row in table['rows'] for c in row['cells']]
-        keys = {field_key([c['text']], allowed) for c in cells} - {None}
+        keys = {field_key([c.get('normalized_text',c['text'])], allowed) for c in cells} - {None}
         titled = any(TITLE[kind].search(c['text']) for c in cells)
-        matches = len(keys) >= 2 if kind == 'planning_metrics' else 'name' in keys and len(keys) >= 3
+        matches = len(keys) >= 2 if kind == 'planning_metrics' else 'name' in keys and len(keys) >= 2
         if not (matches or titled): continue
+        try:
+            headers = _headers(index, table, kind)
+        except ValueError as error:
+            diagnostics.append(dict(code='TABLE_STRUCTURE_UNRESOLVED', table_id=table['table_id'],
+                                    detail=str(error), source_scope=scope))
+            continue
+        # Raw legacy cells may split unit exponents. Re-evaluate the structured
+        # headers before admitting a schedule, so 楼号/编号 in a materials table
+        # cannot turn unrelated rows into buildings.
+        if kind=='building_schedule':
+            semantic_cells=grid(index,table)[0]
+            header_keys={field_key([c.get('normalized_text',c['text'])],BUILDING)
+                         for c in semantic_cells if c['row_index'] in headers}-{None}
+            supported='name' in header_keys and len(header_keys)>=3 and bool(
+                header_keys & {'storeys','height','total_building_area','counted_area','excluded_area','footprint_area'})
+            if not supported and not titled:continue
+            keys=header_keys
         candidates.append(dict(table_id=table['table_id'], source_scope=scope,
             state='candidate', matched_fields=sorted(keys), evidence=_refs([c for c in cells if field_key([c['text']],allowed) or TITLE[kind].search(c['text'])][:30]),
-            suggested_header_rows=_headers(index, table, kind),
+            suggested_header_rows=headers,
             next_action=dict(tool='extract_'+kind, arguments=dict(table_id=table['table_id'],snapshot_id=index.snapshot,
                 layout_id=args.layout_id, frame_id=args.frame_id, requested_fields=args.requested_fields))))
+    if kind=='planning_metrics':
+        from cad_agent.analysis.business_metric_prose import candidates as prose_candidates
+        for table in prose_candidates(index):
+            try: scope=_scope(index,table,args)
+            except ValueError: continue
+            candidates.append(dict(table_id=table['table_id'],source_scope=scope,
+                source_kind=table['source_kind'],state='candidate',
+                matched_fields=sorted({e['field'] for e in table['entries']}),evidence=table['evidence'],
+                suggested_header_rows=[],next_action=dict(tool='extract_planning_metrics',
+                    arguments=args.model_dump()|{'table_id':table['table_id']})))
     page = candidates[args.offset:args.offset + args.limit]
     more = args.offset + len(page) < len(candidates)
     return dict(version=VERSION, snapshot_id=index.snapshot, kind=kind, mode='discovery',
         candidates=page, total=len(candidates), has_more=more,
         next_offset=args.offset + len(page) if more else None,
         next_actions=[dict(tool='extract_'+kind, arguments=args.model_dump() | {'offset':args.offset+len(page)})] if more else [],
-        coverage='indexed_ruled_table_candidates_only', scope_exhaustive=False,
+        coverage='ruled_tables_and_explicit_metric_paragraphs' if kind=='planning_metrics' else 'indexed_ruled_table_candidates_only',
+        scope_exhaustive=False, diagnostics=diagnostics,
         note='候选表不等于目标表；未匹配不证明图纸不存在该数据。')
 
 
@@ -150,11 +192,13 @@ def parse_value(raw, key):
         from ezdxf.tools.text import plain_text
         text=plain_text(text)
     if key=='storeys':
-        if re.fullmatch(r'\d+F',text,re.I): return text[:-1], '', ['层']
+        if re.fullmatch(r'-?\d+F',text,re.I): return text[:-1], '', ['层']
         if re.fullmatch(r'(?:-|\d+F)/(?:-|-[1-9]\d*F)',text,re.I):
             return text, 'storey_pair', ['层']
+        if re.fullmatch(r'\d+F/\d+D',text,re.I): return text, 'storey_pair', ['层']
+        if re.fullmatch(r'\d+D',text,re.I): return text, 'below_ground_storeys', ['层']
     # Strict grouping prevents 1,2 or 3/4 from silently becoming a scalar.
-    match = re.fullmatch(r'(约)?([≤≥<>~≈]?)([+\-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(.*)', text)
+    match = re.fullmatch(r'(约(?:合)?)?([≤≥<>~≈]?)([+\-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(.*)', text)
     value = None; qualifier = ''; own_units = []
     textual = key in ('name', 'use', 'ordinal')
     if textual: value = raw or None
@@ -202,7 +246,7 @@ def _value(cell, key, labels=(), unit_cells=(), diagnostics=()):
     if not units and key in ('storeys','parking_spaces'):
         count_basis = _refs(labels) if labels else cell['header_evidence']
         if count_basis: units = ['层' if key=='storeys' else '位']
-    errors = list(diagnostics)
+    errors = list(diagnostics) + cell.get('diagnostics',[])
     if len(units) > 1: errors.append('UNIT_CONFLICT')
     if not textual and value is not None and not units and key != 'floor_area_ratio': errors.append('UNIT_UNKNOWN')
     allowed_units = ({'m2','万m2','hm2','亩'} if key.endswith('_area') else
@@ -210,7 +254,7 @@ def _value(cell, key, labels=(), unit_cells=(), diagnostics=()):
                      {'层'} if key=='storeys' else {'个','辆','位'} if key=='parking_spaces' else set())
     if not textual and units and not set(units)<=allowed_units: errors.append('UNEXPECTED_UNIT')
     if raw and value is None: errors.append('NON_SCALAR_VALUE')
-    if cell['column_span'] > 1: errors.append('MERGED_VALUE_COLUMNS')
+    if cell['column_span'] > 1 and not textual: errors.append('MERGED_VALUE_COLUMNS')
     if not cell['evidence']: errors.append('VALUE_SOURCE_MISSING')
     state = 'missing' if not raw else 'conflict' if 'UNIT_CONFLICT' in errors else 'ambiguous' if errors else 'observed'
     display=raw
@@ -245,7 +289,8 @@ def _completion(fields, requested):
 def _conflicts(fields):
     groups = {}
     for f in fields:
-        key = (f['field'], tuple(f.get('source_labels',[])), tuple(f.get('qualifiers',[])), f.get('value_kind'))
+        key = (f['field'], tuple(f.get('source_labels',[])), tuple(f.get('qualifiers',[])),
+               tuple(f.get('header_path',[])), f.get('column_index'), f.get('value_kind'))
         groups.setdefault(key, []).append(f)
     for group in groups.values():
         if len({(f['value'], f['unit'], f['qualifier']) for f in group if f['value'] is not None}) > 1:
@@ -289,7 +334,10 @@ def _metrics(page, requested):
             f=_value(cell,key,labels,unit_cells,page['diagnostics'])
             headers=[label(h) for h in cell['header_path']]
             f['value_kind']=next((h for h in reversed(headers) if h not in {'指标','指标值','数值','数量'}), 'unspecified')
-            f['qualifiers']=[c['text'] for c in cells if c not in labels+values+unit_cells and c['text'].strip()]
+            qualifier_cells=[c for c in cells if c not in labels+values+unit_cells and c['text'].strip()
+                             and not any(label(h) in {'序号','编号'} for h in c['header_path'])]
+            f['qualifiers']=[c['text'] for c in qualifier_cells]
+            f['scope_evidence']=_refs(qualifier_cells)
             f['record_id']=stable_id('metric-source',page['snapshot_id'],page['table_id'],cell['cell_id'],key)
             fields.append(f)
     _conflicts(fields)
@@ -302,19 +350,21 @@ def _buildings(page, requested):
         cells=[c for c in row['cells'] if not c['is_header']]
         if not any(c['text'].strip() for c in cells): continue
         mapped=[(c,field_key(c['header_path'],BUILDING)) for c in cells]
+        if not {k for c,k in mapped} & {'storeys','height','total_building_area','counted_area','excluded_area','footprint_area'}:
+            unresolved.append(row);continue
         identity=[c for c,k in mapped if k in ('name','ordinal')]
         is_total=any(label(c['text']) in ('合计','总计','小计') for c in identity)
         fields=[]
         for c,key in mapped:
             if key not in requested: continue
             f=_value(c,key,diagnostics=page['diagnostics'])
-            f['qualifiers']=[h for h in c['header_path'] if label(h) not in ALIASES[key]]
+            f['qualifiers']=c['header_path']
             fields.append(f)
         _conflicts(fields)
         record=dict(record_id=stable_id('building-source',page['snapshot_id'],page['table_id'],str(row['row_index'])),
             row_index=row['row_index'], record_type='summary' if is_total else 'building_schedule_row',
             identity=[dict(text=c['text'],cell_id=c['cell_id'],row_span=c['row_span'],continuation_of=c['continuation_of'],evidence=c['evidence']) for c in identity],
-            identity_state='source_bound' if any(c['text'].strip() for c,k in mapped if k=='name') else 'unresolved',
+            identity_state='source_bound' if any(c['text'].strip() for c,k in mapped if k in ('name','ordinal')) else 'unresolved',
             engineering_identity_state='unverified', fields=fields,
             unmapped_cells=[c for c,k in mapped if k is None], **_completion(fields,requested))
         if is_total: summaries.append(record)
@@ -330,6 +380,13 @@ def extract(workspace, snapshot_id, args, kind, index=None):
     index.scope(args.layout_id,args.frame_id)
     if not args.table_id: return _discover(index,args,kind)
     table=next((t for t in index.tables if t['table_id']==args.table_id),None)
+    if table is None and kind=='planning_metrics':
+        from cad_agent.analysis import business_metric_prose
+        table=next((t for t in business_metric_prose.candidates(index) if t['table_id']==args.table_id),None)
+        if table is not None:
+            result=business_metric_prose.extract(index,table,args,_scope(index,table,args))
+            verify_sources(result,index)
+            return result
     if table is None: raise ValueError('表格不属于当前快照。')
     scope=_scope(index,table,args)
     headers=args.header_rows if args.header_rows is not None else _headers(index,table,kind)

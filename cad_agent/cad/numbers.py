@@ -296,7 +296,7 @@ def equivalent_value(source, value):
     return _equivalent_token(source,0,len(source),value,0,len(value))
 
 
-def unsupported_values(text, evidence, allowed=()):
+def unsupported_values(text, evidence, allowed=(), *, bound_ordinals=()):
     """Ordinals validate structurally; quantities cannot borrow code/ordinal digits."""
     sources = [t for e in evidence for t in evidence_readings(e)]
     missing = []
@@ -306,11 +306,15 @@ def unsupported_values(text, evidence, allowed=()):
         if token['kind'] == 'ordinal': continue
         value = token['value']
         if token['kind']=='ordinal_reference':
-            if not any(t['kind'] in ('ordinal','ordinal_reference') and t['value']==value for t in sources): missing.append(value)
+            if value not in bound_ordinals and not any(t['kind'] in ('ordinal','ordinal_reference') and t['value']==value for t in sources): missing.append(value)
             continue
         if value in allowed: continue
         if token['kind'] == 'identifier':
             ok = any(t['kind']=='identifier' and t.get('identity',t['raw']).translate(_TRANSLATION) == token.get('identity',token['raw']).translate(_TRANSLATION) for t in sources)
+            # A cited table header and its bound ordinal cell can be printed
+            # separately. This does not authorize quantities, grades or axes.
+            if value in bound_ordinals and re.fullmatch(r'编号\s*'+re.escape(value),token.get('identity','')):
+                ok=True
         else:
             ok = any(t['kind'] in ('quantity','ambiguous','expression_component') and
                      (t['value']==value if t['kind']=='expression_component' else

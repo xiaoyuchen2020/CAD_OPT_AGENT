@@ -175,7 +175,12 @@ def bounded_packet(packet, limit, steps=(), *, include_templates=True):
     selected_observations = set()
     priority = {'read_assembly', 'calculate_facts', 'read_dimensions',
                 'extract_planning_metrics', 'extract_building_schedule'}
-    for observation in sorted(observations, key=lambda o: o['tool'] not in priority):
+    # Preserve the concurrent preference for field-bearing business pages.
+    def business_priority(o):
+        data = o.get('data', {})
+        return 0 if o.get('tool') in BUSINESS_TOOLS and any(data.get(k) for k in
+            ('fields', 'records', 'summary_rows')) else 1
+    for observation in sorted(observations, key=lambda o: (business_priority(o), o['tool'] not in priority)):
         if observation['observation_id'] in selected_observations:
             continue
         linked, refs, missing = observation_closure(observation, by_observation)

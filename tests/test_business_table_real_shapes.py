@@ -168,3 +168,62 @@ def test_repeated_business_reads_never_displace_distinct_pages(workspace,tmp_pat
     assert len(final['observations'])==2
     different=deepcopy(repeated);different['data']['fields'][0]['value']='changed'
     assert len(unique_pages([repeated,different]))==2
+
+
+def test_raw_cell_matrix_preserves_null_missing_spans_and_sources():
+    from cad_agent.analysis.business_table_context import pack_cells
+    original={'unmapped_cells':[{'text':'raw','row_span':2,'unit':None,'evidence':[{'evidence_id':'one'}]},
+                                {'text':'','column_span':3,'evidence':[{'evidence_id':'two'}]}]}
+    packed=pack_cells(original)
+    matrix=packed['unmapped_cells']
+    restored=[{matrix['columns'][i]:row[i] for i in present} for row,present in
+              zip(matrix['rows'],matrix['present_columns'])]
+    assert restored==original['unmapped_cells']
+    assert pack_cells(packed)==packed
+
+
+def test_requested_business_fields_precede_raw_only_pages_under_budget():
+    from cad_agent.analysis.delivery_context import bounded_packet
+    observations=[]
+    for i in range(6):
+        observations.append(dict(observation_id=f'raw_{i}',tool='extract_planning_metrics',data=dict(
+            kind='planning_metrics',mode='extraction',table_id='test',row_offset=i,
+            unresolved_rows=[{'row_index':i,'cells':[{'text':'raw detail '+str(i)+'x'*2500,'evidence':[]}]}])))
+    observations.append(dict(observation_id='wanted',tool='extract_planning_metrics',data=dict(
+        kind='planning_metrics',mode='extraction',table_id='test',row_offset=6,
+        fields=[{'field':'land_area','value':'357','state':'observed','evidence':[{'evidence_id':'actual'}]}])))
+    p=bounded_packet(dict(observations=observations,evidence=[{'evidence_id':'actual','quote':'357'}]),5000)
+    assert any(o['observation_id']=='wanted' for o in p['observations'])
+    assert p['context_omissions']['observation_count']>0
+
+
+def test_cited_table_ordinal_binding_does_not_authorize_unrelated_codes(workspace,tmp_path):
+    import json
+    from test_business_tables import drawing
+    from cad_agent.analysis.session import CadAgentSession
+    from cad_agent.contracts import ChatRequest
+    from cad_agent.analysis.business_table_delivery import cited_ordinals
+    from cad_agent.analysis.business_table_context import citation_ids
+    from cad_agent.cad.numbers import unsupported_values
+    d,idx,tid=drawing(workspace,tmp_path,[['建筑编号','名称','总建筑面积(㎡)'],['8','独立样本','923.54']])
+    s=CadAgentSession(workspace,ChatRequest(snapshot_id=d['id'],question='提取建筑物一览表'))
+    result=json.loads(s.invoke_tool('extract_building_schedule',{'table_id':tid}))
+    observation=next(o for o in s.observations.values() if o['data'].get('records'))
+    record=observation['data']['records'][0]
+    ids=citation_ids(record['fields']);evidence=[s.evidence[eid] for eid in ids]
+    bound=cited_ordinals(s.observations,s.evidence,ids)
+    assert bound=={'8'}
+    assert unsupported_values('建筑编号8，名称独立样本，总建筑面积923.54㎡。',evidence,bound_ordinals=bound)==[]
+    assert unsupported_values('序号8',evidence,bound_ordinals=bound)==[]
+    assert unsupported_values('建筑编号9',evidence,bound_ordinals=bound)==['9']
+    assert unsupported_values('型号8',evidence,bound_ordinals=bound)==['8']
+    assert unsupported_values('8轴',evidence,bound_ordinals=bound)==['8']
+    assert unsupported_values('厚度8mm',[],bound_ordinals=bound)==['8']
+    value_ids=citation_ids(next(f for f in record['fields'] if f['field']=='ordinal')['evidence'])
+    assert not cited_ordinals(s.observations,s.evidence,value_ids)
+    area_ids=citation_ids(next(f for f in record['fields'] if f['field']=='total_building_area'))
+    assert not cited_ordinals(s.observations,s.evidence,area_ids)
+    # The actual final-answer validator uses the typed binding too.
+    answer=s.validate_answer(json.dumps({'claims':[{'text':'建筑编号8，名称独立样本，总建筑面积923.54㎡。',
+        'state':'observed','question_part_ids':['q1'],'evidence_ids':ids}],'missing_information':[]}))
+    assert '建筑编号8' in answer['answer']

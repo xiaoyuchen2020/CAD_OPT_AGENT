@@ -33,6 +33,21 @@ def unique_pages(observations, *, protected=()):
     return list(reversed(kept))
 
 
+def pack_cells(value):
+    """Factor repeated raw-cell keys; preserve every value and source role."""
+    if isinstance(value,list):return [pack_cells(v) for v in value]
+    if not isinstance(value,dict):return value
+    out={k:pack_cells(v) for k,v in value.items()}
+    for key in ('cells','unmapped_cells'):
+        cells=out.get(key)
+        if not isinstance(cells,list) or not cells or not all(isinstance(c,dict) for c in cells):continue
+        columns=list(dict.fromkeys(k for cell in cells for k in cell))
+        # Include explicit key sets: absent and present-null remain distinct.
+        out[key]={'columns':columns,'rows':[[c.get(k) for k in columns] for c in cells],
+                  'present_columns':[[i for i,k in enumerate(columns) if k in c] for c in cells]}
+    return out
+
+
 def project(data, *, include_sources=False):
     if data.get('kind') not in ('planning_metrics','building_schedule') or data.get('mode')!='extraction':
         return data
@@ -55,6 +70,7 @@ def project(data, *, include_sources=False):
         field['evidence_ids']=citation_ids(field)
     for row in packet.get('records',[])+packet.get('summary_rows',[]):
         row['evidence_ids']=citation_ids([row.get('identity',[]),row.get('fields',[])])
+    packet=pack_cells(packet)
     if include_sources:packet['source_evidence']=list(sources.values())
     packet['result_projection']='business_source_page'
     packet['delivery_scope']=('字段state=observed表示原表行内标签、值和单位已绑定，可直接摘录，'
@@ -62,4 +78,5 @@ def project(data, *, include_sources=False):
         '分页按next_actions继续，缺列和歧义如实保留；不要把已绑定字段重标为未读取。'
         '逐行交付records；整行摘录须引用该行evidence_ids，包括序号和名称的独立来源，'
         '不能只引用面积数值。单字段摘录引用该字段的来源、表头和单位。')
+    packet['cell_matrix_format']='原始cells/unmapped_cells以columns列名和rows值矩阵表示；present_columns区分不存在的键和显式null。所有原文、跨度和引用均保留。'
     return packet

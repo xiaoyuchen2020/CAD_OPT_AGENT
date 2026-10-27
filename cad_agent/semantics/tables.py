@@ -1,11 +1,11 @@
 """Ruled-table topology and explicit header/unit lineage over existing table IDs."""
 import re
-from collections import defaultdict
+from collections import defaultdict, Counter
 from statistics import median
 
 from cad_agent.contracts import stable_id
 
-TABLE_VERSION = 'table-semantics-v1.8-ruled-source'
+TABLE_VERSION = 'table-semantics-v2.1-source-text'
 HEADER_WORDS = re.compile(r'编号|名称|型号|规格|宽度|高度|尺寸|数量|单位|材料|备注|序号|厚度|长度|面积|做法|位置|类别|等级|洞口|门窗|开启|房间|楼层|项目|性能|耐火|适用|部位|类型')
 UNITS = re.compile(r'(?<![A-Za-z])(?:mm[²2]?|cm[²2]?|m[²2]?|MPa|kN|kPa|kg/m[³3]|毫米|厘米|平方米|㎡|米|个|樘|扇)(?![A-Za-z])')
 
@@ -123,6 +123,29 @@ def local_assembly_headers(index, target, band):
     return dict(state='unresolved',fields=[],diagnostics=['HEADER_UNRESOLVED'])
 
 
+def normalized_cell_text(chosen):
+    """Recover only a raised unit exponent within this source cell.
+
+    Raw cell text and evidence remain unchanged. Never remove arbitrary digits
+    from labels or join exponents from an adjacent cell.
+    """
+    raw='\n'.join(t['text'] for t in chosen)
+    bases=[t for t in chosen if re.search(r'[（(]\s*[mM]\s*[）)]',t['text']) or t['text'].strip() in ('m','M')]
+    exponents=[t for t in chosen if t['text'].strip()=='2']
+    if len(bases)!=1 or len(exponents)!=1: return raw,[]
+    base,exponent=bases[0],exponents[0]; h=base['height']
+    if not (0<exponent['height']<=h*.8 and
+            0<exponent['origin'][1]-base['origin'][1]<=h*1.2 and
+            base['bbox'][0]<=exponent['origin'][0]<=base['bbox'][2]+h): return raw,[]
+    if base['text'].strip() in ('m','M'):
+        parentheses=[t for t in chosen if t['text'].strip() in ('（','(',')','）') and
+                     abs(t['origin'][1]-base['origin'][1])<h*.15]
+        if len(parentheses)!=2 or not (parentheses[0]['origin'][0]<base['origin'][0]<parentheses[1]['origin'][0]):return raw,[]
+    text='\n'.join(('m2' if t['text'].strip() in ('m','M') else re.sub(r'[（(]\s*[mM]\s*[）)]','(m2)',t['text'])) if t is base else t['text']
+                   for t in chosen if t is not exponent)
+    return text,['SOURCE_POSITIONED_UNIT_EXPONENT']
+
+
 def grid(index, table):
     """Reuse candidate table envelope; recover rectangular merges from missing edges.
 
@@ -133,20 +156,45 @@ def grid(index, table):
     # orthogonal segment inside a title block (logos/signatures) into a grid line.
     anchor_x=sorted({v for row in table['rows'] for cell in row['cells'] for v in (cell['bbox'][0],cell['bbox'][2])})
     anchor_y=sorted({v for row in table['rows'] for v in (row['bbox'][1],row['bbox'][3])})
-    all_h,all_v=[],[]
-    for line in index.scene['lines']:
-        if line['layout_id']!=lid:continue
-        for p,q in zip(line['points'],line['points'][1:]):
-            if abs(p[1]-q[1])<.01:
-                all_h.append((round(p[1],2),min(p[0],q[0]),max(p[0],q[0])))
-            elif abs(p[0]-q[0])<.01:
-                all_v.append((round(p[0],2),min(p[1],q[1]),max(p[1],q[1])))
-    texts=[t for t in index.scene['texts'] if t['layout_id']==lid and a<=t['origin'][0]<c and b<=t['origin'][1]<d]
+    geometry=getattr(index,'_table_geometry',None)
+    if geometry is None:
+        geometry=defaultdict(lambda:dict(horizontal=[],vertical=[],rails=[]))
+        for line in index.scene['lines']:
+            group=geometry[line['layout_id']]
+            for p,q in zip(line['points'],line['points'][1:]):
+                if abs(p[1]-q[1])<.01:
+                    edge=(round(p[1],2),min(p[0],q[0]),max(p[0],q[0]))
+                    group['horizontal'].append(edge);group['rails'].append((*edge,line.get('layer')))
+                elif abs(p[0]-q[0])<.01:
+                    group['vertical'].append((round(p[0],2),min(p[1],q[1]),max(p[1],q[1])))
+        index._table_geometry=geometry
+    local=geometry[lid]
+    all_h=[e for e in local['horizontal'] if e[2]>=a-tol and e[1]<=c+tol and
+           (b-tol<=e[0]<=d+tol or (abs(e[1]-a)<=tol and abs(e[2]-c)<=tol))]
+    all_v=[e for e in local['vertical'] if a-tol<=e[0]<=c+tol and e[2]>=b-tol and e[1]<=d+tol]
+    texts=[t for t in index.scene['texts'] if t['layout_id']==lid and b<=t['origin'][1]<d and
+           (a<=t['origin'][0]<c or (0<a-t['origin'][0]<=t['height']*.3 and a<(t['bbox'][0]+t['bbox'][2])/2<c))]
     source=table.get('ruled_source')
     if source:
         all_h,all_v=source['horizontal'],source['vertical']
         if source['instance_path']:
             texts=[t for t in texts if t.get('entity_path',[])[:len(source['instance_path'])]==source['instance_path']]
+    # A coherent table on a dedicated rail/text layer can overlay topography.
+    # Require strong, repeated ownership; otherwise retain mixed text for review.
+    excluded=[]
+    layers=Counter(t.get('layer') for t in texts)
+    if source and layers:
+        dominant,count=layers.most_common(1)[0]
+        rail_layers=Counter(layer for y,lo,hi,layer in local['rails']
+                            if b-tol<=y<=d+tol and abs(lo-a)<=tol and abs(hi-c)<=tol)
+        if dominant and count>=12 and count>=len(texts)*.85 and rail_layers.get(dominant,0)>=3:
+            typical=median(t['height'] for t in texts if t.get('layer')==dominant)
+            def overlay(t):
+                if t.get('layer')==dominant or t['height']>=typical*.8 or not re.fullmatch(r'[+\-]?\d+\.\d+',t['text'].strip()):
+                    return False
+                return True
+            excluded=[t['entity_id'] for t in texts if overlay(t)]
+            texts=[t for t in texts if t['entity_id'] not in excluded]
     height=median(t['height'] for t in texts) if texts else 1
     raw_cells=[cell for row in table['rows'] for cell in row['cells']]
     cluttered=0
@@ -223,17 +271,20 @@ def grid(index, table):
             # Centered captions can start just across a rail. Reassign only a
             # small overhang with most of the text in the adjacent column.
             center=(text['bbox'][0]+text['bbox'][2])/2
-            if source and any(0 < rail-x <= text['height']*.3 and center>rail for rail in xs[1:-1]):
+            if any(0 < rail-x <= text['height']*.3 and center>rail for rail in xs[:-1]):
                 return center
             return x
         chosen=sorted([t for t in texts if bounds[0]<=anchor_x(t)<bounds[2] and bounds[1]<=t['origin'][1]<bounds[3]],
                       key=lambda t:(-t['origin'][1],t['origin'][0],t['entity_id']))
         rotated=[t for t in chosen if abs(t.get('rotation',0))>.1]
-        if rotated:diagnostics.append('ROTATED_CELL_TEXT_REQUIRES_REVIEW')
         ids=[t['entity_id'] for t in chosen]
+        normalized,normalizations=normalized_cell_text(chosen)
         cells.append(dict(cell_id=stable_id('semanticcell',table['table_id'],TABLE_VERSION,str(bounds)),
             row_index=r0,column_index=c0,row_span=r1-r0,column_span=c1-c0,bbox=bounds,
             text='\n'.join(t['text'] for t in chosen),entity_ids=ids,
+            normalized_text=normalized,normalizations=normalizations,
+            diagnostics=['ROTATED_CELL_TEXT_REQUIRES_REVIEW'] if rotated else [],
+            excluded_overlay_entity_ids=excluded,
             evidence=[e for eid in ids for e in index.entity_evidence(eid)],state='candidate'))
     return cells,n,m,sorted(set(diagnostics))
 
@@ -284,7 +335,8 @@ def read_semantic_table(index,args):
             number=float(numeric[1]) if numeric and (not numeric[2] or UNITS.fullmatch(numeric[2])) else None
             output.append(cell | dict(is_header=cell['row_index'] in header_rows,
                 continuation_of=cell['cell_id'] if r!=cell['row_index'] else None,
-                header_path=[h['text'] for h in ancestry if h not in title_headers],
+                header_path=[h.get('normalized_text',h['text']) for h in ancestry if h not in title_headers],
+                raw_header_path=[h['text'] for h in ancestry if h not in title_headers],
                 header_cell_ids=[h['cell_id'] for h in ancestry],
                 header_evidence=[e for h in ancestry for e in h['evidence']],
                 header_relation='user_selected' if args.header_rows is not None else 'candidate',

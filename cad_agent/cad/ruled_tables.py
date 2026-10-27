@@ -3,7 +3,7 @@ from collections import defaultdict
 from statistics import median
 from cad_agent.contracts import stable_id
 
-VERSION = 'ruled-source-v2'
+VERSION = 'ruled-source-v3.1-nested-ownership'
 TOL = .11
 
 
@@ -39,6 +39,10 @@ def recover(index, legacy):
         text_groups[(t['layout_id'], tuple(t.get('entity_path', [])[:-1]))].append(t)
     recovered = []
     for (lid, path), lines in groups.items():
+        # Parent rails and child-block rows can form one grid. Instance-local
+        # passes still preserve ownership when unrelated blocks overlap.
+        lines = [line for (line_lid,line_path),items in groups.items()
+                 if line_lid==lid and line_path[:len(path)]==path for line in items]
         texts = [t for (text_lid,text_path),items in text_groups.items()
                  if text_lid==lid and text_path[:len(path)]==path for t in items]
         if len(texts) < 4:
@@ -87,8 +91,8 @@ def recover(index, legacy):
                 box=[a,b,c,d]
                 # Existing ruled-table candidates guard against arbitrary plan
                 # line networks; this pass repairs their source envelopes.
-                if not any(t['layout_id']==lid and a-TOL<=t['bbox'][0] and b-TOL<=t['bbox'][1]
-                           and t['bbox'][2]<=c+TOL and t['bbox'][3]<=d+TOL for t in legacy):
+                if not any(t['layout_id']==lid and a-TOL<=t['bbox'][2] and b-TOL<=t['bbox'][3]
+                           and t['bbox'][0]<=c+TOL and t['bbox'][1]<=d+TOL for t in legacy):
                     continue
                 # A through-line with neither endpoint on this table is not a
                 # column separator (e.g. an axis crossing the complete grid).
@@ -114,17 +118,26 @@ def recover(index, legacy):
                     cells,n,m,diagnostics=grid(index,seed)
                 except ValueError:
                     continue
-                if diagnostics or sum(bool(cell['text']) for cell in cells)<4:
+                if sum(bool(cell['text']) for cell in cells)<4:
                     continue
                 seed.update(rows=[dict(row_index=r,bbox=[a,ys[r+1],c,ys[r]],cells=[cell for cell in cells
                     if cell['row_index']==r]) for r in range(n)],row_count=n,column_count=m,state='candidate')
                 recovered.append(seed)
-    recovered.sort(key=lambda t:-(t['bbox'][2]-t['bbox'][0])*(t['bbox'][3]-t['bbox'][1]))
+    # An ancestor scan can find the exact same geometry as a complete child
+    # block. Prefer the narrowest source ancestry at equal envelopes, otherwise
+    # the duplicate ancestor would re-introduce unrelated overlay text.
+    recovered.sort(key=lambda t:(-(t['bbox'][2]-t['bbox'][0])*(t['bbox'][3]-t['bbox'][1]),
+                                 -len(t['ruled_source']['instance_path'])))
     kept=[]
     def contains(t,u):
         a,b,c,d=t['bbox'];x,y,z,w=u['bbox']
         return t['layout_id']==u['layout_id'] and a-TOL<=x and b-TOL<=y and z<=c+TOL and w<=d+TOL
+    def same_columns(t,u):
+        return abs(t['bbox'][0]-u['bbox'][0])<=TOL and abs(t['bbox'][2]-u['bbox'][2])<=TOL
+    def interior(t,u):
+        a,b,c,d=t['bbox'];x,y,z,w=u['bbox']
+        return a+TOL<x and b+TOL<y and z<c-TOL and w<d-TOL
     for t in recovered:
-        if not any(k['ruled_source']['instance_path']==t['ruled_source']['instance_path'] and contains(k,t) for k in kept):
+        if not any(contains(k,t) and same_columns(k,t) for k in kept):
             kept.append(t)
-    return [t for t in legacy if not any(contains(k,t) for k in kept)] + kept
+    return [t for t in legacy if not any(contains(k,t) and not interior(k,t) for k in kept)] + kept

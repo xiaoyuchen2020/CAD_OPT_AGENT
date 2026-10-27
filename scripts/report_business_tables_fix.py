@@ -7,7 +7,7 @@ import shutil
 import xml.etree.ElementTree as ET
 
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'artifacts/business-tables-fixed-final-v4-20261026'
+OUT=ROOT/'artifacts/business-tables-fixed-final-v6-20261026'
 BASE=ROOT/'artifacts/business-tables-real-e2e-20261026'
 
 
@@ -35,11 +35,12 @@ def main():
                 'tool_calls':len(r['trace']),'model_requests':len(r['usage']),'error':r.get('error'),
                 'answer':(r.get('result') or {}).get('answer',''),
                 'runtime':r['runtime_requested'],'model':r['model'],'fallback':r['request']['allow_fallback']}
-    tests=Path('/private/tmp/business-tables-final-v4.xml')
+    tests=Path('/private/tmp/business-tables-final-v6.xml')
     if tests.exists():
         shutil.copy2(tests,OUT/'regression.xml')
         suites=ET.parse(tests).getroot();summary['regression']=[s.attrib for s in suites.iter('testsuite')]
     (OUT/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+    test_count=sum(int(s['tests']) for s in summary.get('regression',[]))
     metrics=load(BASE/'reference.json')['fields']
     buildings=load(BASE.with_name(BASE.name+'-schedule')/'reference.json')['rows']
     parts=['<h1>真实图纸提取修复与验收</h1>',
@@ -56,15 +57,19 @@ def main():
           [r['values'][k] if r['values'][k] is not None else '原表空白' for k in
            ('ordinal','name','storeys','footprint_area','total_building_area')] for r in buildings]),
       '<p>地下室基底空白没有填零；原表没有独立使用性质、建筑高度、计容和不计容列，不从名称或地上/地下面积推断。合计总建筑面积188875.69㎡独立保留。</p>',
-      '<h2>通用修复范围</h2><ul><li>按CAD块实例来源恢复线框，合并共线相接线段，防止叠加底图混入；小缺口有文字尺度限制并保留调整记录。</li><li>用明确标签、唯一且跨行一致的后置数值列和显式单位识别无表头指标表；序号和多值歧义不猜测。</li><li>支持真实常见表头、备注中的计容否定词、F层数表达和标准百分号转义，原始引文不改写。</li><li>候选发现不计为整表已读；模型上下文保留整页字段及来源引用，不用JSON前缀替代数据页；逐行引用包含序号、名称、数值和单位；相同读取页去重，防止重复页挤出尚需交付的明细。</li></ul>',
+      '<h2>通用修复范围</h2><ul><li>按CAD块实例来源恢复线框，合并共线相接线段，防止叠加底图混入；小缺口有文字尺度限制并保留调整记录。</li><li>用明确标签、唯一且跨行一致的后置数值列和显式单位识别无表头指标表；序号和多值歧义不猜测。</li><li>支持真实常见表头、备注中的计容否定词、F层数表达和标准百分号转义，原始引文不改写。</li><li>候选发现不计为整表已读；模型上下文保留整页字段及来源引用，不用JSON前缀替代数据页；逐行引用包含序号、名称、数值和单位；相同读取页去重，原始单元格使用无损矩阵压缩，防止冗余内容挤出所请求的字段。</li><li>序号表头和数值分属两个单元格时，依据已核验且同时引用的字段绑定校验编号；不允许将该数字借用为型号、轴号或尺寸。</li></ul>',
       '<h2>真实订阅运行</h2>']
     for key,title,suffix in [('planning_metrics','规划指标',''),('building_schedule','一览表','-schedule')]:
         live=summary[key].get('live',{})
         parts.append('<h3>'+title+'</h3>'+table(['运行状态','任务状态','工具调用','模型请求','运行ID'],[[
             live.get('status','未完成'),live.get('task_status',''),live.get('tool_calls',''),live.get('model_requests',''),live.get('run_id','')]]))
+        review=summary[key].get('model_acceptance',{})
+        parts.append('<p><strong>请求字段验收：'+('通过' if review.get('passed') else '未通过或未完成')+'</strong>；按独立原图参考核对有值字段、单位、分类及缺项，不将任务状态视为数据准确率。</p>')
         parts.append('<pre>'+html.escape(live.get('answer','') or json.dumps(live.get('error'),ensure_ascii=False))+'</pre>')
-    parts += ['<p>使用现有订阅通道（gpt-6.1-sol / responses_subscription），无付费回退。运行结束、任务状态与结构化解析验收分别记录，不以completed冒充全图穷尽。</p>',
-      '<h2>测试与证据</h2><p>最终版本183项相关回归通过。新增测试使用不同名称、数值、比例和坐标，覆盖分段边线、短缺口、重叠文字、序号干扰、歧义数值、整页上下文与引用完整性。</p>',
+    parts += ['<p>尚桥头复用已转换且哈希不变的原图数据；汇能B复用历史归档的完整DXF。本轮不重复DWG转换，不裁图、不改数值。</p>',
+      '<p>规划指标结构化入口读取全部32行。最终模型整理未声称完整复核中间未映射原始行，但12条目标字段及停车备注均完整交付。一览表完整交付6行及合计；源表缺列保持未知。两次任务状态均保留partial，不作为整图或工程身份验收。</p>',
+      '<p>使用现有订阅通道（gpt-6.1-sol / responses_subscription），无付费回退。运行结束、任务状态与结构化解析验收分别记录，不以completed冒充全图穷尽。</p>',
+      f'<h2>测试与证据</h2><p>最终版本{test_count}项相关回归通过。新增测试使用不同名称、数值、比例和坐标，覆盖分段边线、短缺口、重叠文字、序号干扰、歧义数值、整页上下文与引用完整性。</p>',
       '<p><a href="acceptance.json">指标逐项验收</a> · <a href="../'+OUT.name+'-schedule/acceptance.json">一览表29个单元格验收</a> · <a href="summary.json">完整汇总</a> · <a href="code-manifest.json">冻结源码哈希</a> · <a href="../business-tables-real-e2e-20261026/report.html">修复前失败报告与原图截图</a></p>',
       '<p>中间版本及失败运行保留在business-tables-fixed-*目录，没有覆盖修复前结果。两张目标图的原始空白/缺列及未确认口径保留；不能由这两个样本推导所有CAD图纸都能完整识别。</p>']
     (OUT/'report.html').write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>业务表提取修复验收</title><style>body{max-width:1150px;margin:40px auto;padding:0 24px;font:16px/1.7 system-ui;color:#26323b}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #ccd7df;padding:10px;text-align:left}th{background:#edf5f1}pre{white-space:pre-wrap;background:#f5f7f9;padding:20px}a{color:#1d659b}</style><body>'+''.join(parts)+'</body></html>')

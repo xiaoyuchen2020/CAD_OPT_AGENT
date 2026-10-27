@@ -184,7 +184,10 @@ def validate_answer(self, content):
         quote = "\n".join(self.evidence[eid]["quote"] for eid in ids)
         # Exact numeric tokens or explicitly source-bound, recomputed values.
         if claim.state != "unknown":
-            missing = [] if compiled_literal else unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values)
+            from cad_agent.analysis.business_table_delivery import cited_ordinals
+            bound_ordinals=cited_ordinals(self.observations,self.evidence,ids)
+            missing = [] if compiled_literal else unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values,
+                                                                     bound_ordinals=bound_ordinals)
             if missing:
                 candidates = {
                     v: [
