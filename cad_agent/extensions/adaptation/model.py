@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 import ast
 import json
 import time
@@ -31,13 +32,15 @@ def check_code(code):
     # This is syntax/interface checking, deliberately not claimed as isolation.
 
 
-def subscription_turn(settings, messages, timeout, account):
+def subscription_turn(settings, messages, timeout, account, *, lease_acquired=False, check_cancelled=None):
     from cad_agent.adapters.siwc import fail
     from cad_agent.runtimes.responses_subscription import ResponsesTransport
     if account is None or settings.model != 'gpt-6.1-sol':
         raise fail('MODEL_MISMATCH', '动态方法需要已连接的 GPT-6.1 Sol 直接订阅。')
     deadline = time.monotonic() + timeout
     def remaining():
+        if check_cancelled is not None:
+            check_cancelled()
         value = deadline - time.monotonic()
         if value <= 0: raise fail('TIME_LIMIT', '动态方法订阅请求超时。')
         return value
@@ -45,7 +48,7 @@ def subscription_turn(settings, messages, timeout, account):
         runtime_diagnostics={'model_requests': [{}]}, _remaining=remaining, progress=lambda **kw: None)
     payload = dict(model=settings.model, instructions=messages[0]['content'], input=messages[1:],
         tools=[], tool_choice='none', store=False, stream=True, reasoning={'effort': 'low'})
-    with account.lease():
+    with nullcontext() if lease_acquired else account.lease():
         response = ResponsesTransport(account).request(session, payload)
     parts = []
     for item in response['output']:
@@ -62,7 +65,7 @@ def subscription_turn(settings, messages, timeout, account):
     return {'content': ''.join(parts)}, usage, session.runtime_diagnostics
 
 
-def propose(settings, method, instruction, bundle, feedback, timeout, remaining_tokens=96000, account=None):
+def propose(settings, method, instruction, bundle, feedback, timeout, remaining_tokens=96000, account=None, *, lease_acquired=False, check_cancelled=None):
     # Documented projection, not truncation: every source entity remains present;
     # bulky upstream quote evidence stays on the host and in the execution input.
     view = {k: bundle[k] for k in ('input_id', 'source_sha256', 'bbox', 'xs', 'ys',
@@ -82,7 +85,7 @@ def propose(settings, method, instruction, bundle, feedback, timeout, remaining_
         raise ValueError('TOKEN_BUDGET_EXHAUSTED')
     diagnostics = {}
     if settings.provider == 'responses_subscription':
-        message, usage, diagnostics = subscription_turn(settings, messages, timeout, account)
+        message, usage, diagnostics = subscription_turn(settings, messages, timeout, account, lease_acquired=lease_acquired, check_cancelled=check_cancelled)
     else:
         message, usage = ModelGateway(settings).chat_turn(messages, [], timeout=timeout)
     content = (message['content'] or '').strip()

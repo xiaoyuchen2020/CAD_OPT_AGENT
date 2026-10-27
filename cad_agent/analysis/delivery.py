@@ -68,6 +68,8 @@ def validate_answer(self, content):
     for parsed_index, claim in enumerate(parsed.claims):
         index = parts.claim_indexes[parsed_index] + 1
         issue_count = len(issues)
+        from cad_agent.analysis.task_methods import claim_issues as method_claim_issues
+        issues.extend(method_claim_issues(self, claim))
         from cad_agent.analysis.source_candidates import claim_issues
         issues.extend(claim_issues(self, claim))
         issues.extend(f"第 {index} 条{message}" for message in delivery_consistency_issues(claim, self.evidence, self.observations))

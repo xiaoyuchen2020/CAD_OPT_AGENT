@@ -159,7 +159,12 @@ from cad_agent.analysis.source_record_selection import SelectSourceRecords
 
 from cad_agent.analysis.source_candidates import SearchSourceRecords
 
+from cad_agent.analysis.task_methods import DevelopMethod, RunTaskMethod
+from cad_agent.analysis.method_authorization import authorization as method_authorization
+
 TOOL_SPECS = {
+    "develop_method": (DevelopMethod, "已有工具无法满足具体要求时，在已读取局部生成Python方法、隔离执行并独立验证。baseline_observation_id绑定真实已有读取，gap描述缺口；五类method限定输出。自动返回首批验证结果及method_id，原文证据可引用，候选不证明归属/完整性。"),
+    "run_task_method": (RunTaskMethod, "读取当前任务已验证方法的后续结果页，每次重新核对来源与独立验证；不重生成代码。选集读取完成不证明目标完整。"),
     "search_source_records": (SearchSourceRecords, "按已登记query_intent的target_id发现做法标题候选，精确编号优先；范围独立判断。只列标题、位置、歧义及真实read_assembly参数，不读正文、不扩展子类别。alternatives必须附expansion_reason且不能改变原目标。"),
     "extract_planning_metrics": (PlanningMetricsRequest, "提取经济技术指标：面积、计容/不计容、容积率、密度、绿地率、停车位。table_id为空时只发现候选；指定表格后按页读取原文，保留指标标签、设计/控制值、单位、证据和冲突。不计算缺项，不把当前页视为整表。"),
     "extract_building_schedule": (BuildingScheduleRequest, "提取建（构）筑物一览表：逐行读取序号、名称、使用性质、层数、高度和各类面积；合计行单列。table_id为空只列候选；沿next_actions分页，保留合并来源、字段缺失及证据，不确认图中建筑实例身份。"),
@@ -274,6 +279,7 @@ def tool_definitions(efficient=False, session=None):
             },
         }
         for name, (schema, desc) in TOOL_SPECS.items()
+        if name not in ('develop_method', 'run_task_method') or (session is not None and method_authorization(session.request)['mode'] == 'task_verified' and session.request.runtime == 'responses_subscription' and session.w.settings.model == 'gpt-6.1-sol')
         if name != 'batch_read_sources' or (session is not None and session.request.source_read_batching)
         if session is None or runtime_supports(name, session.request.runtime, session.w.settings.provider)
         if name not in ('finish_analysis','request_toolset') or (session is not None and session.focused_enabled)
@@ -333,6 +339,7 @@ VISUAL_TOOLS = frozenset({
     'prepare_discovery_review', 'review_discovered_spaces',
 })
 MUTATING_TOOLS = frozenset({
+    'develop_method', 'run_task_method',
     'read_table_content', 'recover_table_region', 'review_table_region',
     'trace_door_schedule',
     'inspect_spatial_boundary', 'measure_spatial_area', 'measure_spatial_relation',
@@ -351,6 +358,8 @@ RUNTIMES = frozenset({'native', 'responses_subscription', 'codex_subscription', 
 def runtime_supports(name, runtime, provider):
     if name not in TOOL_SPECS or runtime not in RUNTIMES:
         return False
+    if name in {'develop_method', 'run_task_method'}:
+        return provider == 'responses_subscription' and runtime == 'responses_subscription'
     if name in {'finish_analysis', 'request_toolset'}:
         return runtime in {'native', 'responses_subscription'}
     if name in VISUAL_TOOLS:

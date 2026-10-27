@@ -9,6 +9,8 @@ from cad_agent.cad.regions import is_heading, clause_level
 
 def register_observation(self, name, result):
     data = None
+    if name in ("develop_method", "run_task_method"):
+        data = {k:v for k,v in result.items() if k != "observation_id"}
     if name in ('extract_planning_metrics', 'extract_building_schedule'):
         data = {k:v for k,v in result.items() if k not in ('observation_id', 'cache_hit')}
     if name in ('search_tables','inspect_table','read_table_content','recover_table_region','review_table_region'):
@@ -117,6 +119,10 @@ def register_observation(self, name, result):
             "basis": "tool_observation",
             "note": "解析器读回或计算的元数据，不是原图原文证据，不证明设计语义。",
         }
+        from cad_agent.analysis.task_methods import capture_scope
+        scope = capture_scope(self, name, result)
+        if scope:
+            observation["task_method_scope"] = scope
         self.observations[oid] = observation
         from cad_agent.analysis.query_intent import enabled as intent_enabled
         if intent_enabled(self) and name == 'read_assembly':

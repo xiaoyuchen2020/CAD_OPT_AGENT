@@ -3,62 +3,260 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#f7f8f5" />
-    <title>CAD Atlas · 图纸事实工作台</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>图纸工作台</title>
     <link rel="stylesheet" href="/assets/styles.css" />
     <link rel="stylesheet" href="/assets/run-inspector.css" />
+    <link rel="stylesheet" href="/assets/workspace.css" />
     <script type="module" src="/assets/app.js"></script>
   </head>
   <body>
-    <aside class="rail">
-      <a class="brand" href="/" title="CAD Atlas">a<span>·</span></a>
-      <button
-        class="rail-button active"
-        id="nav-workspace"
-        title="图纸工作台"
-        aria-label="图纸工作台"
-      >
-        <span>▧</span>
-      </button>
-      <button
-        class="rail-button"
-        id="nav-files"
-        title="项目文件"
-        aria-label="项目文件"
-      >
-        <span>▱</span>
-      </button>
-      <div class="rail-spacer"></div>
-      <button
-        class="rail-button"
-        id="about-button"
-        aria-label="关于工作台"
-        title="关于工作台"
-      >
-        ?
-      </button>
-      <div class="avatar">V</div>
-    </aside>
     <div class="shell">
-      <header class="topbar">
-        <div class="project-crumb">
-          <span class="project-icon">⌑</span><strong>建筑图纸工作空间</strong
-          ><span class="slash">/</span><span class="muted">图纸阅读与分析</span>
-        </div>
-        <div class="header-actions">
-          <span class="milestone"><i></i>事实与证据</span
-          ><button class="button quiet" id="demo-button">打开示例</button
-          ><button class="button dark" id="upload-button" title="点击选择或拖入一张 DWG / DXF 图纸" aria-label="导入图纸，点击选择或拖入 DWG、DXF 文件">＋ 导入图纸</button>
-        </div>
-        <input id="file-input" type="file" accept=".dxf,.dwg" hidden />
-      </header>
       <main class="workspace">
-        <section class="facts-panel">
+        <aside class="files-panel" aria-label="图纸文件">
+          <header class="files-header"><h1>图纸资料</h1><span id="drawing-count" class="muted">0</span><button class="icon-button" id="upload-button" title="导入或拖入 DWG / DXF 图纸" aria-label="导入图纸">＋</button></header>
+          <input id="file-input" type="file" accept=".dxf,.dwg" hidden />
+          <p id="import-status" class="muted" role="status" aria-live="polite" hidden></p>
+          <nav id="drawing-files" class="drawing-files" aria-label="选择图纸"></nav>
+          <footer class="files-footer"><button class="text-button" id="library-button">原文与事实</button><button class="text-button" id="demo-button">打开示例</button></footer>
+        </aside>
+        <section class="drawing-panel">
+          <div class="drawing-toolbar">
+            <div class="file-tab">
+              <span class="file-icon" id="drawing-format">DXF</span
+              ><span id="drawing-name">原图查看器</span
+              ><span class="version-pill" id="version-pill">—</span>
+            </div>
+          </div>
+          <div class="drawing-subbar">
+            <label
+              ><span class="muted">布局</span
+              ><select id="layout-select" aria-label="选择布局">
+                <option>Model</option>
+              </select></label
+            ><label
+              ><span class="muted">范围</span
+              ><select id="frame-select" aria-label="选择提取范围">
+                <option value="">全部图框</option>
+              </select></label
+            ><span class="view-status" id="view-status">尚未载入</span>
+          </div>
+          <div id="viewer-interaction" class="viewer-interaction" hidden><span id="viewer-interaction-text"></span><button id="cancel-viewer-interaction" class="text-button">取消</button></div>
+          <div class="canvas-wrap" id="canvas-wrap">
+            <svg
+              id="cad-canvas"
+              xmlns="http://www.w3.org/2000/svg"
+              role="img"
+              aria-label="原图矢量预览"
+              viewBox="0 0 420 297"
+            >
+              <g id="drawing-geometry"></g>
+              <g id="drawing-text"></g>
+              <g id="drawing-highlight"></g>
+              <g id="drawing-selection" pointer-events="none"></g>
+              <g id="drawing-measurement"></g>
+            </svg>
+            <div id="canvas-empty" class="canvas-empty">
+              <h2>选择一张图纸</h2>
+              <p>支持 DWG / DXF</p>
+            </div>
+            <div class="canvas-label" id="canvas-label" hidden>
+              原始坐标 · 矢量预览
+            </div>
+            <div class="zoom-controls">
+              <button id="zoom-out" aria-label="缩小">−</button
+              ><span id="zoom-label">100%</span
+              ><button id="zoom-in" aria-label="放大">＋</button
+              ><span class="divider"></span
+              ><button id="fit-button" aria-label="适应图纸" title="适应图纸">
+                ⛶
+              </button>
+            </div>
+          </div>
+          <div class="evidence-drawer" id="evidence-drawer" hidden>
+            <div class="evidence-heading">
+              <span class="evidence-mark">↗</span><strong>原文证据</strong
+              ><span id="evidence-precision" class="tag"></span
+              ><button
+                id="close-evidence"
+                class="icon-button"
+                aria-label="关闭证据"
+              >
+                ×
+              </button>
+            </div>
+            <p id="evidence-quote"></p>
+            <details class="evidence-details"><summary>来源详情</summary><div class="evidence-meta" id="evidence-meta"></div></details>
+            <a id="region-preview-link" class="text-button" target="_blank" rel="noopener">打开局部预览 ↗</a>
+          </div>
+          <div class="viewer-footer">
+            <span id="source-note">尚未载入图纸</span
+            ><span id="unit-label"></span>
+          </div>
+        </section>
+        <section class="chat-panel">
+          <div class="chat-header">
+            <span class="assistant-dot" aria-hidden="true"></span>
+            <strong>图纸助手</strong>
+            <button id="run-history-button" type="button" class="text-button" title="查看当前图纸的历史运行">运行记录</button>
+            <button
+              id="clear-chat"
+              class="icon-button"
+              title="清空当前问答"
+              aria-label="清空当前问答"
+            >
+              ↻
+            </button>
+          </div>
+          <div id="chat-scope" class="chat-scope">尚未选择图纸</div>
+          <div class="chat-messages" id="chat-messages">
+            <div class="welcome">
+              <h2>询问当前图纸</h2>
+              <button class="suggested" data-question="帮我找一下外墙做法，并给出原文依据。">查找外墙做法 <span>↗</span></button>
+              <button class="suggested" data-question="这张图纸有哪些房间？请定位名称。">查找并定位房间 <span>↗</span></button>
+            </div>
+          </div>
+          <div class="chat-bottom">
+            <div class="selection-context" id="selection-context" hidden>
+              <span id="selection-text"></span
+              ><button id="clear-selection" aria-label="取消选中做法">×</button>
+            </div>
+            <div class="composer-toolbar">
+              <div class="composer-model">
+                <label class="sr-only" for="model-profile">选择问答模型</label>
+                <select id="model-profile" aria-label="选择问答模型"><option value="default">默认模型</option></select>
+                <span id="local-mode-label" hidden>本地事实查询</span>
+              </div>
+              <button type="button" id="chat-settings-button" class="composer-settings-button" aria-haspopup="dialog" aria-controls="chat-settings-dialog" aria-label="问答设置">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4h12M2 12h12"/><circle cx="6" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
+                设置
+              </button>
+            </div>
+            <form id="chat-form">
+              <textarea
+                id="question"
+                placeholder="询问图纸…"
+                rows="2"
+                aria-label="询问图纸"
+              ></textarea>
+              <div class="composer-footer">
+                <span id="composer-status"><i class="green-dot"></i> 回答附原图依据</span
+                ><button type="button" id="cancel-chat-button" class="text-button" hidden>停止分析</button>
+                <button type="submit" id="send-button" aria-label="发送问题">
+                  ↑
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </section>
+      </main>
+      <div class="taskbar" id="taskbar" hidden>
+        <span class="spinner"></span><span id="task-message">正在处理</span>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <dialog id="chat-settings-dialog" aria-labelledby="chat-settings-title">
+      <div class="dialog-heading">
+        <div><h2 id="chat-settings-title">问答设置</h2><p class="settings-description">调整查询方式，管理模型连接。</p></div>
+        <button type="button" id="close-chat-settings" class="icon-button" aria-label="关闭问答设置" autofocus>×</button>
+      </div>
+                  <details class="extraction-panel">
+              <summary>图纸提取</summary>
+              <div class="extraction-controls">
+              <select id="extract-mode" aria-label="选择提取方式">
+                <option value="local">本地结构提取</option>
+                <option value="model">模型辅助提取</option></select
+              ><button class="text-button" id="extract-button" disabled>
+                重新提取 ↗
+              </button>
+            </div>
+            </details>
+      <div class="settings-fields">
+        <label for="chat-mode">问答方式</label>
+              <select id="chat-mode" aria-label="选择问答方式">
+                <option value="agent">模型 · 工具问答</option>
+                <option value="local">本地 · 事实查询</option>
+              </select>
+        <label for="retrieval-mode">检索方式</label>
+              <select id="retrieval-mode" aria-label="选择检索方式" disabled>
+                <option value="keyword">关键词检索</option>
+                <option value="hybrid">混合检索 · 语义增强</option>
+              </select>
+        <p id="retrieval-help" class="settings-help">关键词适合查找原文；混合检索可补充语义匹配。</p>
+      </div>
+      <details class="settings-section">
+        <summary>关联图纸<span>选择本次可查阅的资料</span></summary>
+        <p class="settings-help">仅加入同项目相关资料；模型会核对版本、楼层和轴网。未选择的文件不参与问答。</p>
+        <div id="related-drawings"></div>
+      </details>
+      <details class="settings-section" id="advanced-settings">
+        <summary>高级选项<span>运行时与失败回退</span></summary>
+        <div class="settings-fields">
+          <label for="agent-runtime">运行时</label>
+              <select id="agent-runtime" aria-label="选择 Agent 运行时">
+                <option value="native">自定义 · API</option>
+                <option value="deepseek_harness">DeepSeek · 桥接</option>
+                <option value="codex">Codex · 桥接</option>
+                <option value="codex_subscription" hidden>Codex · 订阅直连</option>
+                <option value="responses_subscription" hidden>自定义 · 订阅直连</option>
+              </select>
+              <label class="runtime-fallback"><input type="checkbox" id="runtime-fallback" />失败时使用自定义 API 回退</label>
+          <label for="source-record-mode">来源整理方式</label>
+          <select id="source-record-mode">
+            <option value="auto">自动整理原文</option>
+            <option value="review">模型复核来源选择</option>
+            <option value="agent">深入分析</option>
+          </select>
+          <p class="settings-help">来源整理功能需由服务端开启。复杂问题自动进入深入分析。</p>
+          <label class="runtime-fallback"><input type="checkbox" id="source-read-batching" />批量读取来源（实验选项，节省模型往返）</label>
+          <p class="settings-help">默认关闭，逐项读取原文。勾选后对后续问答生效；刷新页面恢复关闭。</p>
+          <label class="runtime-fallback"><input type="checkbox" id="task-verified-methods" />允许动态方法（实验选项）</label>
+          <p class="settings-help">已有工具不足时，在已读取局部生成并验证方法，将有来源的结果用于当前回答。也可在本轮问题中写“允许使用动态代码”，无需勾选；明确禁止时关闭。需 GPT-6.1 Sol 订阅直连。</p>
+          <p class="settings-help">订阅模型自动匹配连接方式，不启用付费 API 回退。</p>
+        </div>
+      </details>
+      <details class="settings-section" id="account-settings" hidden>
+        <summary>账户与授权<span>管理订阅连接</span></summary>
+        <div class="settings-accounts">
+            <details id="codex-account-panel" class="codex-account" hidden>
+              <summary>Codex 订阅 · 本机连接</summary>
+              <p id="codex-account-status">完成官方 ChatGPT 登录后可使用账户订阅额度。</p>
+              <button type="button" id="codex-login" class="button quiet">Continue with ChatGPT</button>
+              <button type="button" id="codex-device-login" class="button quiet">使用设备码登录</button>
+              <button type="button" id="codex-refresh" class="button quiet">刷新登录状态</button>
+              <button type="button" id="codex-logout" class="button quiet">断开本产品连接</button>
+              <a id="codex-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开官方登录页面</a>
+              <p id="codex-device-code" hidden></p>
+              <p>仅用于本机试验，消耗你的订阅额度。模型权限以实际调用为准；不会自动改用付费 API。</p>
+            </details>
+            <details id="siwc-account-panel" class="codex-account" hidden>
+              <summary>ChatGPT 直接订阅 · 独立授权</summary>
+              <p id="siwc-account-status">为 CAD Atlas 独立授权，由本产品管理工具循环。</p>
+              <select id="siwc-account-select" aria-label="选择 ChatGPT 授权账户"><option value="">添加新的账户或工作区</option></select>
+              <button type="button" id="siwc-login" class="button quiet">Continue with ChatGPT</button>
+              <button type="button" id="siwc-refresh" class="button quiet">刷新授权状态</button>
+              <button type="button" id="siwc-logout" class="button quiet">断开直接订阅连接</button>
+              <a id="siwc-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开官方授权页面</a>
+              <button type="button" id="siwc-copy-link" class="button quiet" hidden>复制授权链接 · 在 Chrome / Safari 中打开</button>
+              <p>建议使用系统浏览器完成授权。若官方页面出现 HTML / Route Error，请重新生成链接并在系统浏览器打开；不要反复刷新旧错误页。链接有效期十分钟。</p>
+              <p>使用独立订阅授权，不读取 Codex 登录凭据。不会自动重试或回退付费 API。</p>
+              <a href="https://chatgpt.com/#settings/Usage" target="_blank" rel="noopener noreferrer">在 ChatGPT 设置中查看用量与管理授权</a>
+            </details>
+        </div>
+      </details>
+            <div class="model-note" id="model-note">
+              模型按问题读取当前图纸文字；密钥保留在服务端。
+            </div>
+      <div class="settings-actions"><button type="button" id="done-chat-settings" class="button primary">完成</button></div>
+    </dialog>
+    <dialog id="library-dialog" aria-label="原文与事实">
+      <button id="close-library" class="icon-button library-close" aria-label="关闭资料">×</button>
+        <section class="reference-browser">
           <div class="panel-title">
             <div>
-              <div class="eyebrow">DRAWING INTELLIGENCE</div>
-              <h1>砌体做法</h1>
+
+              <h2>原文与事实</h2>
             </div>
             <span class="count-badge" id="fact-count">0</span>
           </div>
@@ -69,7 +267,6 @@
             </select>
           </div>
           <button id="reindex-drawing" class="button" disabled title="使用当前解析规则生成新快照，保留历史图纸和任务">重新解析图纸</button>
-          <p id="import-status" class="muted" role="status" aria-live="polite" hidden></p>
           <div class="tabs" role="tablist">
             <button
               role="tab"
@@ -113,260 +310,6 @@
             </button>
           </div>
         </section>
-        <section class="drawing-panel">
-          <div class="drawing-toolbar">
-            <div class="file-tab">
-              <span class="file-icon" id="drawing-format">DXF</span
-              ><span id="drawing-name">原图查看器</span
-              ><span class="version-pill" id="version-pill">—</span>
-            </div>
-            <button id="room-measure-button" class="button" aria-pressed="false" title="点击后在房间内部选点测量">测量房间</button>
-            <button id="similarity-button" class="button" aria-pressed="false" title="框选一个样本，在所选图框或当前视野查找形状相似候选">框选找相似</button>
-            <button id="adapt-region-button" class="button" title="对当前视野的局部文字与几何试运行独立适配方法">局部方法调试</button>
-            <button id="room-discover-button" class="button" title="识别当前视野内任意用途及未命名的围合空间候选">识别房间</button>
-            <button id="measurement-history-button" class="button">测量记录</button>
-            <a
-              id="download-source"
-              class="icon-button"
-              aria-label="下载原文件"
-              title="下载原文件"
-              hidden
-              >↓</a
-            >
-            <a id="download-dxf" class="text-button" hidden>下载 DXF</a>
-            <a id="download-oda-json" class="text-button" hidden>图纸 JSON</a>
-          </div>
-          <div class="drawing-subbar">
-            <label
-              ><span class="muted">布局</span
-              ><select id="layout-select" aria-label="选择布局">
-                <option>Model</option>
-              </select></label
-            ><label
-              ><span class="muted">范围</span
-              ><select id="frame-select" aria-label="选择提取范围">
-                <option value="">全部图框</option>
-              </select></label
-            ><span class="view-status" id="view-status">尚未载入</span>
-          </div>
-          <div class="canvas-wrap" id="canvas-wrap">
-            <svg
-              id="cad-canvas"
-              xmlns="http://www.w3.org/2000/svg"
-              role="img"
-              aria-label="原图矢量预览"
-              viewBox="0 0 420 297"
-            >
-              <g id="drawing-geometry"></g>
-              <g id="drawing-text"></g>
-              <g id="drawing-highlight"></g>
-              <g id="drawing-selection" pointer-events="none"></g>
-              <g id="drawing-measurement"></g>
-            </svg>
-            <div id="canvas-empty" class="canvas-empty">
-              <div class="sheet-glyph">⌑</div>
-              <h2>从图纸出发，每个答案都有依据</h2>
-              <p>支持 DXF 与 DWG 导入、文字、表格及来源定位</p>
-              <div class="format-pills">
-                <span>原文可追溯</span><span>事实可查询</span
-                ><span>版本可核对</span>
-              </div>
-            </div>
-            <div class="canvas-label" id="canvas-label" hidden>
-              原始坐标 · 矢量预览
-            </div>
-            <div class="zoom-controls">
-              <button id="zoom-out" aria-label="缩小">−</button
-              ><span id="zoom-label">100%</span
-              ><button id="zoom-in" aria-label="放大">＋</button
-              ><span class="divider"></span
-              ><button id="fit-button" aria-label="适应图纸" title="适应图纸">
-                ⛶
-              </button>
-            </div>
-          </div>
-          <div class="evidence-drawer" id="evidence-drawer" hidden>
-            <div class="evidence-heading">
-              <span class="evidence-mark">↗</span><strong>原文证据</strong
-              ><span id="evidence-precision" class="tag"></span
-              ><button
-                id="close-evidence"
-                class="icon-button"
-                aria-label="关闭证据"
-              >
-                ×
-              </button>
-            </div>
-            <p id="evidence-quote"></p>
-            <div class="evidence-meta" id="evidence-meta"></div>
-            <a id="region-preview-link" class="text-button" target="_blank" rel="noopener">打开局部预览 ↗</a>
-          </div>
-          <div class="viewer-footer">
-            <span id="source-note">保留原始坐标；房间测量提供独立计算依据</span
-            ><span id="unit-label"></span>
-          </div>
-        </section>
-        <section class="chat-panel">
-          <div class="chat-header">
-            <div class="assistant-logo">✳</div>
-            <div><strong>图纸助手</strong><span>查阅条款，回答附原图依据</span></div>
-            <button id="run-history-button" type="button" class="text-button" title="查看当前图纸的历史运行">运行记录</button>
-            <button
-              id="clear-chat"
-              class="icon-button"
-              title="清空当前问答"
-              aria-label="清空当前问答"
-            >
-              ↻
-            </button>
-          </div>
-          <div class="chat-messages" id="chat-messages">
-            <div class="welcome">
-              <div class="welcome-mark">✳</div>
-              <h2>读懂材料，<br />看见依据。</h2>
-              <p>从设计说明中整理砌体做法。选择一条事实，或直接提问。</p>
-              <button class="suggested" data-question="列出地上内墙材料">
-                列出地上内墙材料 <span>↗</span></button
-              ><button class="suggested" data-question="哪些做法信息不完整？">
-                哪些做法信息不完整？ <span>↗</span></button
-              ><button class="suggested" data-question="列出所有砌体做法">
-                列出所有砌体做法 <span>↗</span>
-              </button>
-              <div class="scope-note">
-                当前仅整理事实，不提供优化或合规结论。
-              </div>
-            </div>
-          </div>
-          <div class="chat-bottom">
-            <div class="selection-context" id="selection-context" hidden>
-              <span id="selection-text"></span
-              ><button id="clear-selection" aria-label="取消选中做法">×</button>
-            </div>
-            <div class="composer-toolbar">
-              <div class="composer-model">
-                <label class="sr-only" for="model-profile">选择问答模型</label>
-                <select id="model-profile" aria-label="选择问答模型"><option value="default">默认模型</option></select>
-                <span id="local-mode-label" hidden>本地事实查询</span>
-              </div>
-              <button type="button" id="chat-settings-button" class="composer-settings-button" aria-haspopup="dialog" aria-controls="chat-settings-dialog" aria-label="问答设置">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4h12M2 12h12"/><circle cx="6" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
-                设置
-              </button>
-            </div>
-            <form id="chat-form">
-              <textarea
-                id="question"
-                placeholder="询问材料、等级、厚度或来源…"
-                rows="2"
-                aria-label="询问图纸"
-              ></textarea>
-              <div class="composer-footer">
-                <span id="composer-status"><i class="green-dot"></i> 回答附原图依据</span
-                ><button type="button" id="cancel-chat-button" class="text-button" hidden>停止分析</button>
-                <button type="submit" id="send-button" aria-label="发送问题">
-                  ↑
-                </button>
-              </div>
-            </form>
-            <details class="extraction-panel">
-              <summary>图纸提取</summary>
-              <div class="extraction-controls">
-              <select id="extract-mode" aria-label="选择提取方式">
-                <option value="local">本地结构提取</option>
-                <option value="model">模型辅助提取</option></select
-              ><button class="text-button" id="extract-button" disabled>
-                重新提取 ↗
-              </button>
-            </div>
-            </details>
-          </div>
-        </section>
-      </main>
-      <div class="taskbar" id="taskbar" hidden>
-        <span class="spinner"></span><span id="task-message">正在处理</span>
-      </div>
-    </div>
-    <div class="toast" id="toast" role="status" hidden></div>
-    <dialog id="chat-settings-dialog" aria-labelledby="chat-settings-title">
-      <div class="dialog-heading">
-        <div><h2 id="chat-settings-title">问答设置</h2><p class="settings-description">调整查询方式，管理模型连接。</p></div>
-        <button type="button" id="close-chat-settings" class="icon-button" aria-label="关闭问答设置" autofocus>×</button>
-      </div>
-      <div class="settings-fields">
-        <label for="chat-mode">问答方式</label>
-              <select id="chat-mode" aria-label="选择问答方式">
-                <option value="agent">模型 · 工具问答</option>
-                <option value="local">本地 · 事实查询</option>
-              </select>
-        <label for="retrieval-mode">检索方式</label>
-              <select id="retrieval-mode" aria-label="选择检索方式" disabled>
-                <option value="keyword">关键词检索</option>
-                <option value="hybrid">混合检索 · 语义增强</option>
-              </select>
-        <p id="retrieval-help" class="settings-help">关键词适合查找原文；混合检索可补充语义匹配。</p>
-      </div>
-      <details class="settings-section">
-        <summary>关联图纸<span>选择本次可查阅的资料</span></summary>
-        <p class="settings-help">仅加入同项目相关资料；模型会核对版本、楼层和轴网。未选择的文件不参与问答。</p>
-        <div id="related-drawings"></div>
-      </details>
-      <details class="settings-section" id="advanced-settings">
-        <summary>高级选项<span>运行时与失败回退</span></summary>
-        <div class="settings-fields">
-          <label for="agent-runtime">运行时</label>
-              <select id="agent-runtime" aria-label="选择 Agent 运行时">
-                <option value="native">自定义 · API</option>
-                <option value="deepseek_harness">DeepSeek · 桥接</option>
-                <option value="codex">Codex · 桥接</option>
-                <option value="codex_subscription" hidden>Codex · 订阅直连</option>
-                <option value="responses_subscription" hidden>自定义 · 订阅直连</option>
-              </select>
-              <label class="runtime-fallback"><input type="checkbox" id="runtime-fallback" />失败时使用自定义 API 回退</label>
-          <label for="source-record-mode">来源整理方式</label>
-          <select id="source-record-mode">
-            <option value="auto">自动整理原文</option>
-            <option value="review">模型复核来源选择</option>
-            <option value="agent">深入分析</option>
-          </select>
-          <p class="settings-help">来源整理功能需由服务端开启。复杂问题自动进入深入分析。</p>
-          <label class="runtime-fallback"><input type="checkbox" id="source-read-batching" />批量读取来源（实验选项，节省模型往返）</label>
-          <p class="settings-help">默认关闭，逐项读取原文。勾选后对后续问答生效；刷新页面恢复关闭。</p>
-          <p class="settings-help">订阅模型自动匹配连接方式，不启用付费 API 回退。</p>
-        </div>
-      </details>
-      <details class="settings-section" id="account-settings" hidden>
-        <summary>账户与授权<span>管理订阅连接</span></summary>
-        <div class="settings-accounts">
-            <details id="codex-account-panel" class="codex-account" hidden>
-              <summary>Codex 订阅 · 本机连接</summary>
-              <p id="codex-account-status">完成官方 ChatGPT 登录后可使用账户订阅额度。</p>
-              <button type="button" id="codex-login" class="button quiet">Continue with ChatGPT</button>
-              <button type="button" id="codex-device-login" class="button quiet">使用设备码登录</button>
-              <button type="button" id="codex-refresh" class="button quiet">刷新登录状态</button>
-              <button type="button" id="codex-logout" class="button quiet">断开本产品连接</button>
-              <a id="codex-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开官方登录页面</a>
-              <p id="codex-device-code" hidden></p>
-              <p>仅用于本机试验，消耗你的订阅额度。模型权限以实际调用为准；不会自动改用付费 API。</p>
-            </details>
-            <details id="siwc-account-panel" class="codex-account" hidden>
-              <summary>ChatGPT 直接订阅 · 独立授权</summary>
-              <p id="siwc-account-status">为 CAD Atlas 独立授权，由本产品管理工具循环。</p>
-              <select id="siwc-account-select" aria-label="选择 ChatGPT 授权账户"><option value="">添加新的账户或工作区</option></select>
-              <button type="button" id="siwc-login" class="button quiet">Continue with ChatGPT</button>
-              <button type="button" id="siwc-refresh" class="button quiet">刷新授权状态</button>
-              <button type="button" id="siwc-logout" class="button quiet">断开直接订阅连接</button>
-              <a id="siwc-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开官方授权页面</a>
-              <button type="button" id="siwc-copy-link" class="button quiet" hidden>复制授权链接 · 在 Chrome / Safari 中打开</button>
-              <p>建议使用系统浏览器完成授权。若官方页面出现 HTML / Route Error，请重新生成链接并在系统浏览器打开；不要反复刷新旧错误页。链接有效期十分钟。</p>
-              <p>使用独立订阅授权，不读取 Codex 登录凭据。不会自动重试或回退付费 API。</p>
-              <a href="https://chatgpt.com/#settings/Usage" target="_blank" rel="noopener noreferrer">在 ChatGPT 设置中查看用量与管理授权</a>
-            </details>
-        </div>
-      </details>
-            <div class="model-note" id="model-note">
-              模型按问题读取当前图纸文字；密钥保留在服务端。
-            </div>
-      <div class="settings-actions"><button type="button" id="done-chat-settings" class="button primary">完成</button></div>
     </dialog>
     <dialog id="details-dialog">
       <div class="dialog-heading">

@@ -559,6 +559,11 @@ class TaskLedger:
             # routed to the same requirement. Keep explicit unknown/conflict
             # states; never promote source co-occurrence into an accepted fact.
             for cell in s.get('coverage',[]):
+                from cad_agent.analysis.task_methods import verified_position_delivery
+                delivery_proof = verified_position_delivery(self.data, s, cell, claims)
+                if delivery_proof:
+                    cell.update(state='addressed', delivery_validation=delivery_proof)
+                    continue
                 prop=re.sub(r'(?:原文|做法|情况|分别|是什么|有哪些|多少|[？?])','',cell['field']).strip()
                 matching=[c for c in claims if cell['object'] in c['text'] and
                           (not prop or prop in c['text']) and

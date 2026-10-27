@@ -158,6 +158,7 @@ class ChatRequest(Record):
     mode: Literal["local", "agent"] = "local"
     parent_run_id: str | None = None
     resume_task_id: str | None = None
+    dynamic_methods: Literal["off", "task_verified"] = "off"
     adaptation_policy_id: str | None = Field(default=None, max_length=100)
     runtime: Literal["native", "deepseek_harness", "codex", "codex_subscription", "responses_subscription"] = "native"
     allow_fallback: bool = False
@@ -166,7 +167,7 @@ class ChatRequest(Record):
     source_read_batching: bool = Field(default=False, strict=True, description="手动启用独立来源批量读取；默认逐项读取。")
     source_record_mode: Literal['auto', 'review', 'agent'] = 'auto'
     model_profile: (
-        Literal["default", "qwen_large", "qwen_medium", "qwen_small", "codex_sol_56", "codex_sol", "codex_astra", "siwc_sol", "siwc_sol_high", "siwc_luna_high"] | None
+        Literal["default", "api_sol", "api_astra", "qwen_large", "qwen_medium", "qwen_small", "codex_sol_56", "codex_sol", "codex_astra", "siwc_sol", "siwc_sol_high", "siwc_luna_high"] | None
     ) = None
 
 

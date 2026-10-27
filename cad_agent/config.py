@@ -69,6 +69,17 @@ class Settings:
             profiles[profile] = replace(self, api_base="", api_key="", model=model,
                 provider="codex_subscription", protocol="codex", model_profile=profile,
                 context_length=None)
+        for profile, model in (("api_sol", "gpt-6.1-sol"), ("api_astra", "gpt-6-astra")):
+            profiles[profile] = replace(
+                self,
+                api_base=env.get("CAD_GPT_API_BASE_URL", "").rstrip("/"),
+                api_key=env.get("CAD_GPT_API_KEY", ""),
+                model=model,
+                protocol="openai",
+                provider="custom",
+                model_profile=profile,
+                context_length=None,
+            )
         for tier in ("large", "medium", "small"):
             prefix = "CAD_QWEN_" + tier.upper() + "_"
             profiles["qwen_" + tier] = replace(

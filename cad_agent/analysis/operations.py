@@ -54,6 +54,8 @@ def receipts(name, result):
     """Tool-owned successful results only; planning prose cannot grant receipts."""
     if result.get('error'): return []
     declared=result.get('operation_receipts',[])
+    if name in ('develop_method','run_task_method'):
+        return declared if result.get('admitted') and result.get('text_selection_verified') else []
     from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
     if name in SPATIAL_METHODS:
         return declared

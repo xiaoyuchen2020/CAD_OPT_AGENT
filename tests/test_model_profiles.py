@@ -24,20 +24,33 @@ def test_model_catalog_is_allowlisted_and_secrets_stay_server_side(
             "CAD_QWEN_LARGE_API_KEY": "qwen-private-key",
             "CAD_QWEN_LARGE_MODEL": "Qwen-test",
             "CAD_QWEN_LARGE_CONTEXT_LENGTH": "262144",
+            "CAD_GPT_API_BASE_URL": "https://gpt.private/v1/",
+            "CAD_GPT_API_KEY": "gpt-private-key",
         },
     )
     with TestClient(create_app(Settings(data_dir=tmp_path))) as client:
         response = client.get("/api/models")
         assert response.status_code == 200
         data = response.json()
-        assert data["default"] == "siwc_sol" and len(data["items"]) == 10
+        assert data["default"] == "api_sol" and len(data["items"]) == 6
         profiles = {x['id']: x for x in data['items']}
         assert profiles['siwc_sol_high']['reasoning_effort'] == 'high'
         assert profiles['siwc_luna_high']['model'] == 'gpt-6-luna'
-        large = next(x for x in data["items"] if x["id"] == "qwen_large")
-        assert large["model"] == "Qwen-test" and large["configured"]
+        assert not any(key.startswith(("qwen_", "codex_")) for key in profiles)
         assert "qwen-private-key" not in response.text
         assert "https://qwen.private" not in response.text
+        assert "gpt-private-key" not in response.text
+        assert "https://gpt.private" not in response.text
+        for profile, model in (("api_sol", "gpt-6.1-sol"), ("api_astra", "gpt-6-astra")):
+            assert profiles[profile]["model"] == model
+            assert profiles[profile]["configured"]
+            assert profiles[profile]["billing"] == "api"
+            assert profiles[profile]["required_runtime"] is None
+            request = ChatRequest(snapshot_id="x", question="x", model_profile=profile)
+            selected = client.app.state.workspace.for_model(request.model_profile).settings
+            assert selected.api_base == "https://gpt.private/v1"
+            assert selected.api_key == "gpt-private-key"
+            assert selected.protocol == "openai"
         invalid = client.post(
             "/api/chat-runs",
             json={
@@ -234,12 +247,12 @@ def test_matrix_does_not_count_missing_usage_as_zero_or_failure_speed_as_success
     assert row["all_attempts_median_seconds"] == 0.1
 
 
-def test_connected_subscription_defaults_to_custom_runtime_profile(tmp_path, monkeypatch):
+def test_connected_subscription_keeps_explicit_api_default(tmp_path, monkeypatch):
     app = create_app(Settings(data_dir=tmp_path))
     monkeypatch.setattr(app.state.workspace.siwc_account, 'status', lambda: {'connected': True})
     with TestClient(app) as client:
         catalog = client.get('/api/models').json()
-        assert catalog['default'] == 'siwc_sol'
+        assert catalog['default'] == 'api_sol'
         selected = next(m for m in catalog['items'] if m['id'] == catalog['default'])
-        assert selected['required_runtime'] == 'responses_subscription'
-        assert selected['billing'] == 'subscription'
+        assert selected['required_runtime'] is None
+        assert selected['billing'] == 'api'

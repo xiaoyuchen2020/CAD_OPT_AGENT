@@ -477,10 +477,12 @@ class Workspace:
 
     def start_chat(self, request):
         from cad_agent.analysis.agent import AgentRunner, AGENT_VERSION
+        from cad_agent.analysis.method_authorization import authorization
 
         if request.mode != "agent":
             raise ValueError("后台问答只接受 agent 模式；本地查询使用 /api/chat。")
         runner = AgentRunner(self, request)
+        method_permission = authorization(request)
         history = self.chat_history(request)
         with self.lock:
             if request.resume_task_id:
@@ -513,7 +515,9 @@ class Workspace:
                 "input_sha256": runner.drawing["sha256"],
                 "agent_version": AGENT_VERSION,
                 "policy_applied": False,
-                "code_execution_enabled": False,
+                "code_execution_enabled": method_permission['mode'] == "task_verified",
+                "code_execution_scope": method_permission['mode'],
+                "code_execution_authorization": method_permission['basis'],
             }
             self.execution.claim('chat_run',record,runner.task.data)
             try:

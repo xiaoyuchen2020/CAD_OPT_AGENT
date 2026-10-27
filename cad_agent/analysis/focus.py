@@ -136,6 +136,11 @@ class TaskFocus:
             if item['executable']:names.update(item['next_action']['tools'])
         from cad_agent.analysis.gap_routing import pending_calls
         names.update(call['tool'] for call in pending_calls(self.s.task.data))
+        from cad_agent.analysis.task_methods import enabled as methods_enabled
+        if methods_enabled(self.s) and any(o.get('task_method_scope') for o in self.s.observations.values()):
+            names.update({'develop_method', 'run_task_method'})
+        if not methods_enabled(self.s):
+            names.difference_update({'develop_method', 'run_task_method'})
         if not self.active():names={'finish_analysis','request_toolset'}
         if self.s.task.data.get('plan_revisions',0)>=2:names.discard('plan_task')
         elif any('plan_task' in tools for tools in self.explicit_tools.values()):names.add('plan_task')

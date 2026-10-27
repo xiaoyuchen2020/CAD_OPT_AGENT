@@ -352,9 +352,10 @@ class ResponsesSubscriptionRuntime:
         execution = getattr(session, "execution", None)
         session.progress(stage="直接订阅 · 等待账号并发名额")
         concurrency = session.runtime_diagnostics.setdefault("concurrency", {})
+        from cad_agent.analysis.task_methods import borrowed_subscription
         with session.w.siwc_account.queued_lease(
                 session.w.settings.siwc_queue_timeout_seconds,
-                execution.check_cancelled if execution else None, concurrency) as lease:
+                execution.check_cancelled if execution else None, concurrency) as lease, borrowed_subscription(session):
             # Preserve preparation/tool time; exclude only time waiting for a slot.
             session.started += lease["queue_seconds"]
             session.progress(subscription_queue_seconds=lease["queue_seconds"],

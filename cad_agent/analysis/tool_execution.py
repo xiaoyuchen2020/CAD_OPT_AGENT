@@ -42,6 +42,9 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
     args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    if name in ("develop_method", "run_task_method"):
+        from cad_agent.analysis.task_methods import develop, read
+        return (develop if name == "develop_method" else read)(self, args)
     if self.journal.tool_stack:
         self.journal.section(self.journal.tool_stack[-1], 'execution', args.model_dump(),
                              '工具执行入口参数（含已验证默认值）')
@@ -536,6 +539,7 @@ def invoke_tool(self, name, raw_args):
             self.task.start(task_ids, action_key=self.policy.key(name, args))
         from cad_agent.analysis.tool_metadata import SPATIAL_METHODS
         revalidates_source = SPATIAL_METHODS | {
+            'develop_method', 'run_task_method',
             'bind_spatial_object', 'get_spatial_object', 'resolve_drawing_scope',
             'query_property_evidence', 'trace_door_schedule', 'search_source_records',
             'search_tables', 'inspect_table', 'read_table_content', 'recover_table_region', 'review_table_region',

@@ -8,9 +8,13 @@ GROUPS = {
     'semantics': {'get_drawing_context','read_dimensions','get_component_evidence','query_annotations','locate_by_axes','trace_detail','read_table_semantics'},
     'components': {'locate_space_labels','prepare_space_connections','review_space_connections','check_dimension_chain','get_drawing_context','read_dimensions','query_building_relations','get_component_evidence'},
 }
+for _family in ('sources', 'geometry', 'semantics'):
+    GROUPS[_family].update({'develop_method', 'run_task_method'})
+
 READS = {'read_assembly','read_project_sources','read_source_context','read_table','get_evidence','read_table_semantics'}
 READS.add('read_door_schedule_table')
 READS.add('read_requirement_sources')
+READS.update({'develop_method','run_task_method'})
 BUSINESS_TABLE_TOOLS = {'extract_planning_metrics', 'extract_building_schedule'}
 READS.update(BUSINESS_TABLE_TOOLS)
 GROUPS['sources'].update(BUSINESS_TABLE_TOOLS)

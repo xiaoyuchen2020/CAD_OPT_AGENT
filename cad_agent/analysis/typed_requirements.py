@@ -37,6 +37,9 @@ def _infer(cell, step):
     obj, field = cell.get('object', ''), cell.get('field', '')
     clause = _clause(cell, step)
     label = obj + ' ' + field if cell else clause
+    if (re.search(r'按(?:原生)?位置|从左到右|同栏.{0,5}从上到下|跨栏位置排序', obj + ' ' + field)
+            and re.search(r'排序|筛选|选择|按(?:原生)?位置|从左到右', clause)):
+        return 'DELIVERY_REQUIREMENT'
     # Acceptance verbs about the answer or checked work describe delivery, not
     # a property printed in the drawing. Object names are never enumerated here.
     if ((re.search(r'用户(?:给定|提供|输入|指定)|输入(?:参考)?值|原图值|图纸值|图面读数', label)

@@ -168,6 +168,8 @@ def create_app(settings=None):
     def models():
         labels = {
             "default": "默认",
+            "api_sol": "API · GPT-6.1 Sol",
+            "api_astra": "API · GPT-6 Astra",
             "qwen_large": "Qwen 大 · 长上下文",
             "qwen_medium": "Qwen 中",
             "qwen_small": "Qwen 小 · 短上下文",
@@ -179,8 +181,8 @@ def create_app(settings=None):
             "codex_astra": "Codex 订阅 · GPT-6 Astra",
         }
         return {
-            # Login state must not silently select a paid API model instead.
-            "default": "siwc_sol",
+            # Explicit default selection, independent of subscription login state.
+            "default": "api_sol",
             "items": [
                 {
                     "id": key,
@@ -196,6 +198,9 @@ def create_app(settings=None):
                     "budget_policy": policy_for(value).public() if policy_for(value) else None,
                 }
                 for key, value in workspace.model_catalog.items()
+                # Keep legacy profiles internally for existing runs, but retire
+                # their entries from the user-facing model selector.
+                if value.provider not in ("qwen", "codex_subscription")
             ],
         }
 
