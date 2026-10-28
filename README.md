@@ -1,12 +1,14 @@
 # CAD Atlas · 通用图纸事实工作台
 
-当前里程碑：原生 DXF → 通用砌体事实与原文索引 → DeepSeek 工具问答 → 原图证据定位。独立于现有生产仓库，不包含 AR024 策略或优化判断。明确授权后可使用隔离动态方法；开发分支的工具修订与新程序能力见 [实现说明](docs/task-tool-revisions-programs.md)。无密钥时可选择本地事实查询。
+CAD Atlas（仓库名 `cad_opt_agent`）是面向 DWG / DXF 的本地图纸事实分析工作台。它将原生文字、表格、图元和局部视图整理成可检索的来源，由 Agent 按问题读取、计算和交付，并将回答引用定位回原图。
 
-测试图纸按内容去重保存，运行记录引用共享输入；整理命令、保留范围及搬迁方式见 [artifacts 保存策略](docs/artifact-storage.md)。
+当前能力已从砌体事实提取扩展到设计说明、构造做法、复杂表格、业务指标、关联图纸查阅和二维几何分析。项目独立于 `cad_llms_group`，不包含优化、成本或合规策略；来源绑定、计算成功与工程对象身份确认分别处理。
 
-## 启动
+> 本文按 2026-10-28 本地 `main` 代码及工作区核对。任务内动态方法、工具修订与多模块程序已在当前代码中；新增几何工作台仍有未提交实现，单独列为开发中。历史验证报告只代表各自冻结版本与样本，不代表当前全部代码已通过真实图纸验收。
 
-Python 3.11+，在本仓库目录执行：
+## 快速开始
+
+需要 Python 3.11+。在仓库根目录执行：
 
 ```bash
 python -m venv .venv
@@ -15,162 +17,229 @@ python -m pip install -e '.[test]'
 python -m cad_agent
 ```
 
-打开 <http://127.0.0.1:8765>。前端为原生 ES Module，由 FastAPI 同源提供，无需 Node 构建。当前交付采用源码/可编辑安装方式，不是独立 wheel 分发。
+打开 [本地工作台](http://127.0.0.1:8765)。FastAPI 同源提供原生 JavaScript ES Module 前端，无需 Node 构建；当前按源码或可编辑安装运行，不作为独立 wheel 分发。
 
-点击 **打开示例**，得到 9 条合成记录（包含 2 条表格记录），其中 2 条信息不完整。点击事实或问答中的引用，定位原始实体范围；通过 **原文检索** 可直接检索未生成事实的区域。支持导入 DXF / DWG（DWG 自动经内网转换为 DXF）、搜索/筛选、图框范围选择、原图缩放平移、下载原文件以及 JSON 导出。
+1. 点击 **打开示例**，或通过左上角 `＋` / 拖放导入 DXF、DWG。DXF 在本地解析，DWG 需要配置 ODA 转换服务。
+2. 在输入框上方选择问答模型并完成相应配置。没有模型连接时，可在设置中选择 **本地 · 事实查询**，使用本地提取和原文检索。
+3. 输入具体问题，例如“列出外墙做法，保留编号、完整层次和备注”或“读取经济技术指标中的用地面积与容积率，并标明来源和单位”。
+4. 点击回答的编号引用定位原图；通过 **查看运行详情** 检查模型调用、工具输入输出、校验与失败原因。
 
-界面采用图纸文件、原图、问答三栏。左侧导入和选择文件，右侧提问，点击回答引用定位原图；顶部品牌栏及常驻能力按钮已移除。界面操作、对话入口及验证范围见 [精简工作台](docs/workspace-ui.md)。
+工作台采用左侧文件、中间原图、右侧问答三栏。左下角 **原文与事实** 提供检索、图纸结构、解析诊断和重新解析入口；设置中的 **关联图纸** 决定本轮允许查阅的其他快照。操作说明见 [精简工作台](docs/workspace-ui.md)。
 
-## DWG 内网转换
+## 模型与运行时
 
-导入图纸时选择 `.dwg`，后端自动调用内网 ODA API，等待转换、核对来源与 DXF 完整性后进入现有 DXF 读取流程。转换失败、超时、授权失败或 DXF 无法读取时，页面显示原因并终止本次导入，不创建图纸记录或启动提取。原有 DXF 导入直接在本地处理。
+模型配置和 Agent 运行时是两个选择；实际使用值、用量与回退情况写入运行记录。**当前 `/api/models` 和网页初始选择为 `api_sol`，不是订阅模型**；配置存在也不等于目标模型可调用。
 
-在 `.env` 配置 `CAD_ODA_BASE_URL=http://192.168.1.146:18080`、`CAD_ODA_API_KEY` 和可选的 `CAD_ODA_TIMEOUT_SECONDS=600`，然后重启本地服务。访问密钥仅保存在后端；未配置时 DXF 导入仍可使用，DWG 导入会明确提示缺少配置。当前仅用于公司内网评估。
+### ChatGPT 直接订阅
 
-成功导入 DWG 后，可分别下载原始 DWG、转换 DXF 和 ODA 原生 JSON；模型和现有解析器仍读取 DXF，不用不完整 JSON 几何替代。接口、来源标识和故障说明见 [DWG 导入说明](docs/dwg-import.md)。
+使用自定义订阅 Harness 时，在模型列表选择 **标准 · GPT-6.1 Sol · Low**（`siwc_sol`），或按需选择深度档 `siwc_sol_high`、`siwc_luna_high`。页面自动匹配 `responses_subscription`（自定义 · 订阅直连），并关闭付费 API 回退。
 
-## 模型配置
+在 **设置 → 账户与授权** 完成本应用独立的 Sign in with ChatGPT 登录，在系统浏览器授权后刷新状态。无需 API key；凭据保存在所选数据目录下的 `siwc-subscription/`，不读取桌面 Codex 令牌。登录成功不代表模型权限或推理服务已验证。授权机制和历史实测见 [直接订阅说明](docs/siwc-subscription.md)；其中早期工具数量、预算和界面描述以当前实现及本文为准。
 
-编辑本仓库根目录 `.env`（已有文件请直接编辑，不要覆盖）：
+### API 配置
+
+在仓库根目录创建或编辑 `.env`，可参考 [配置示例](.env.example)；已有文件不要覆盖。环境变量优先于 `.env`，修改后需重启服务。
+
+当前网页默认的 GPT API 配置：
+
+```dotenv
+CAD_GPT_API_BASE_URL=https://your-openai-compatible-endpoint.example/v1
+CAD_GPT_API_KEY=填写你的服务密钥
+```
+
+`api_sol` 使用代码中配置的 `gpt-6.1-sol`，`api_astra` 使用 `gpt-6-astra`。应填写实际兼容服务地址，并核实服务支持这些模型名称。
+
+默认提供方及手动模型辅助提取可配置 DeepSeek：
 
 ```dotenv
 CAD_AGENT_PROVIDER=deepseek
-DEEPSEEK_API_KEY=在这里填写你自己的DeepSeek密钥
+DEEPSEEK_API_KEY=填写你的DeepSeek密钥
 ```
 
-`.env` 的完整路径为 `/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/.env`，已被 Git 忽略，建议权限 `chmod 600 .env`。密钥仅由后端读取，不输入网页、不放入源代码。环境变量优先于文件；填写后重启本地服务。
+该配置在代码中固定使用 `https://api.deepseek.com`、`deepseek-flash` 和 Chat Completions 协议；在问答模型列表选择“默认”才使用此配置。手动模型辅助提取使用默认提供方，与当前问答模型选择分开。密钥仅由后端读取，`.env` 已被 Git 忽略，可使用 `chmod 600 .env` 限制权限。
 
-DeepSeek 模式固定使用 `https://api.deepseek.com`、`deepseek-flash`（DeepSeek-V4.1-Flash）、Chat Completions 协议。旧 `CAD_AGENT_API_KEY` 不会作为 DeepSeek 密钥回退，避免误用旧网关凭据。`configured` 只表示配置存在，不证明服务可用。
+### 兼容运行时与检索
 
-右侧选择 **模型 · 工具问答**：模型按问题调用图纸概览、原文检索、上下文读取、本地砌体抽取、事实查询、证据读取；只发送当前图纸相关文字与必要元数据，不上传完整 DXF。已有图框筛选作用于事实列表/手动抽取，模型问答范围是当前整张图纸，问题中可进一步指定范围。
+| 入口 | 当前用途 |
+| --- | --- |
+| `native` | 自定义 API 工具循环，API 请求的默认运行时 |
+| `responses_subscription` | 自定义 ChatGPT 订阅工具循环，支持当前任务聚焦与受控动态方法 |
+| `deepseek_harness` / `codex` | 可选 CLI 桥接；需要各自依赖，失败回退默认关闭 |
+| `codex_subscription`、Qwen 配置 | 后端保留历史运行/API 兼容，当前网页模型列表已隐藏 |
 
-输入框上方可直接切换模型。点击 **设置** 调整问答方式和检索方式；运行时与失败回退收在 **高级选项**，订阅登录入口收在 **账户与授权**。切换模型不会自动展开授权面板。在问答设置中展开 **图纸提取**，可选择提取方式并重新提取。
+桥接安装和兼容说明见 [运行时说明](docs/agent-runtimes.md)、[Codex 订阅说明](docs/codex-subscription.md)、[Qwen 配置](docs/qwen-models.md)。这些文档包含历史测试，不据此断言当前服务可用。
 
-来源记录工作流默认开启。“帮我找下外墙做法”等明确的原文查询可直接由程序读取完整记录、校验和分组展示，无需调用模型；无法可靠处理或需要几何、计算、语义判断的问题继续交给原 Agent。问答设置可选择“模型复核”或“原 Agent”；设置 `CAD_SOURCE_RECORD_WORKFLOW=0` 并重启服务可全局关闭新路由。实现边界和实际图纸测试见 [来源记录工作流报告](docs/source-record-workflow-report-20261023.md)。
-
-回答分为原文事实、模型推断、无法确定和冲突；引用由后端校验、绑定坐标，点击引用可定位原图。工具失败或模型失败会明确显示，不冒充本地查询成功。可手动切换 **本地 · 事实查询**。模型答案单独保存，不覆盖已有事实。界面支持同图纸最近三轮追问上下文。
-
-模型问答保持三栏布局；点击回答中的 **查看运行详情** 可按需打开：在同一面板查看模型输入、公开返回、工具参数和结果、失败校验与修复。可筛选步骤、定位原文、逐步回看和导出记录；问答区的 **运行记录** 可恢复历史运行。记录范围、脱敏及验证方式见 [运行详情说明](docs/run-inspector.md)。
-
-手动“模型辅助提取”保留此前来源片段复核能力，与工具问答分开。模型不能执行代码、修改文件、安装依赖或接入业务策略。
-
-接口依据 [DeepSeek 模型发布说明](https://api-docs.deepseek.com/news/news260910/)和 [Tool Calls](https://api-docs.deepseek.com/guides/tool_calls/)。MVP 显式关闭 thinking，以非思考工具调用模式运行；默认最多 8 轮交互（最后一轮保留给答案整理）及 1 次最终答案纠正、16 次工具调用、180 秒预算，单次网络调用最长 60 秒。
-
-先做合成图工具调用检查，再显式执行真实样本检查（后者会向 DeepSeek 发送样本相关条款）：
+检索默认 `keyword`；可选本地 BGE embedding 与 BM25 合并的 `hybrid`。模型文件需显式准备，问答不会自动下载；依赖或模型不可用时显式回退。需要时执行：
 
 ```bash
-python -m scripts.check_agent --synthetic
-python -m scripts.check_agent --manifest artifacts/real-validation-20261014/samples.json
+python -m pip install -e '.[retrieval]'
+python -m scripts.prepare_embedding
 ```
 
-本地报告位于 `artifacts/agent-validation-20261014/`，验证限制见 [模型问答验收](docs/agent-validation.md)。
+安装、存储位置及限制见 [混合检索说明](docs/hybrid-retrieval.md)。
 
-## 验证
+## DWG 导入与数据保存
+
+DXF 直接读取原生实体。DWG 由后端调用配置的 ODA 服务，转换为 DXF 并核验完整性后导入；转换、鉴权或解析失败时返回原因，不创建成功的图纸记录。
+
+```dotenv
+CAD_ODA_BASE_URL=http://your-internal-oda-host:18080
+CAD_ODA_API_KEY=填写内网转换服务密钥
+CAD_ODA_TIMEOUT_SECONDS=600
+CAD_AGENT_DATA_DIR=.data
+CAD_AGENT_PORT=8765
+```
+
+ODA 密钥仅用于后端转换。成功后可下载原 DWG、转换 DXF 和 ODA JSON；主解析流程以转换 DXF 为来源快照。详见 [DWG 导入](docs/dwg-import.md)。
+
+默认 `.data/` 保存原文件、解析场景、SQLite 元数据、任务、运行记录和授权资料；`artifacts/` 保存检查与实验产物。两者及 `.env` 均被 Git 忽略。测试图纸按内容去重、报告共享输入，整理与迁移见 [artifacts 保存策略](docs/artifact-storage.md)。
+
+## 当前能力
+
+### 设计说明、构造做法与来源记录
+
+- 检索 TEXT、MTEXT、块实例、属性文字、章节和表格来源；按范围读取上下文、构造层次、标题、备注和引用关系。
+- `search_source_records`、`read_assembly`、`select_source_records` 支持做法记录的发现、完整读取和明确字面条件筛选；保留原始编号、适用范围及未确认归属。
+- 默认启用 `CAD_LLM_QUERY_INTENT=1`：模型先提交绑定用户原句的查询意图，分别记录对象、编号、条件和要求，再调用工具。用户条件不是图纸证据。
+- `CAD_SOURCE_RECORD_WORKFLOW=1` 默认开启来源记录能力；当前默认配置不会在 Agent 之前直接走旧确定性快捷路由。设置 `CAD_LLM_QUERY_INTENT=0` 才恢复该路由尝试，且仅符合条件的问题能直接整理原文。不要将“自动整理原文”理解为必定零模型调用。
+- 回答保留原文事实、推导、未知与冲突；原文字符区间、实体和快照接受后端校验。字段证据区分原文标称值、标注、测量和计算口径。
+
+详见 [查询意图与精确执行](docs/llm-query-intent.md)、[来源记录工作流](docs/source-record-workflow-report-20261023.md)、[文本与证据锚点](docs/text-metadata-anchoring.md)。
+
+### 复杂表格与业务指标
+
+表格已作为独立文档处理，不再仅限早期有边线的表格行：
+
+- 从 ACAD_TABLE 元数据、原生线框、块实例、局部旋转和无框对齐文字发现表格或候选。
+- 保留行列、合并跨度、表头路径、重复分组、内部子表、单位及备注；分别记录文字来源、结构支持和字段归属。
+- 通过 `search_tables`、`inspect_table`、`read_table_content` 检索和分页阅读，持久化阅读计划、游标及已交付单元格集合。
+- `recover_table_region` / `review_table_region` 提供局部恢复与视觉复核；纯视觉转录保留候选状态。
+- `extract_planning_metrics` 和 `extract_building_schedule` 分别提取经济技术指标与建（构）筑物一览表，保留原始口径、设计/控制值、单位、限定、缺失和冲突。规划指标也可来自单个原生文字实体内明确声明的指标段落。
+
+整表读完不证明整张图纸解析完整；结构、归属或来源不足时不能将候选升级为确认值。界面支持逐单元格定位及表格叠加预览。详见 [复杂表格文档](docs/complex-table-documents.md)、[业务表格提取](docs/business-table-extraction.md)、[固定方法表格恢复](docs/table-recovery-stage1.md)。
+
+### 关联图纸、任务与计算
+
+本轮可显式选择最多 8 张关联图纸。`read_project_sources` 提供选定资料清单、检索和原文读取；来源保留各自快照。文件名、用户填写的项目/楼层/版本标签不证明跨图对应关系，也不自动完成全项目比对。
+
+复杂问题通过 `plan_task` 拆成分项，记录已读来源、对象、工具观测、交付缺口和恢复状态。`calculate_facts` 区分图纸数值、用户明确输入和测量结果，保留单位与来源；不据此执行优化或合规判断。单位或范围确认后可恢复对应流程，未解决项与已完成项分别展示。
+
+详见 [任务编排](docs/task-orchestration.md)、[聚焦与交付](docs/focused-delivery.md)、[执行策略 v2](docs/cad-agent-execution-v2.md)。
+
+### 二维几何、房间与语义组件
+
+共享工具覆盖图框/子图上下文、原生尺寸、轴网、索引引线、标高、表格语义、源几何查询、相似图形候选和局部视图。具备房间候选发现、闭合轮廓检查、指定房间测量、楼层名称候选批量测量，以及绑定对象后的面积、截面、距离、包含/重叠、门扇旋转候选关系分析。
+
+局部视图可用于支持视觉工具的运行时；工具可用性由 `/api/tool-capabilities` 按运行时和提供方返回。视觉识别和相似形状均不能独立确认对象身份。几何结果保留源路径、范围、单位、计算口径、近似精度和未解决条件；未知单位不会自动猜成毫米，局部截面宽度不代表全路径最小净宽。
+
+以下完整短句可直接发起浏览器本地交互：
+
+| 输入 | 操作 |
+| --- | --- |
+| 测量房间 / 测量选中房间 | 室内选点或使用已定位房间名称，进入测量与单位确认 |
+| 识别当前视野的房间 | 在当前视野发现房间候选 |
+| 框选找相似 | 框选样本并查找图形候选 |
+| 查看测量记录 | 查看已有测量、边界与局部图 |
+| 下载原图 / 下载图纸 | 返回当前快照可下载文件 |
+| 局部方法调试 | 打开范围和方法确认窗口 |
+
+这些入口标为“本地操作”；带有其他分析要求的自然语言问题继续进入 Agent。详见 [公共组件](docs/drawing-components.md)、[语义组件](docs/semantic-components.md)、[房间几何试点](docs/room-geometry-pilot.md)、[房间轮廓](docs/room-contours.md)、[相似图形检索](docs/similarity-search.md)。
+
+### 任务内动态方法与程序（实验功能）
+
+默认 `dynamic_methods=off`。在高级选项勾选 **允许动态方法**，或在本轮问题中明确写“允许使用动态代码”，才开放受控路径；明确禁止优先。当前仅支持 GPT-6.1 Sol + `responses_subscription`，需要预先准备 Docker 沙箱，不启用付费回退。
+
+| 能力 | 当前实现边界 |
+| --- | --- |
+| `develop_method` / `run_task_method` | 对真实工具观测绑定的局部输入生成表格、文字或几何方法，独立验证后读取结果 |
+| `inspect_tool_implementation` / `revise_tool` / `execute_tool_version` | 修订 `read_assembly` 的片段分组/排序内核；保存真实 diff、运行原版与新版回归，按任务和目标路由 |
+| `develop_program` / `execute_program` / `read_program_result` | 至多四个 Python 模块组成文本分析程序；契约支持筛选、字段提取、归一、数值解析、计数、求和、比较、连接、排序和去重 |
+| `register_program` / `list_programs` | 至少两组不同图纸来源验证通过后登记为 experimental；跨任务复用代码，新输入重新执行与验证 |
+
+生成代码在固定镜像、无网络、无宿主挂载、只读文件系统、非 root 容器中执行，不动态安装依赖。宿主重新检查来源、契约、中间结果、数值和引用；失败、取消、预算耗尽保留记录，不自动发布公共工具。通过验证不等于工程语义已确认。
+
+需要使用实验功能时，先准备 Docker 和基础镜像，再为实际数据目录构建隔离运行环境：
+
+```bash
+docker pull python:3.11-slim
+python -m scripts.setup_table_recovery_sandbox --data-dir .data
+python -m scripts.setup_adaptation_sandbox --data-dir .data
+```
+
+普通导入、阅读与问答不需要 Docker。详细授权、执行和证据边界见 [任务内动态方法](docs/task-verified-methods.md)、[工具修订与多模块程序](docs/task-tool-revisions-programs.md)。
+
+### 几何工作台（工作区开发中）
+
+当前工作区新增局部原生几何包、直线/圆弧成对测量、候选对发现、几何假设登记、路线采样、叠加预览及结果导出，并接入几何上下文投影与交付检查。相关代码位于 `geometry/workbench*.py`、`geometry/local_measurement.py`、`geometry/candidate_routes.py` 和 `analysis/geometry_context.py`，尚有未提交改动。
+
+`CAD_GEOMETRY_VALIDATION_MODE` 默认 `shadow`，显式设为 `enforce` 才启用相应强制校验；`CAD_GEOMETRY_CONTEXT_PROJECTION` 默认 `1`。模型声明的对象身份、选定障碍和采样路线仍不代表已确认工程对象、障碍枚举完整或全路径最小值。方案与验收计划见 [几何 Agent 改进计划](docs/general-geometry-agent-improvement-plan-20261028.md)，不将计划或代码存在视为真实端到端通过。
+
+## 执行预算、记录与接口
+
+默认 `agent_policy=efficient`、`CAD_EXECUTION_POLICY=v2`。API 基础限制为 8 轮、16 次工具调用、180 秒；直接订阅使用单独的自适应预算，并按任务类型调整，不能套用 API 基础限制。具体预算由 `runtimes/budget_policy.py` 定义，见 [运行时预算](docs/runtime-budgets.md)。
+
+`source_read_batching` 默认关闭，仅显式设为 `true` 或勾选界面实验选项才开启。来源读取、模型调用、动态程序和最终交付仍受预算限制；预算不足保留已读结果和未完成状态。完整工具结果可以存档并分页回读，存档或摘要不自动获得事实证据资格。
+
+常用接口（服务启动后）：
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /api/health`、`/api/models`、`/api/runtimes` | 配置与可用入口；不是实际推理成功证明 |
+| `GET /api/tools`、`/api/tool-capabilities` | 工具目录和运行时能力 |
+| `POST /api/drawings` | 导入图纸 |
+| `POST /api/chat-runs`、`GET /api/chat-runs/{run_id}` | 提交和读取异步问答 |
+| `POST /api/chat-runs/{run_id}/cancel` | 取消分析 |
+| `GET /api/drawings/{snapshot_id}/tasks`、`/api/tasks/{task_id}` | 任务与恢复状态 |
+| `GET /api/tasks/{task_id}/evidence-records` | 完整证据档案目录与分页回读 |
+
+API 直接提交模型问答时应显式指定 `mode=agent`；`ChatRequest` 的默认值是本地查询。以下订阅请求中的快照 ID 必须替换为导入返回值：
+
+```json
+{
+  "snapshot_id": "替换为实际snapshot_id",
+  "question": "列出外墙做法，保留编号、完整层次和备注，并给出来源。",
+  "mode": "agent",
+  "model_profile": "siwc_sol",
+  "runtime": "responses_subscription",
+  "allow_fallback": false,
+  "retrieval_mode": "keyword",
+  "source_read_batching": false,
+  "dynamic_methods": "off"
+}
+```
+
+完整接口以 [本地 OpenAPI](http://127.0.0.1:8765/openapi.json) 为准。运行详情支持步骤筛选、原文定位、校验与修复回看、历史恢复及记录导出，见 [运行详情说明](docs/run-inspector.md)。
+
+## 开发与验证
 
 ```bash
 python -m pytest -q
 node --check web/app.js
+node --test tests/*.mjs
 ```
 
-自动化验收、浏览器检查与真实样本限制见 [验收记录](docs/acceptance.md)。接口与数据契约见 [架构说明](docs/architecture.md)，机器可读接口定义可直接读取 <http://127.0.0.1:8765/openapi.json>。工具清单位于 `/api/tools`。
+Python 回归和 Node 前端测试不等同于真实模型验收。可按功能单独运行 `tests/test_task_methods.py`、`tests/test_task_programs.py` 等；设置 `CAD_TEST_TASK_SANDBOX=1` 可启用相应真实 Docker 测试，需要已准备沙箱。真实图纸/模型验证应使用对应脚本，明确样本、模型、数据目录和执行开关，并保存冻结版本及失败记录；不要把带模型调用的检查当成纯本地测试。
 
-## 当前边界
+| 目录 | 职责 |
+| --- | --- |
+| `cad_agent/cad/` | 原生读取、文字/表格索引、来源与渲染 |
+| `cad_agent/analysis/` | 查询意图、任务、来源记录、工具、证据及交付校验 |
+| `cad_agent/tables/` | 表格文档、结构恢复、分页读取与来源验证 |
+| `cad_agent/components/`、`semantics/`、`geometry/` | 图纸上下文、标注语义与二维几何 |
+| `cad_agent/runtimes/`、`adapters/` | 模型协议、运行时、订阅、ODA 与存储适配 |
+| `cad_agent/extensions/` | 固定表格恢复、隔离动态方法、工具内核与程序契约 |
+| `web/` | 三栏工作台、原图渲染、引用与运行记录界面 |
+| `tests/`、`scripts/`、`docs/` | 回归、受控验证脚本与专题说明 |
 
-- 支持原生 DXF 的 TEXT、MTEXT、块实例和属性文字，以及有明确边线的表格行。DWG 自动经配置的内网 ODA 服务转换为 DXF，来源定位绑定该转换快照；失败会提示并终止导入。
-- 图框为封闭边框与标题的候选推定，无法唯一归属时回退到布局范围。字体可能替代，文字定位是实体/区域估算框，MTEXT 不虚构逐条款精确框；证据保留原文字符范围。
-- 材料提及、规范引用、禁用条款与明确做法区分记录；缺失值不推断。B05、地下、特殊部位不会被优化策略提前过滤。`source_bound` 只表示来源绑定，不表示工程正确或人工验收。
-- 覆盖只针对当前解析出的来源区域，不证明整图语义完整。复杂合并单元格、跨页继承、扫描件 OCR、代理对象完整语义和跨图纸对比尚未实现。主图及局部预览采用轻量绘制：保留文字布局、可见性、标注与实心填充；使用系统文字、实线、花纹边界，并简化密集折线，适合查看主要内容而非精确出图，详见 [DXF 显示绘制](docs/cad-rendering.md)。
-- 默认最多 32 MB、80,000 个展开图元；复杂曲线预览最多 20,000 个细分点。手动模型辅助提取每批约 18,000 字符，最多 12 批；单个来源区域超限会明确失败而不静默截断。
-- 单机单用户、单进程运行。只监听环回地址，校验 Host/Origin，默认不开放网络服务；未实现多租户鉴权、队列集群与生产部署。
-- `.data/` 保存原文件、场景和 SQLite 元数据；`artifacts/` 保存本次检查产物。这两个目录和 `.env` 均被 Git 忽略。
+历史证据入口包括 [验收记录](docs/acceptance.md)、[复杂表格验证](docs/complex-table-validation-20261026.md)、[查询意图验证](docs/llm-query-intent-validation-20261026.md) 和各功能文档。合成回归、离线重放、真实模型调用、视觉核对与工程验收分别记录。
 
-后续围绕真实问答任务补充工具和独立标注。当前不对整图召回率或工程适用性做未经独立验收的承诺。
+## 使用边界
 
-真实样本验证与修正前后对比见 [验证记录](docs/real-sample-validation.md)。本地完整报告在 `artifacts/real-validation-20261014/comparison.html`，包含客户来源信息，不纳入 Git。
-
-## 可替换运行时试验
-
-网页可选择原生、DeepSeek Harness 或 Codex Harness，默认原生。两种 Harness 均通过受限本地桥接调用所选模型，共用 CAD 工具与统一证据校验，不开放代码执行。显式勾选才会失败回退，答案标明实际运行时。安装、接口与真实 DXF 对照见 [运行时说明](docs/agent-runtimes.md)。
-
-四份真实 DXF、36 次实际模型问答的结果及语义复读发现见 [运行时对照结果](docs/runtime-comparison.md)。此次发布成功数为原生 12/12、DeepSeek Harness 10/12、Codex 11/12；来源与关键词检查不等于语义正确率，继续保留原生为默认。
-
-## Qwen 模型选择
-
-问答界面可独立选择 DeepSeek 或 Qwen 大、中、小服务配置，再选择运行时。实际使用模型与运行时会写入结果。配置导入、接口与同一代码快照下的模型对照见 [Qwen 接入说明](docs/qwen-models.md)。中、小服务当前拒绝自动工具调用，选择后会明确报错；不会静默换成其他模型。
-
-## 通用图纸工具
-
-原通用阅读层提供九个工具（本次另增五个几何工具）：原六个工具已扩展结构导航、多词检索与通用事实，新增表格读取、图元查询、局部查看。页面“浏览结构”可查看章节和表格，单元格可定位原图并打开局部 SVG。保留砌体事实原流程；通用候选事实单独存储。局部预览供人查看，尚未接入模型视觉识图。接口、证据边界和真实样本记录见 [通用工具 MVP](docs/general-tools-mvp.md)。
-
-四模型 × 三运行时的 144 次实测结果见 [模型与 Harness 对照](docs/qwen-model-comparison.md)，包含服务端工具调用限制、失败用量与引用语义问题。
-
-## 可选混合检索
-
-问答可选择原关键词检索或“混合检索 · 语义增强”。后者使用本地中文 BGE embedding，与结构分段后的 BM25 排序合并；仍通过原文上下文和已有证据链回答。默认保持关键词，模型或依赖不可用时显式回退。无需额外 embedding API key。
-
-安装与接口见 [混合检索说明](docs/hybrid-retrieval.md)，四份真实 DXF 的固定问题、Token、耗时及服务失败记录见 [对比结果](docs/hybrid-retrieval-results.md)。本次证实检索召回提升，尚未证实端到端更省 Token。
-
-## Agent 探索控制
-
-默认启用 `agent_policy=efficient`：复用重复调用、精简模型侧上下文，并在连续无新增信息或探索预算耗尽时整理答案。原图证据和引用校验保留；API 请求设置 `agent_policy=legacy` 可恢复旧控制逻辑。实现、4 题限额验证和 HTTP 503 导致的验证限制见 [探索优化记录](docs/agent-efficiency.md)。
-
-## Codex 订阅本机试验
-
-新增独立的 Codex 订阅入口，可选择 GPT-6.1 Sol / GPT-6 Astra。请在页面完成官方 ChatGPT 登录；浏览器流程失败时可使用官方设备码登录。此入口消耗账户订阅额度，不自动回退到付费 API，也不读取桌面端令牌。登录不代表目标模型权限已经验证。配置隔离、用量与运行限制见 [订阅接入说明](docs/codex-subscription.md)。
-
-另提供独立的 **ChatGPT 直接订阅** 试验入口：通过 Sign in with ChatGPT 为 CAD Atlas 授权，自定义运行时直接调用 Responses API 并控制 CAD 工具循环。无需 API key，不复用 Codex 凭据，保留原 Codex 入口作对照。授权、接口与验证状态见 [直接订阅说明](docs/siwc-subscription.md)。
-
-## 几何底座与房间净面积试点
-
-新增图框／子图上下文、原生尺寸读取和墙—门洞—房间候选关系三个公共组件。通过“浏览结构”使用，或调用 `get_drawing_context`、`read_dimensions`、`query_building_relations`；结果可分页、原图定位并追溯来源。接口、真实图纸验证及限制见 [公共组件说明](docs/drawing-components.md)。
-
-新增 `read_geometry`、`query_spatial`、`measure_geometry`、`measure_room`、`get_measurement_evidence`，所有运行时共享。使用独立计算几何和空间索引，支持图元距离/长度/闭合面积，以及指定房间的成对内墙面候选、门洞闭合、净面积和来源证据。无需模型也可操作：在对话中输入“测量房间”后在室内选点，或定位房间名称证据后输入“测量选中房间”。输入“查看测量记录”可回看边界、局部图和 JSON。
-
-未知单位需明确选择并记录本次测量单位；不自动猜测。净边界试点仅覆盖二维直线墙面；缺墙、无外侧墙面支持、用途不明的内部闭合图形、未知曲线和不完整解析均保留待复核。计算结果不确认建筑对象身份，也不执行面积优化阈值或规范判断。代码不导入、调用或修改 cad_llms_group。
-
-接口、计算口径、验证和使用限制见 [房间几何试点](docs/room-geometry-pilot.md)。本地生成可复核示例：
-
-```sh
-python -m scripts.check_room_geometry
-python -m pytest -q tests/test_room_geometry.py
-```
-
-可选 `--live` 仅向已配置模型发送生成的合成图相关数据，用已选房间上下文验证工具问答；不能与真实 `--dxf` 同时使用。
-
-## 轴网、索引引线、标高楼层与表格语义
-
-新增共享工具 `query_annotations`、`locate_by_axes`、`trace_detail`、`read_table_semantics`，复用现有实体身份、空间索引、表格候选和原文证据。网页从“浏览结构”进入轴网/索引/标高列表，从表格原文进入表头、单位和合并关系视图。对象与关系保留候选或未解决状态。功能边界及冻结真实图纸验证见 [公共语义组件](docs/semantic-components.md)。
-
-经济技术指标与建（构）筑物一览表可分别通过 `extract_planning_metrics`、`extract_building_schedule` 提取，支持候选表发现、逐页字段读取、原文证据、缺失与冲突，并复用来源记录的缓存校验。接口、字段及完整性边界见 [业务表格提取](docs/business-table-extraction.md)。
-
-Agent 与来源记录复核共用逐字文本目录、快照内锚点校验和按任务组合的元数据投影；预算按完整来源依赖组裁剪。协议与真实图纸验证入口见 [文本、元数据与证据锚点](docs/text-metadata-anchoring.md)。
-
-## 表格恢复固定方法试点
-
-新增独立的表格恢复诊断、冻结输入、固定方法 Docker 隔离执行、独立验证和原图叠加接口。现有表格组件及 Agent 工具保持原行为，不接入 LLM 动态生成代码；输出保留候选与待复核状态。环境准备、接口和真实样本证据见 [第一阶段说明](docs/table-recovery-stage1.md)。
-
-## 楼层房间批量流程
-
-`analyze_room_batch` 按平面图标题或图框及任意简短房间名称枚举候选，复用 `measure_room` 逐项测量。无特定项目、楼层或房间类型白名单。能够从图纸原文确定明确标题和名称的单一枚举面积问题先执行通用批量流程，再由当前 Harness 汇总；混合任务保留原工具循环。工具记录中的 `initiator=deterministic_room_workflow` 区别于模型主动选择工具。
-
-- 楼层范围要求独立图框和唯一对应标题；同名图框、多个平面标题、剖面或 fallback 范围等待明确选择。
-- 短名称匹配支持可选数字编号，排除长条款和表格行。候选是文字锚点，不是确认房间总数，不能累计作总面积。未命名空间仍由 `discover_rooms` 处理。
-- 每页最多 12 项，逐项保留原文证据、状态、测量 ID 和高亮类型；批次以 20 秒软预算限制继续启动测量，单项沿用已有几何范围限制。分页与未测项明确显示。
-- 单位只来自 DXF 或界面明确确认；批量模型工具没有 `unit_override` 参数。未知单位时保留全部名称候选并高亮文字框，只暂停相关测量，复杂任务的独立查阅可继续；不会以框面积或默认毫米生成答案。
-- 界面明确确认单位后仅运行本地批量测量，不再调用模型、不修改图纸原始单位。新批次引用旧批次并保存确认记录。候选边界与名称定位框区别显示。
-
-HTTP：`POST /api/drawings/{sid}/rooms/batch` 使用 `floor_title` / `frame_id`、`layout_id`、`room_label`、`offset`、`limit`；`GET /api/drawings/{sid}/room-batches/{bid}` 读取完整证据；`POST .../{bid}/confirm-unit` 必须提供 `{"unit":"mm","confirmed":true}`；`POST .../{bid}/page` 使用 `{"offset":12}`，沿用该批次已确认的单位。
-
-2026-10-15 单次真实验证：18#楼1229_t3.dwg 的 DXF 快照，“一层平面图中有哪些卧室？卧室房间面积分别是多少？并帮我高亮出来。”使用 GPT-6.1 Sol + 自定义订阅 Harness。找到 6 处卧室名称候选和 1 处楼层标题；7 处证据的文字、实体、范围与坐标均核对通过。用户明确暂不确定单位，故此次验证的是等待单位确认并完整交付候选/高亮的流程，不是真实房间面积验收。1 次注册工具执行、1 次模型请求，4,785 Token，15.713 秒，无重试、无付费 API 回退。详情：`artifacts/room-batch-20261015/comparison.json`；合成双墙面房间单位确认后的 24 m² 候选测量由本地测试覆盖。
-
-## 可恢复的复杂任务
-
-新增任务/子任务状态、`plan_task`、按分项记录工具执行、逐项交付检查，以及单位确认后本地恢复和显式继续综合分析。批量工具不再触发无条件全局停止。打开图纸可恢复已保存任务。接口与限制见 [任务编排说明](docs/task-orchestration.md)。
-
-## 按任务聚焦与主动交付
-
-自定义 Harness 按活动分项提供工具定义；原文读取覆盖后进入交付检查，模型可提交经过引用/数值/逐项检查的答案，或说明具体缺口并补充工具。通过检查立即返回，不额外请求总结。文本复杂任务保留原文与条款关系，缩减旧工具历史；视觉/多轮历史暂保留完整上下文。详见 [聚焦与交付说明](docs/focused-delivery.md)。
-
-当前执行策略、来源修复、索引迁移和回退说明见 [CAD 执行策略 v2](docs/cad-agent-execution-v2.md)。
-
-自然语言问答默认先由 LLM 提交带用户原句绑定的查询意图，再选择本地工具；具体编号检索与范围条件分开处理，候选、分页和最终证据分别校验。接口、兼容开关与真实图纸验证方式见 [LLM 查询意图与精确执行](docs/llm-query-intent.md)。
+- 当前是单机、单用户、单进程工作台，只监听环回地址并校验 Host/Origin；没有多租户鉴权或生产集群部署。
+- 默认上传上限 32 MB。实体展开、表格发现、几何处理、分页和模型上下文均有预算；诊断与已读覆盖不能扩张为全图完整性承诺。
+- 字体、代理对象、外部参照、非平面表格和复杂曲线可能存在解析或显示限制。复杂表格支持不意味着任意合并、跨页继承或扫描表格都能自动准确恢复；未提供通用 OCR 服务。
+- 原图及局部预览使用轻量绘制，适合来源复核，不替代精确 CAD 出图；详见 [显示绘制](docs/cad-rendering.md)。
+- 房间名称是文字锚点，图框是范围候选，相似图形是匹配候选；不能直接作为确认对象数量、净面积或工程身份。
+- `source_bound` 表示来源绑定，不表示工程正确；单元格覆盖、几何闭合、动态程序验证也各自只有明确范围。
+- 模型问答会按工具需要发送选定图纸的相关文字、元数据及局部图像。订阅登录、服务配置存在或接口返回成功都不能替代实际工具调用与证据校验。
+- 不自动作优化、合规、成本或工程适用性结论，不以历史个案宣称整图召回率或通用正确率。
