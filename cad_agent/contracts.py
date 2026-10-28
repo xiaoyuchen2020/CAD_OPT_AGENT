@@ -171,6 +171,11 @@ class ChatRequest(Record):
     ) = None
 
 
+class ChatSteerRequest(Record):
+    question: str = Field(min_length=1, max_length=3000)
+    expected_revision: int = Field(default=0, ge=0)
+
+
 class GenericFact(Record):
     fact_id: str
     snapshot_id: str

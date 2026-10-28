@@ -8,7 +8,7 @@ from pydantic import Field
 from cad_agent.contracts import Record, FiniteFloat, stable_id
 from cad_agent.geometry.source import build_geometry, finite_box, GEOMETRY_VERSION
 from cad_agent.geometry.local_measurement import measure_pair, VERSION as PAIR_VERSION
-VERSION='geometry-workbench-v3:'+GEOMETRY_VERSION+':'+PAIR_VERSION
+VERSION='geometry-workbench-v4:'+GEOMETRY_VERSION+':'+PAIR_VERSION
 
 PROMPT = '''几何任务可 prepare_geometry_bundle 读取已定位范围，read_geometry_bundle 分页筛选原生线/弧；复用bundle_id，不重复加载。
 measure_local_geometry 对已选两源实体计算有限直线法向间距或同心弧径向间距；工具不按规则阈值选面，单位未知仍返回drawing_unit。
@@ -24,6 +24,7 @@ class PrepareBundle(Record):
 
 class ReadBundle(Record):
     bundle_id: str
+    view: Literal['native','summary'] = 'native'
     kind: str = ''
     layer: str = ''
     source_paths: list[list[str]] = Field(default_factory=list,max_length=80)
@@ -46,7 +47,8 @@ class RenderWorkbench(Record):
 
 
 class ReadWorkset(Record):
-    pass
+    limit: int = Field(default=50,ge=1,le=200)
+    since_revision: int | None = Field(default=None,ge=0,description="Optional event cursor for delta navigation; original results remain addressable.")
 
 
 def _identity(data):return json.dumps(data,sort_keys=True,separators=(',',':'))
@@ -116,6 +118,11 @@ class GeometryWorkbench:
             for key,value in item['native'].items():
                 if isinstance(value,list) and len(value)>64:
                     item['native'][key]=value[:64];item['native_truncated']=True
+            if args.view=='summary':
+                native=item.pop('native');item['native_fields']=list(native)
+                item['native_summary']={k:v for k,v in native.items() if k in ('text','actual_measurement','dimtype','closed')}
+            elif item['native_truncated']:
+                item['continuation']=dict(tool='read_geometry_native_field',arguments=dict(bundle_id=args.bundle_id,entity_id=r['entity_id']),required_parameters=['field'])
             items.append(item)
         end=args.offset+len(items)
         return dict(bundle_id=args.bundle_id,items=items,total=len(records),next_offset=end if end<len(records) else None,
@@ -164,11 +171,11 @@ class GeometryWorkbench:
                 parts.append(f'<polyline points="{" ".join(xy(p) for p in path)}" fill="none" stroke="{color}" stroke-width="{stroke}"/>')
         # Original text anchors preserve view titles and elevation context.
         for t in self.w.rendering(self.sid)['items']:
-            box=t['bbox']
-            if t['layout_id']==b['layout_id'] and box[0]>=a and box[2]<=d and box[1]>=c and box[3]<=e:
+            text_box=t['bbox']
+            if t['layout_id']==b['layout_id'] and text_box[0]>=a and text_box[2]<=d and text_box[1]>=c and text_box[3]<=e:
                 text=t.get('text','')
                 if text:
-                    x,y=xy([box[0],box[3]]).split(',')
+                    x,y=xy([text_box[0],text_box[3]]).split(',')
                     parts.append(f'<text x="{x}" y="{y}" font-size="9" fill="#374151">{escape(text)}</text>')
         if args.measurement_id:
             m=self.w.store.get('local_measurement',args.measurement_id)
@@ -215,22 +222,33 @@ def execute(session,name,args):
     if name=='read_geometry_workset':
         service.check()
         data=ledger;session.task.save()
-        fields={'bundle_id','measurement_id','route_id','hypothesis_id','result_id','validation_id','status','measurements','scope','unit','unresolved','source_entity_ids','supported_claim_ids','blocked_claim_ids','supersedes'}
+        if args.since_revision is not None:
+            events=data.get('investigation_events',[])
+            end=min(len(events),args.since_revision+args.limit)
+            return dict(events=events[args.since_revision:end],revision=len(events),next_revision=end,has_more=end<len(events),
+                full_workset_available=True,spatial_fact_scope=dict(identity=dict(engineering_confirmed=False),extent='navigation_only'),unit=dict(unit='unknown'))
+        fields={'network_id','context_analysis_id','basis_id','decision_id','bundle_id','measurement_id','route_id','hypothesis_id','result_id','validation_id','status','measurements','scope','unit','unresolved','source_entity_ids','supported_claim_ids','blocked_claim_ids','supersedes'}
         result={k:({ref:{name:v for name,v in row.items() if name in fields} for ref,row in values.items()} if isinstance(values,dict) and k!='superseded_hypotheses' else deepcopy(values)) for k,values in data.items()}
         result.update(spatial_fact_scope=dict(identity=dict(engineering_confirmed=False),extent='navigation_only'),unit=dict(unit='unknown'),
             note='Use original measurement observation for numerical delivery; workset is navigation, not new verification.')
         from cad_agent.geometry.workbench_checks import view_conflicts
         result['view_conflicts']=view_conflicts(data)
+        result['revision']=len(data.get('investigation_events',[]))
+        result.pop('investigation_events',None)
         return result
     try:result=ROUTE_HANDLERS[name](service,args) if name in ROUTE_HANDLERS else getattr(service,HANDLERS[name])(args)
     except (ValueError,KeyError) as ex:
+        from cad_agent.geometry.investigation_progress import record
+        record(ledger,name,args,dict(error=str(ex)))
         ledger['attempts'].append(dict(tool=name,request=args.model_dump(),error=str(ex)));session.task.save();raise
     if name=='prepare_geometry_bundle':ledger['bundles'][result['bundle_id']]=result
-    if name=='measure_local_geometry':
+    if name in ('measure_local_geometry','measure_geometry_primitives'):
         ledger['measurements'][result['measurement_id']]=result
         ledger['attempts'].append(dict(measurement_id=result['measurement_id'],status=result['status']))
     owned_id={'register_geometry_hypothesis':'hypothesis_id','measure_geometry_route':'route_id',
               'export_geometry_results':'result_id','validate_geometry_claims':'validation_id'}.get(name)
+    from cad_agent.geometry.investigation import OWNED_IDS
+    owned_id=owned_id or (OWNED_IDS[name]+'_id' if name in OWNED_IDS else None)
     if owned_id:ledger.setdefault(owned_id+'s',{})[result[owned_id]]=result
     if name=='register_geometry_hypothesis' and result.get('supersedes'):
         ledger.setdefault('superseded_hypotheses',{}).setdefault(result['supersedes'],[]).append(result['hypothesis_id'])
@@ -238,9 +256,13 @@ def execute(session,name,args):
         from cad_agent.geometry.workbench_checks import view_conflicts
         result['view_conflicts']=view_conflicts(ledger)
     if name=='render_geometry_workbench':session.visual_images[result['image_id']]=result
-    if name in ('measure_local_geometry','measure_geometry_route'):
+    if name in ('measure_local_geometry','measure_geometry_primitives','measure_geometry_route','measure_geometry_network_route'):
         result['operation_receipts']=[dict(operation='geometry',fulfilled=False,local_result_available=True,
             reference=result.get('measurement_id') or result.get('route_id'),extent='selected_sources_only',tool=name)]
+    from cad_agent.geometry.investigation_progress import record,plan
+    if name=='plan_geometry_investigation':result.update(plan(ledger,args.bundle_id,args.hypothesis_id))
+    event=record(ledger,name,args,result)
+    result['investigation_revision']=event['revision']
     session.task.save()
     return result
 
@@ -251,3 +273,11 @@ SPECS.update(CHECK_SPECS);ROUTE_HANDLERS.update(CHECK_HANDLERS)
 PROMPT += "\n同框多图示先inspect_geometry_views列出原生标题，再register_geometry_hypothesis分别登记对象。歧义不阻止读取源几何。候选配对优先discover_geometry_pairs，已读尺寸可传anchor_dimension_id核对端点；不能依据阈值选候选。read_geometry_bundle.source_paths能按完整原生路径查回精确ID。measure_geometry_route按对象假设记录已测区间/缺口及条件障碍影响；export_geometry_results直接保存已有回执，不需编程抄写。"
 PROMPT += '\n调查每个对象时先看图示和候选，不要一次取多个图框的最大页。kind是原生DXF类型，柱可能为多段线或块。候选排序不确认通行边界；用render_geometry_workbench的局部测线图核对所穿过区域，错误选边保留为已排除尝试。几何页可能按entity_table列名与行表示，common_fields补充每行共同字段，missing_fields表示原记录缺项，内容和分页状态不变。交付前validate_geometry_claims逐项检查；不支持的全程或完成面声明降为局部原图单位结果，不必重算已经正确的数值。'
 PROMPT += '\n新范围先渲染原图并结合原生标题辨认各独立图示，用bbox缩小到一个对象后再生成边界候选；不能把共用图框当成同对象，也不能把每个标题当成新的独立路线。尺寸作锚点前核对其端点和方向是否横跨所问区域，第一条尺寸或最长平行线并不优先。局部测线应落在所选对边并横跨目标空间；轴网、车位、车辆符号和同墙双面可能满足几何前提，须从图面解释后再沿路线扩展。'
+
+from cad_agent.geometry.investigation import SPECS as INVESTIGATION_SPECS, HANDLERS as INVESTIGATION_HANDLERS
+SPECS.update(INVESTIGATION_SPECS);ROUTE_HANDLERS.update(INVESTIGATION_HANDLERS)
+PROMPT += '\n对象调查使用analyze_geometry_context比较标题竞争、尺寸端点及选边反证；原生类型/图层与工程角色分开。trace_geometry_network可拆分多段线并追踪线弧连接，必须显式选择容差，覆盖分母来自独立源全集，不能用已成功测量段充当全集。measure_geometry_primitives计算带源段索引的局部值。resolve_geometry_basis核对单位/做法/高度引文及适用性。用record_geometry_decision保存排除理由和修订；plan_geometry_investigation按缺口建议下一步。连续无新证据时改变调查手段，不能仅换关键词或重复读页；没有可行入口则交付具体缺口和已成立局部结果。read_geometry_artifact按字段分页；read_geometry_workset.since_revision增量读取。'
+
+PROMPT += '\n多段线或反向OCS边界先trace_geometry_network取得WCS精确子段，再measure_geometry_primitives或measure_geometry_network_route计算；逐段保留原实体和段索引，分支/过渡仍须调查。大范围先read_geometry_bundle(view=summary,kind=DIMENSION)定位尺寸，再取具体参数；禁止把返回的前一页或成功配对集当成对象全集。'
+
+PROMPT += '\n上下文中的dimension_table与entity_table均按common_fields、columns、rows、missing_fields无损还原；shared_field_references引用同一请求内更早工具调用的完全相同字段，诊断和覆盖状态未删除，不能视作新增证据。'

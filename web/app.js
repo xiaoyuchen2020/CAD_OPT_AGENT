@@ -887,7 +887,7 @@ const runInspector = new RunInspector({
     if(result?.missing_information?.length){const gaps=node('details','answer-audit');
       gaps.append(node('summary',null,`范围与待核事项（${result.missing_information.length}）`));
       for(const gap of result.missing_information)gaps.append(node('p','answer-note',gap));answer.append(gaps);}
-    $('chat-messages').replaceChildren(node('div','message user',run.request.question),answer);
+    $('chat-messages').replaceChildren(node('div','message user',run.effective_question || run.request.question),answer);
     $('chat-messages').scrollTop=$('chat-messages').scrollHeight;
     S.parentRun=run.status==='completed'?run.id:null;
   },
@@ -971,6 +971,7 @@ async function ask(question, resumeTask=null) {
       run = await post("/api/chat-runs", payload);
       // Keep the question and drawing visible; details open only on request.
       S.activeChatRun = run.id;
+      $("steer-chat-button").hidden = !["native", "responses_subscription"].includes(payload.runtime);
       $("cancel-chat-button").hidden = false;
       $("cancel-chat-button").disabled = false;
       $("cancel-chat-button").textContent = "停止分析";
@@ -980,6 +981,8 @@ async function ask(question, resumeTask=null) {
           node("p", null, run.stage), runDetailsButton(run.id));
         await new Promise((resolve) => setTimeout(resolve, 900));
         run = await api(`/api/chat-runs/${run.id}`);
+        user.textContent = run.effective_question || run.request?.question || question;
+        $("steer-chat-button").hidden = !!run.input_closed || !["native", "responses_subscription"].includes(payload.runtime);
         runInspector.update(run);
       }
       if (gen !== S.generation) return;
@@ -1143,6 +1146,7 @@ async function ask(question, resumeTask=null) {
     S.chatBusy = false;
     S.activeChatRun = null;
     $("cancel-chat-button").hidden = true;
+    $("steer-chat-button").hidden = true;
     $("send-button").disabled = false;
   }
 }
@@ -2342,6 +2346,24 @@ $("chat-mode").onchange = () => {
 };
 $("diagnostics-button").onclick = diagnostics;
 $("close-dialog").onclick = () => $("details-dialog").close();
+$("steer-chat-button").onclick = attempt(async () => {
+  const id = S.activeChatRun;
+  if (!id) return;
+  const run = await api(`/api/chat-runs/${id}`);
+  if (!["queued", "running"].includes(run.status)) { toast("本轮已结束，请继续提问。"); return; }
+  const input = node("textarea"); input.rows = 6; input.style.width = "100%";
+  input.value = run.pending_inputs?.at(-1)?.question || run.effective_question || run.request.question;
+  input.setAttribute("aria-label", "修改后的完整问题");
+  const save = node("button", "button", "应用修改"); save.type = "button";
+  save.onclick = attempt(async () => {
+    save.disabled = true;
+    try {
+      await post(`/api/chat-runs/${id}/steer`, {question: input.value.trim(), expected_revision: run.input_revision || 0});
+      $("details-dialog").close(); toast("修改已保存，将在下一步核对要求。");
+    } finally { save.disabled = false; }
+  });
+  showDialog("修改当前问题", [node("p", null, "填写修改后的完整问题。分析仍限当前已选图纸，已用额度不重置；新问题生效后旧草稿不会发布。"), input, save]);
+});
 $("cancel-chat-button").onclick = attempt(async () => {
   const id = S.activeChatRun;
   if (!id) return;

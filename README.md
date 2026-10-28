@@ -60,6 +60,8 @@ DEEPSEEK_API_KEY=填写你的DeepSeek密钥
 
 ### 兼容运行时与检索
 
+`native` 与 `responses_subscription` 已接入项目自有的共享执行内核，包含步骤快照、工具生命周期、只追加事件、运行中修改问题和有界纯计算。实现边界与 API 见 [CAD 自定义 Harness](docs/cad-harness.md)。
+
 | 入口 | 当前用途 |
 | --- | --- |
 | `native` | 自定义 API 工具循环，API 请求的默认运行时 |

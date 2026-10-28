@@ -105,7 +105,7 @@ export class RunInspector {
   }
   render(){if(!this.run)return;
     const r=this.run,s=runSummary(r),events=eventsForRun(r);
-    this.question.textContent=r.request?.question||'';this.status.textContent=s.status;this.status.dataset.status=r.status;
+    this.question.textContent=r.effective_question||r.request?.question||'';this.status.textContent=s.status;this.status.dataset.status=r.status;
     this.stage.textContent=r.error?.message||r.stage||'';
     this.metrics.replaceChildren(...[r.model||r.result?.model||'模型未报告',`${s.toolCalls} 次工具调用`,
       `${s.failedChecks} 次校验未通过`,s.noModel?'未调用模型 · 0 tokens':s.tokens===null?'Token 未报告':`${s.tokens.toLocaleString()} tokens`,

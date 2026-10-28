@@ -389,6 +389,7 @@ def require_supported(name, runtime, provider):
 def capability_manifest(runtime='native', provider='deepseek'):
     if runtime not in RUNTIMES:
         raise ValueError('未知 AgentRuntime。')
+    from cad_agent.harness.tool_contract import contract_for
     return [dict(
         name=name, description=description,
         input_schema=schema.model_json_schema(),
@@ -396,11 +397,12 @@ def capability_manifest(runtime='native', provider='deepseek'):
         operations=sorted(op for op, names in OPERATION_TOOLS.items() if name in names),
         evidence_kind=('source' if name in READS else 'control' if name in CONTROL else 'candidate_or_tool_observation'),
         requires_vision=name in VISUAL_TOOLS,
-        changes_session_state=name in MUTATING_TOOLS,
+        changes_session_state=True,
         retry_policy='checkpoint_then_resume' if name in MUTATING_TOOLS else 'explicit_retry',
         pagination_fields=[key for key in ('offset', 'limit', 'row_offset', 'row_limit', 'start') if key in schema.model_fields],
         timeout_policy='session_deadline_cooperative',
         response_character_limit=50000,
         supported=runtime_supports(name, runtime, provider),
         runtime=runtime, provider=provider,
+        **{k:v for k,v in contract_for(name).manifest().items() if k != 'retry_policy'},
     ) for name, (schema, description) in TOOL_SPECS.items()]

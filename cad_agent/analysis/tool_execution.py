@@ -41,7 +41,10 @@ def execute(self, name, raw_args, *, bounded=False):
         raise ValueError("未知工具；此工作台不支持代码执行或修改文件。")
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
-    args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    from cad_agent.harness.tool_contract import contract_for
+    from cad_agent.harness.tool_pipeline import mark_dispatch
+    args = contract_for(name).input_model.model_validate(raw_args, strict=True)
+    mark_dispatch(self, name)
     from cad_agent.geometry.workbench import SPECS as WORKBENCH_TOOLS, execute as execute_workbench
     if name in WORKBENCH_TOOLS:
         return execute_workbench(self,name,args)
@@ -451,7 +454,7 @@ def invoke_tool(self, name, raw_args):
     tick = time.monotonic()
     previous_evidence = dict(self.evidence)
     previous_observations = dict(self.observations)
-    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'source_sequences', 'spatial_objects', 'spatial_results', 'table_reads')
+    registry_fields = ('query_intent', 'source_candidates', 'query_searches', 'query_context_observation_ids', 'object_registry', 'object_workflows', 'source_recall', 'source_sequences', 'spatial_objects', 'spatial_results', 'table_reads', 'geometry_workset')
     registry_before = {k: deepcopy(self.task.data[k]) for k in registry_fields if k in self.task.data}
     def rollback_registry():
         for key in registry_fields:
@@ -569,6 +572,11 @@ def invoke_tool(self, name, raw_args):
             if full_result.get('kind')=='relations':
                 result.update({k:full_result[k] for k in ('record_id','view','offset','total','requested_limit','effective_limit','safe_limit','next_offset','has_more','pagination','pagination_budget') if k in full_result})
         else:
+            if name in CONTROL:
+                from cad_agent.harness.tool_contract import contract_for
+                contract_for(name).input_model.model_validate(args, strict=True)
+                from cad_agent.harness.tool_pipeline import mark_dispatch
+                mark_dispatch(self, name)
             if name=='request_toolset':
                 result=self.focus.expand(ToolsetRequest.model_validate(args),task_ids or [self.task.parts[0]['id']])
             elif name=='finish_analysis':
@@ -597,6 +605,8 @@ def invoke_tool(self, name, raw_args):
                             cache_key += ':' + call_scope['scope_id'] + ':' + ','.join(sorted(task_ids or []))
                 else:
                     result = self.execute(name, args, bounded=self.policy.enabled)
+            from cad_agent.harness.tool_contract import contract_for
+            result = contract_for(name).validate_output(result)
             if name=='plan_task' and self.focused_enabled:result=self.focus.state()
             from cad_agent.analysis.payload_projection import project_result
             result = project_result(self, name, args, result, task_ids or [], result_view)
@@ -648,7 +658,10 @@ def invoke_tool(self, name, raw_args):
                 "message": "工具参数、来源或范围无效；仅允许当前图纸的 CAD 工具。",
             }
         }
-        if str(error) == 'SOURCE_READ_BATCHING_DISABLED':
+        from cad_agent.harness.tool_contract import InvalidToolOutput
+        if isinstance(error, InvalidToolOutput):
+            result['error'] = {'code': 'TOOL_OUTPUT_INVALID', 'message': str(error)}
+        elif str(error) == 'SOURCE_READ_BATCHING_DISABLED':
             result['error']={'code':'SOURCE_READ_BATCHING_DISABLED','message':'批量读取已关闭，请逐项调用 read_source_context/read_assembly；仅用户可在问答设置中开启。'}
         elif str(error).startswith('COMPONENT_ITEM_TOO_LARGE'):
             result['error']={'code':'COMPONENT_ITEM_TOO_LARGE','message':str(error)[:400]}

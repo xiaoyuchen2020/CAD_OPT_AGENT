@@ -19,8 +19,11 @@ def candidates(records,kind,anchor=None,neighbors=12):
         ids={r['entity_id'] for group in ranks for r in group}
         selected=[r for r in selected if r['entity_id'] in ids];partial=len(selected)<considered
     out=[]
-    for a,b in itertools.combinations(selected,2):
-        m=measure_pair(a,b,'parallel_normal' if kind=='LINE' else 'concentric_radial')
+    from cad_agent.harness.scheduler import ordered_compute
+    pairs = itertools.combinations(selected, 2)
+    payloads = (dict(a=a, b=b, basis='parallel_normal' if kind=='LINE' else 'concentric_radial')
+                for a, b in itertools.combinations(selected, 2))
+    for (a, b), m in zip(pairs, ordered_compute('measure_pair', payloads)):
         if m['status']!='local_pair_measured':continue
         domain=m['domain'];extent=domain.get('overlap_length',sum(v-u for u,v in domain.get('intervals_degrees',[])))
         score=None

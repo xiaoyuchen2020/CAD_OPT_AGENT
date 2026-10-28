@@ -9,7 +9,9 @@ from cad_agent.adapters.response_diagnostics import media_type, response_metadat
 from cad_agent.analysis.efficiency import dumps, compact
 from cad_agent.analysis.model_context import encode_messages, decode, codec, enabled as codec_enabled
 from cad_agent.analysis.session import FinalAnswer, tool_definitions, validation_feedback
-from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
+from cad_agent.harness.controls import BudgetController
+from cad_agent.harness.driver import HarnessDriver
+from cad_agent.harness.model_adapter import ResponsesAdapter
 from cad_agent.runtimes.vision import attach_images, mark_images_sent
 from cad_agent.runtimes.token_budget import charged_tokens
 from cad_agent.runtimes.deadline_io import DeadlineIO, DeadlineResponse
@@ -57,7 +59,7 @@ class ResponsesTransport:
             requests.append({})
         entry = requests[-1]
         attempts = entry.setdefault('transport_attempts', [])
-        controls = CodexSubscriptionRuntime()
+        controls = BudgetController()
         for attempt_no in range(max_attempts):
             session._remaining()
             preflight(session, payload, entry)
@@ -296,35 +298,15 @@ class ResponsesSubscriptionRuntime:
     name = "responses_subscription"
     MAX_EVIDENCE_RECOVERIES = 2
 
-    @staticmethod
-    def recovery_kind(session, answer):
-        """Classify missing provenance, not whether a source semantically answers the question."""
-        if any(item.get('blocking', True) for item in session.task.pending_work()):
-            return 'task_work_pending', True
-        if session.focused_enabled and session.focus.pending_pages():
-            return "batch_pages_unread", True
-        if not any(t["status"] == "completed" for t in session.trace):
-            return "no_successful_tool_call", True
-        try:
-            parsed = FinalAnswer.model_validate_json(answer)
-        except ValueError:
-            return ("answer_format", False) if session.evidence else ("no_source_evidence", True)
-        for claim in parsed.claims:
-            if any(eid not in session.evidence for eid in claim.evidence_ids):
-                return "unread_source_reference", True
-            if claim.evidence_basis == "tool_observation":
-                if not claim.observation_ids or any(oid not in session.observations for oid in claim.observation_ids):
-                    return "unread_tool_observation", True
-            elif claim.state != "unknown" and not session.evidence:
-                return "no_source_evidence", True
-        return "answer_structure_or_grounding", False
+    recovery_kind = staticmethod(HarnessDriver.recovery_kind)
 
     def run(self, session, history=None):
         if (session.w.settings.provider != self.name or session.w.settings.model not in {"gpt-6.1-sol", "gpt-6-luna"}
                 or session.w.settings.reasoning_effort not in {"low", "high"}):
             raise fail("MODEL_MISMATCH", "直接订阅模型或推理档位不在已配置范围内。")
         transport = ResponsesTransport(session.w.siwc_account)
-        controls = CodexSubscriptionRuntime()  # Shared budget thresholds/context metadata only; no CLI calls.
+        controls = BudgetController()
+        driver = HarnessDriver(session, ResponsesAdapter(), controls=controls)
         budget = for_session(session)
         if budget:
             controls.FINAL_CONTEXT_CHARS = budget.final_context_chars
@@ -341,14 +323,15 @@ class ResponsesSubscriptionRuntime:
         from cad_agent.runtimes.stable_prefix import StableTools
         stable_tools = StableTools(session) if stable else None
         instructions = session.system_prompt
+        stable_guidance = ""
         if stable:
-            instructions += ("\n系统指令固定；注册工具目录只在确有新能力需求时追加，不随任务阶段删换。每轮末尾的工作状态列出当前允许的工具；"
+            stable_guidance = ("\n系统指令固定；注册工具目录只在确有新能力需求时追加，不随任务阶段删换。每轮末尾的工作状态列出当前允许的工具；"
                 "即使工具已在清单中，也须满足当前阶段和来源前置条件。完整原文、几何或工具结果可按已返回"
                 "record_id调用read_evidence_record分页回读。存储引用不等于已读或完成；相同失败两次后须修正参数或补证据，不能重复提交。")
+        instructions += stable_guidance
         issue, recovery = None, None
         admission_stop = None
         evidence_recoveries = 0
-        seen_calls = set()
         execution = getattr(session, "execution", None)
         session.progress(stage="直接订阅 · 等待账号并发名额")
         concurrency = session.runtime_diagnostics.setdefault("concurrency", {})
@@ -366,12 +349,20 @@ class ResponsesSubscriptionRuntime:
             for round_no in range(max(20,session.round_limit) + (0 if budget else 1)):
                 if round_no >= session.round_limit and (budget or recovery != "repair_answer"):
                     break
+                messages = driver.inputs(messages)
+                if driver.input_changed:
+                    issue, recovery = None, None
+                    # A new question starts a new prompt/catalog series. Revoked
+                    # permissions are removed instead of retained in old schemas.
+                    instructions = session.system_prompt + stable_guidance
+                    stable_tools = StableTools(session) if stable else None
+                    if admission_stop not in {'context_input_limit', 'finalization_request_reserve'}:
+                        admission_stop = None
                 reason = admission_stop or controls.stop_reason(session)
-                final_only = bool(reason or recovery == "repair_answer" or round_no >= session.round_limit - (2 if budget else 1))
+                decision = driver.decision(round_no, reason=reason,
+                                           repairing=recovery == 'repair_answer', budgeted=bool(budget))
+                final_only = decision.final_only
                 completed_tool = any(t["status"] == "completed" for t in session.trace)
-                if final_only and not completed_tool:
-                    session.runtime_diagnostics["stop_reason"] = reason or "round_budget_without_tool_result"
-                    raise fail("EVIDENCE_NOT_OBTAINED", "探索预算已收束，但尚未成功读取图纸信息；停止调用，不生成无依据答案。")
                 if final_only:
                     session.policy.stop_reason = reason or ("answer_repair" if recovery == "repair_answer" else "exploration_budget")
                     final_input = session.final_context(controls, session.policy.stop_reason)
@@ -454,13 +445,14 @@ class ResponsesSubscriptionRuntime:
                              "budget_preflight": entry.get("budget_preflight"), "sent": False})
                         continue
                     raise
+                driver.begin_step(round_no, definitions, final_only)
                 request_log.append(entry)
                 session.policy.model_requests.append(dict(entry))
                 tick = time.monotonic()
                 session.progress(stage=f"直接订阅 · 第 {round_no+1} 轮", trace=session.trace, usage=session.usage)
                 try:
                     with session.metrics.measure("model_wait"):
-                        response = session.journal.model_call(payload,
+                        response = driver.model_call(payload,
                             lambda: transport.request(session, payload), capture_level='wire_payload',
                             title=f'模型请求 · 第 {round_no+1} 轮', image_inputs=entry.get('image_inputs'))
                     mark_images_sent(session, entry)
@@ -471,31 +463,19 @@ class ResponsesSubscriptionRuntime:
                 output = response.get("output") or []
                 if any(i.get("type") not in ("message", "reasoning", "function_call") for i in output):
                     raise fail("TOOL_DENIED", "模型返回未授权的工具类型；已停止。")
-                calls = [i for i in output if i.get("type") == "function_call"]
-                if calls:
-                    if final_only: raise fail("TOOL_DENIED", "最终回答阶段禁止调用工具。")
-                    allowed = {t["function"]["name"] for t in session.offered_tools(planning_only=True)}
-                    for call in calls:
-                        if (call.get("namespace") != "cad" or call.get("name") not in {t["function"]["name"] for t in definitions}
-                                or not call.get("call_id") or call["call_id"] in seen_calls):
-                            raise fail("TOOL_DENIED", "模型调用了未授权或重复编号的工具；已停止。")
-                        seen_calls.add(call["call_id"])
+                calls = driver.adapter.calls(output)
+                if driver.pending():
                     messages.extend(output)
-                    for call in calls:
-                        if call["name"] not in allowed:
-                            value = dumps({"error":{"code":"TOOL_STAGE_NOT_READY",
-                                "message":"工具尚未满足当前阶段前置条件；请使用allowed_tools。"},
-                                "allowed_tools":sorted(allowed)})
-                            messages.append({"type":"function_call_output","call_id":call["call_id"],"output":value})
-                            session.runtime_diagnostics["stage_rejections"] = session.runtime_diagnostics.get("stage_rejections",0)+1
-                            if session.runtime_diagnostics["stage_rejections"] >= 2:
-                                session.policy.stop_reason = "repeated_stage_failure"
-                            continue
-                        value = session.invoke_tool(call["name"], call["arguments"])
-                        controls.remember_context(call["name"], json.loads(value))
-                        messages.append({"type": "function_call_output", "call_id": call["call_id"], "output": value})
-                        if session.prepared_answer is not None:
-                            return self.delivery(session,session.prepared_answer,request_log,controls)
+                    driver.discard_for_steering(calls, messages)
+                    issue, recovery, admission_stop = None, None, None
+                    continue
+                if calls:
+                    messages.extend(output)
+                    allowed = {t["function"]["name"] for t in session.offered_tools(planning_only=True)}
+                    prepared = driver.execute_calls(calls, messages, allowed=allowed,
+                        advertised={t['function']['name'] for t in definitions}, final_only=final_only)
+                    if prepared is not None:
+                        return self.delivery(session, prepared, request_log, controls)
                     issue, recovery = None, None
                     session.validation_issue = None
                     continue
@@ -503,8 +483,14 @@ class ResponsesSubscriptionRuntime:
                                  for c in i.get("content", []) if c.get("type") == "output_text")
                 try:
                     result = session.finish(answer)
+                    if not driver.ready_for_delivery():
+                        messages.extend(output)
+                        continue
                     return self.delivery(session,result,request_log,controls)
                 except ValueError as error:
+                    if driver.pending():
+                        messages.extend(output)
+                        continue
                     try:
                         answer = decode(session, answer)
                     except ValueError:
@@ -557,6 +543,9 @@ class ResponsesSubscriptionRuntime:
                         if not session.can_repair_answer(controls):
                             partial=session.recover_valid_claims(answer)
                             if partial is not None:
+                                if not driver.ready_for_delivery():
+                                    messages.extend(output)
+                                    continue
                                 entry['answer_validation']['action']='validated_partial_recovery'
                                 return self.delivery(session,partial,request_log,controls)
                             raise fail("ANSWER_VALIDATION", "答案校验失败，纠错次数或预算已用完；未发布或回退。") from None

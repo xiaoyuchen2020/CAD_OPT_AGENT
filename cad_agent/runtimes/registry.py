@@ -42,6 +42,14 @@ def run_agent(session, history=None):
                 if result is None:
                     from cad_agent.analysis.source_record_workflow import try_run
                     result = try_run(session, history)
+                if result is not None:
+                    from cad_agent.harness.inbox import apply_pending, prepare_delivery
+                    if not prepare_delivery(session):
+                        # A shortcut uses the same input revision and delivery
+                        # boundary as a model loop. Keep its consumed budget,
+                        # apply the accepted question, then continue normally.
+                        history = apply_pending(session, history or [])
+                        result = None
             if result is None:
                 result = get_runtime(name).run(session, history)
                 if getattr(session, 'source_record_fallback', None):

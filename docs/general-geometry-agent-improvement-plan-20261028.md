@@ -212,3 +212,95 @@
 先完成“读取源几何 → 选择候选 → 得到局部测量 → 回看证据图 → 保存具体缺口”的最小闭环，并提供一个 API/订阅均能明确声明能力的实验入口。把正确局部计算、识别质量和完整路线覆盖分别验收。
 
 这一顺序吸收了实验中有效的帮助，也保留了探索自由：模型能先算出有条件的事实，工具承担重复易错的数学，校验器帮助限定结论，通用性由跨图纸证据来建立。
+
+
+## 后续能力落地记录（2026-10-28）
+
+本节对应三阶段完成后的全部补充建议，记录实现范围；不将功能存在或工具回放通过等同于完整自主识别验收。当前生产默认模型、预算和几何校验模式保持原设置。已有并行开发的 harness 改动被保留，本轮只增量接入其公共工具边界。
+
+| 建议 | 已实现入口 | 具体边界 |
+| --- | --- | --- |
+| 图示与对象归属 | `analyze_geometry_context` | 保存原生标题竞争关系、局部范围、楼层/标高文字；原文存在与几何归属分开。不会按最近文字自动确认对象。 |
+| 边界角色与反证 | 同一工具的 `entity_features`、`pair_counterevidence` | 检查尺寸端点关联/测线方向、共同块父节点、测线中点落入闭合轮廓；轴网/墙带/符号仍需结合源图解释，不能只凭图层名判断。 |
+| 连续路线与多段线 | `trace_geometry_network`、`measure_geometry_primitives`、`measure_geometry_network_route` | 分解原生线、弧、含 bulge 的多段线；精确转换正/反向 XY OCS；保留实体路径和段索引；返回端点连接、转角、分支、断点及未配对段。不移动坐标闭缝。 |
+| 单位、表面、高度 | `resolve_geometry_basis` | 对引文逐字回源，分开记录适用性；无冲突的源头物理单位可显式换算局部值；表面与障碍高度不因 XY 投影自动确认。未知或冲突单位不换算。 |
+| 缺口调查与进展 | `plan_geometry_investigation`、`record_geometry_decision`、`read_geometry_workset(since_revision=...)` | 记录新测量、来源关系、拓扑、单位依据与模型排除；重复调用不重复增加进展。停滞只建议换方法或交付具体缺口，不修改任务预算，也不自动重放调用。仅有标签的假设先补源实体，不能生成空追踪请求。 |
+| 可操作校验 | `validate_geometry_claims` 的 `repair_actions` | 数值、单位、身份、完成面、全程声明分别给补证入口；有效局部结果保留。显式单位换算有独立声明类型，导航页不能冒充数值证据。 |
+| 沙盒 SDK | `cad_agent.geometry.sandbox_sdk` | 固定导入、源哈希检查、只读输入、候选产物、代码哈希和错误分类；写产物不覆盖旧文件。宿主重新测量后才产生正式测量观测；未默认向所有通道开放代码执行。 |
+| 上下文与结果读取 | 几何摘要、原生字段分页、结果字段分页、尺寸表无损投影 | 长顶点数组有完整续读入口；重复诊断只引用同一请求内完全相同的早期字段。提供反向解码器验证字段完整；字符减少不能当计费 token 节省。 |
+| 监督介入归因 | 运行目录 `guidance/*.json` | 区分运行修复、调查方法、补充事实、直接选择；事实需要证据引用。旧的无分类文本保守计为直接辅助。不会将监督者意见自动视为工程确认。 |
+| 冻结与对象级评测 | `experiment_protocol.py`、`evaluate_geometry_investigation.py` | 冻结金标准及哈希、拒绝同图跨开发/持出集、逐对象评估归属/选边/数值/单位/覆盖/越界声明；缺失对象计入分母，未标注维度为未评估。人工指定边界不计自主选择。 |
+| 实验与对照流程 | `run_supervised_geometry.py`、`replay_geometry_investigation.py` | API 运行实际从冻结源码重新启动；模型、工具、镜像、问题、规则与输入哈希均存档。校验、上下文投影、代码权限和显式预算独立配置；对照检查拒绝缺少固定字段或多因素变化。 |
+
+### 运行流程
+
+1. 先界定图纸、对象/图示范围和要回答的事实，单独标注参考边界、数值及覆盖全集。原图哈希、问题、标注依据与评分维度一起冻结。未标注的项目不得默认计为正确。
+2. 探索运行允许监督与动态修复；每次介入写明类别、涉及对象、证据来源。不得把直接给出的句柄、坐标和正确宽度计作自主发现。
+3. 根据首次错误决策修复通用能力，保留失败轨迹；用原图及不同来源图纸回放计算和来源链。
+4. 业务验证使用未参与引导的图纸和预先冻结的对象级金标准。已经看过或用于调参的图纸只能作为开发回归。
+5. 验证校验器时只改变校验模式；优化上下文或预算时另做独立对照。记录每次输入/输出/已报告缓存 token，缺失字段保持未知；没有核实该渠道单价时不编造成本。
+
+工具迁移回放与对象级业务评测是两种不同证据。本轮三张实图回放检查的是原生几何、来源和调用链，并没有建立完整坡道金标准，不能报告为三图自主识别通过。
+
+### 命令与产物
+
+```bash
+# 标注文件由独立源图审查产生；输出文件已存在时拒绝覆盖。
+.venv/bin/python scripts/evaluate_geometry_investigation.py freeze cases.json frozen-gold.json
+.venv/bin/python scripts/evaluate_geometry_investigation.py score frozen-gold.json CASE_ID prediction.json --guidance guidance.json
+.venv/bin/python scripts/evaluate_geometry_investigation.py compare run-a/manifest.json run-b/manifest.json --factor validation_mode
+
+# 输入目录含只读 drawing.dxf、rule.json；API 渠道显式选择。
+.venv/bin/python scripts/run_supervised_geometry.py RUN_DIRECTORY --env-file /absolute/path/to/.env --validation-mode enforce
+# 可独立加 --no-context-projection、--code-execution-mode disabled；不提供以下参数则无任务预算上限。
+# --max-rounds N --max-input-tokens N 是实验开关，token 停止阈值在响应后检查，末轮可超过阈值。
+```
+
+完整新证据位于 `artifacts/geometry-followup-20261028/`；其中 `starting-state.json` 保存本轮开始前的改动哈希，`api-investigation/code-snapshot/` 是实际 API 运行版本。后续补丁通过独立测试和回放验证，不回写历史请求和响应。
+
+### 仍然需要后续业务验证的能力边界
+
+- 当前拓扑以源端点为连接依据；内部交叉点没有自动拆分，倾斜三维 OCS 和一般样条曲线不被伪装为精确线弧。
+- 选定子段的分段测量能显示缺口；尚未证明所有转角、过渡段、障碍高度和完成面净宽，也没有自动建立可信的工程路线全集。
+- 角色特征和竞争归属帮助模型调查；它们不是已验证的通用工程对象分类器。跨图纸的自主识别收益需对象级持出集验证。
+- 默认预算未降低。冻结版本的探索运行、后续代码回放、同结果的校验器/压缩回放和严格 API A/B 分开报告。
+
+
+### 本轮实测结果与审计入口
+
+| 检查 | 结果 | 解释 |
+| --- | --- | --- |
+| 受影响回归 | 201项通过 | 包含几何、公共工具执行、交付、来源、上下文和组件；不是宣称整个仓库一次全绿。 |
+| 最后补充回归 | 36项通过 | 覆盖端点统计范围、多段线段索引评分、完整调查导出和无可选依赖的近邻搜索；与前一组有重叠，不相加。 |
+| 三张真实图纸的工具迁移回放 | 75/75源实体长度一致，104个原生子段 | AR009开发图和两张不同图纸；独立用 ezdxf 原生/虚拟实体计算长度。不是三图自主业务准确率。 |
+| 正式 invoke 调用链实图回放 | 局部值约7100原图单位；局部声明支持，全程声明拒绝 | 该回放显式使用此前选定的源对，不计模型自主选边。 |
+| Docker SDK探针 | 通过 | 原有镜像无网络、只读挂载；源几何 SDK 不依赖宿主 Pydantic 或额外 SciPy。 |
+| 三页实际尺寸输出的无损压缩回放 | 完整还原一致，减少71636字符 | 仅同结果离线比较，不等同于实际计费 token 节省。 |
+
+AR009 API 探索运行于北京时间2026-10-28 14:00:51开始、14:24:04结束。18次成功响应，另有第12次请求 HTTP 503；使用相同冻结源码与会话恢复一次。失败请求是否计费未知。
+
+| 用量范围 | 输入token | 输出token | 响应数 |
+| --- | ---: | ---: | ---: |
+| 服务失败之前 | 1,161,916 | 7,564 | 11 |
+| 同会话恢复之后 | 1,593,654 | 8,885 | 7 |
+| 成功响应合计 | 2,755,570 | 16,449 | 18 |
+
+已报告缓存984,064 token，是输入量子集，仅8/18响应返回缓存明细。未包含监督者自身用量；未取得可核对的渠道单价，因此不输出虚构费用。该运行与前三阶段的代码、问题及调查路径不同，不能用于宣称某项机制导致用量下降。
+
+模型实际使用了归属分析、缺口规划、源字段读取、拓扑追踪、子段测量、单位依据、排除决策与逐项校验。8条成功测量记录对应7组不同源实体对，独立数值审计8/8一致；最终保留的2#曲线段源对与此前人工复核的一组相同。这一对应关系由事后审计比较，提示词和本次引导均未提供正确句柄、坐标或期待宽度。
+
+实际监督日志只有1条调查方法引导；没有直接选边或事实补充。模型没有生成或运行代码，SDK能力通过独立探针验证。1#、3#及完整路线仍未达到同等调查深度；物理单位、结构/完成面、障碍同高度关系也未确认，因此仍为部分交付。
+
+原始模型报告存在一处“250”标题与3550/3800正文不一致，并把部分自己的视觉/工具操作列为人工辅助。审计保留原文，不把它作为金标准；统计以机器回执和监督事件日志为准。冻结运行中端点数量只针对种子可达分量，模型可能误读成所有输入图元；最终工具已明确同时返回输入图与遍历分量两组计数。
+
+以下补丁晚于本轮 API 冻结版本：调查结果分页、网络子段分段测量、尺寸无损投影、完整调查导出、空标签假设的补证动作、标准库近邻搜索及显式端点统计范围。它们分别通过测试/实图回放，不能算成该次模型运行已经使用过的收益。
+
+- [本轮审计汇总](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/assessment.json)
+- [API原始回答](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/api-investigation/model-answer.md)
+- [API用量与错误记录](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/api-investigation/summary.json)
+- [正式调用链回放](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/final-public-replay.json)
+- [尺寸压缩回放](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/dimension-context-replay.json)
+- [受影响回归日志](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/final-regression.log)
+- [补充回归日志](/Users/vigorchen/Documents/WorkExplore/cad_opt_agent/artifacts/geometry-followup-20261028/final-supplement-tests-v4.log)
+
+运行中还保留了几项已修复的测试问题：初次实图种子涉及反向 OCS；迁移图超过默认32MB上传限制；辅助回放脚本最初范围选错、随后缺少多进程 main 保护。它们的失败日志未删除，成功回放另存新目录。迁移脚本只按冻结输入大小放宽自己的上传配置，产品默认不变。

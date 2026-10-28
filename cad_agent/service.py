@@ -464,12 +464,12 @@ class Workspace:
             if previous['request'].get('related_drawings',[]) != [d.model_dump() for d in request.related_drawings]:
                 raise ValueError('关联资料已改变，请开始新的问答，不自动复用旧资料回答。')
             records.append(previous)
-            parent = previous["request"].get("parent_run_id")
+            parent = previous.get("effective_request", previous["request"]).get("parent_run_id")
         messages = []
         for record in reversed(records):
             messages.extend(
                 [
-                    {"role": "user", "content": record["request"]["question"]},
+                    {"role": "user", "content": record.get("effective_request", record["request"])["question"]},
                     {"role": "assistant", "content": record["result"]["answer"]},
                 ]
             )
@@ -530,6 +530,10 @@ class Workspace:
                 raise
             return record
 
+    def steer_chat(self, run_id, request):
+        from cad_agent.harness.inbox import enqueue
+        return enqueue(self, run_id, request)
+
     def cancel_chat(self, run_id):
         return self.execution.cancel(run_id)
 
@@ -541,6 +545,8 @@ class Workspace:
     def _chat(self, runner, history, record):
         token=record['execution_token']
         runner.execution=ExecutionContext(self.execution,'chat_run',record['id'],token)
+        runner.harness_event=runner.execution.emit
+        runner.input_revision=record.get('applied_input_revision',0)
         def update(**fields):
             fields['task_id']=runner.task.data['task_id']
             fields['run_events']=runner.journal.snapshot(fields.get('status'))
@@ -551,6 +557,8 @@ class Workspace:
                 with self.execution.transaction() as c:
                     current=self.execution.read(c,'chat_run',record['id'])
                     saved_task=self.execution.read(c,'agent_task',runner.task.data['task_id'])
+                    from cad_agent.harness.inbox import require_current
+                    require_current(runner,current)
                     if current.get('execution_token')!=token or saved_task.get('execution_token')!=token or current.get('execution_lease_until',0)<time.time() or current.get('cancel_requested'):
                         raise ExecutionCancelled('任务取消或执行租约已失效。')
                     runner.task.data.update(execution_lease_until=0,execution_token=None,revision=saved_task.get('revision',0)+1,updated_at=now())
@@ -558,6 +566,7 @@ class Workspace:
                     current.update(fields,execution_token=None,execution_lease_until=0)
                     self.execution.write(c,'agent_task',runner.task.data['task_id'],runner.task.data)
                     self.execution.write(c,'chat_run',record['id'],current)
+                    self.execution.events.append_in(c,record['id'],'run.published',{'input_revision':runner.input_revision})
                     record.update(current)
             else:
                 record.update(self.execution.update("chat_run", record["id"], token, fields))
@@ -628,6 +637,12 @@ class Workspace:
             )
 
         finally:
+            with self.execution.transaction() as c:
+                latest=self.execution.read(c,'chat_run',record['id'])
+                if latest.get('execution_token') == token and latest.get('execution_lease_until',0) >= time.time():
+                    from cad_agent.harness.recovery import close_unsettled
+                    close_unsettled(c,record['id'],self.execution.events.append_in)
+                    self.execution.events.append_in(c,record['id'],'run.ended',{'status':latest['status']})
             latest=self.store.get('chat_run',record['id'])
             if latest.get('cancel_requested') and latest['status'] in ('queued','running'):
                 try:

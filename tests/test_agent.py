@@ -124,6 +124,8 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         "prepare_geometry_bundle", "read_geometry_bundle", "measure_local_geometry", "render_geometry_workbench",
         "discover_geometry_pairs", "inspect_geometry_views", "register_geometry_hypothesis", "measure_geometry_route",
         "export_geometry_results", "validate_geometry_claims", "read_geometry_workset",
+        "analyze_geometry_context", "trace_geometry_network", "measure_geometry_primitives", "resolve_geometry_basis",
+        "read_geometry_artifact", "record_geometry_decision", "plan_geometry_investigation", "read_geometry_native_field", "measure_geometry_network_route",
     }
 
 

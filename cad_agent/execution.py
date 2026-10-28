@@ -51,6 +51,8 @@ class ExecutionManager:
         self.owner = uuid4().hex
         self.lease_seconds = lease_seconds
         self.stop = threading.Event()
+        from cad_agent.harness.event_store import EventStore
+        self.events = EventStore(store)
         self.recover()
         self.thread = threading.Thread(target=self._heartbeat, daemon=True, name='cad-leases')
         self.thread.start()
@@ -90,6 +92,7 @@ class ExecutionManager:
             lease=dict(execution_owner=self.owner,execution_token=uuid4().hex,execution_lease_until=time.time()+self.lease_seconds)
             record.update(lease)
             self.write(c,kind,record['id'],record)
+            self.events.append_in(c, record['id'], 'run.claimed', {'kind':kind})
             if task is not None:
                 task.update(lease,status='running')
                 task['run_ids'].append(record['id'])
@@ -116,6 +119,7 @@ class ExecutionManager:
             if value['status'] in ACTIVE:
                 value.update(cancel_requested=True,stage='正在取消，等待当前操作检查点')
                 self.write(c,kind,run_id,value)
+                self.events.append_in(c,run_id,'run.cancel_requested')
             return value
 
     def recover(self):
@@ -125,6 +129,10 @@ class ExecutionManager:
                 value=json.loads(raw)
                 if value.get('execution_lease_until',0)>time.time(): continue
                 if value.get('status') not in ACTIVE and not (kind=='agent_task' and value.get('execution_token')): continue
+                if kind != 'agent_task':
+                    from cad_agent.harness.recovery import close_unsettled
+                    close_unsettled(c,key,self.events.append_in)
+                    self.events.append_in(c,key,'run.interrupted',{'reason':'lease_expired'})
                 value.update(status='partial' if kind=='agent_task' else 'failed',execution_token=None,
                              error={'code':'INTERRUPTED','message':'执行租约已过期；已保存证据可显式继续，不自动重放操作。'})
                 if kind=='agent_task':
@@ -167,6 +175,44 @@ class ExecutionContext:
         value=self.manager.store.get(self.kind,self.key)
         if value.get('cancel_requested') or value.get('execution_token')!=self.token or value.get('execution_lease_until',0)<time.time():
             raise ExecutionCancelled('任务取消或执行租约已失效。')
+
+    def emit(self, kind, payload=None, call_id=None):
+        with self.manager.transaction() as c:
+            value=self.manager.read(c,self.kind,self.key)
+            if value.get('execution_token')!=self.token or value.get('execution_lease_until',0)<time.time():
+                raise ExecutionCancelled('任务执行租约已失效。')
+            # Settlements remain observable after cancellation; never grant publication.
+            return self.manager.events.append_in(c,self.key,kind,payload,call_id)
+
+    def begin_call(self, name, args, call_id=None):
+        self.check_cancelled()
+        call_id = call_id or 'call_'+uuid4().hex
+        # Stable IDs identify a single admitted operation, including rejected/unknown outcomes.
+        with self.manager.transaction() as c:
+            value=self.manager.read(c,self.kind,self.key)
+            if value.get('execution_token')!=self.token or value.get('execution_lease_until',0)<time.time() or value.get('cancel_requested'):
+                raise ExecutionCancelled('任务取消或执行租约已失效。')
+            exists=c.execute("SELECT 1 FROM harness_events WHERE run_id=? AND json_extract(data,'$.call_id')=? LIMIT 1",(self.key,call_id)).fetchone()
+            if exists: raise ValueError('同一工具调用 ID 已被登记；请读取已有结果，不自动重放。')
+            self.manager.events.append_in(c,self.key,'tool.received',{'tool':name,'arguments':args},call_id)
+        return call_id
+
+    def admit_call(self, call_id):
+        self.emit('tool.admitted', {}, call_id)
+
+    def dispatch_call(self, call_id):
+        # Cancellation and dispatch have one durable ordering. General emit
+        # intentionally permits post-cancellation completion receipts.
+        with self.manager.transaction() as c:
+            value=self.manager.read(c,self.kind,self.key)
+            if value.get('execution_token')!=self.token or value.get('execution_lease_until',0)<time.time() or value.get('cancel_requested'):
+                raise ExecutionCancelled('任务取消或执行租约已失效。')
+            self.manager.events.append_in(c,self.key,'tool.dispatched',{},call_id)
+
+    def settle_call(self, call_id, status='completed', result=None):
+        from cad_agent.harness.events import TOOL_TERMINAL
+        if status not in TOOL_TERMINAL: raise ValueError('Invalid call settlement')
+        self.emit('tool.'+status, {'result':result}, call_id)
 
     def before_tool(self, name, args):
         self.check_cancelled()

@@ -354,8 +354,10 @@ def codec(session):
         # addressable through tools; no hidden full-ledger reinjection occurs.
         observations = {oid: observations[oid] for oid in selected if oid in observations}
     session._model_context_codec.canonical_observations = observations
-    session._model_context_codec.optimize_reads = (getattr(session.w.settings, 'read_context_optimization', True)
-        and not getattr(session, 'visual_images', {}) and not getattr(session.request, 'parent_run_id', None))
+    # The optimizer is gated by the typed profile at encode time. Images remain
+    # opaque blocks and follow-up referents are pinned by context_projection;
+    # their presence alone no longer disables safe source dictionary dedup.
+    session._model_context_codec.optimize_reads = getattr(session.w.settings, 'read_context_optimization', True)
     c = session._model_context_codec
     if c.optimize_reads and c.profile == 'assembly_lookup':
         from cad_agent.analysis.read_context import lookup_frontier

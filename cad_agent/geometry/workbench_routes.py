@@ -5,7 +5,7 @@ from pydantic import Field
 from cad_agent.contracts import Record,FiniteFloat,stable_id
 from cad_agent.geometry.candidate_routes import candidates,sample_pair
 
-VERSION='geometry-route-hypothesis-v2'
+VERSION='geometry-route-hypothesis-v3'
 
 
 class DiscoverPairs(Record):
@@ -53,6 +53,10 @@ class ExportResults(Record):
     route_ids:list[str]=Field(default_factory=list,max_length=64)
     hypothesis_ids:list[str]=Field(default_factory=list,max_length=64)
     validation_ids:list[str]=Field(default_factory=list,max_length=64)
+    network_ids:list[str]=Field(default_factory=list,max_length=64)
+    context_analysis_ids:list[str]=Field(default_factory=list,max_length=64)
+    basis_ids:list[str]=Field(default_factory=list,max_length=64)
+    decision_ids:list[str]=Field(default_factory=list,max_length=64)
 
 
 def key(obj):return json.dumps(obj,ensure_ascii=False,sort_keys=True)
@@ -151,7 +155,7 @@ def route(service,args):
 
 def export(service,args):
     b=service.bundle(args.bundle_id);data={}
-    for name,collection,ids in [('measurements','local_measurement',args.measurement_ids),('routes','geometry_route',args.route_ids),('hypotheses','geometry_hypothesis',args.hypothesis_ids),('validations','geometry_validation',args.validation_ids)]:
+    for name,collection,ids in [('measurements','local_measurement',args.measurement_ids),('routes','geometry_route',args.route_ids),('hypotheses','geometry_hypothesis',args.hypothesis_ids),('validations','geometry_validation',args.validation_ids),('networks','geometry_network',args.network_ids),('context_analyses','geometry_context_analysis',args.context_analysis_ids),('bases','geometry_basis',args.basis_ids),('decisions','geometry_investigation_decision',args.decision_ids)]:
         rows=[service.w.store.get(collection,i) for i in ids]
         if any(r['bundle_id']!=args.bundle_id for r in rows):raise ValueError('FOREIGN_RESULT_EXPORT')
         data[name]=rows

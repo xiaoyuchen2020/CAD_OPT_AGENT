@@ -249,7 +249,7 @@ class CadAgentSession:
         # Retain source quotes, tool-call pairing, and stable cacheable prefixes.
         # No lossy model-generated history summary is used.
         result = self.focus.messages(messages) if self.focused_enabled else messages
-        if self.focused_enabled and result and result[0].get("role")=="system":result=[dict(result[0],content=self.system_prompt)]+result[1:]
+        if result and result[0].get("role")=="system":result=[dict(result[0],content=self.system_prompt)]+result[1:]
         from cad_agent.analysis.model_context import encode_messages
         result = encode_messages(self, result, restore_read_context=not final_only)
         self.policy.model_requests.append({
@@ -402,6 +402,14 @@ class CadAgentSession:
         return register_observation(self, name, result)
 
     def invoke_tool(self, name, raw_args):
+        from cad_agent.harness.tool_pipeline import invocation
+        from cad_agent.harness.scheduler import compute_scope
+        with invocation(self, name, raw_args) as call, compute_scope(self._remaining):
+            result = self._invoke_tool_with_journal(name, raw_args)
+            call['result'] = result
+            return result
+
+    def _invoke_tool_with_journal(self, name, raw_args):
         from cad_agent.analysis.model_context import decode
         with self.journal.tool(name, raw_args) as event:
             try:
@@ -431,6 +439,8 @@ class CadAgentSession:
         checkpoint = execution.before_tool(name, raw_args) if execution and name != 'batch_read_sources' else None
         with self.metrics.measure('tool.' + (name if name in TOOL_SPECS else 'unknown')):
             result = invoke_tool(self, name, raw_args)
+        from cad_agent.harness.tool_pipeline import record_result
+        record_result(self, result)
         if json.loads(result).get('error'):
             self.metrics.returned_error('tool.' + (name if name in TOOL_SPECS else 'unknown'))
         if execution and checkpoint is not None:

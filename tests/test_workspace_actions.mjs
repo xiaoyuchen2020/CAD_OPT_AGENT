@@ -42,9 +42,10 @@ test('Agent questions keep model, subscription, evidence and cancellation plumbi
     parentRun:'prior',relatedDrawings:new Map(),retrievalSupported:false};
   const result = {answer:'图纸原文',citations:[]};
   let updates = 0;
-  const context = {S:state,$,node:element,workspaceAction,handleWorkspaceAction:async()=>false,
+  const nodes=[];
+  const context = {S:state,$,node:(...args)=>{const item=element();item.textContent=args[2]||'';nodes.push(item);return item;},workspaceAction,handleWorkspaceAction:async()=>false,
     post:async(path,payload)=>{calls.push({path,payload});return{id:'run',status:'running',stage:'读取来源'};},
-    api:async()=>({id:'run',status:'completed',result}),
+    api:async()=>({id:'run',status:'completed',effective_question:'只核对外墙材料原文',input_closed:true,result}),
     runInspector:{open:()=>{throw Error('Unexpected inspector opening');},update:()=>updates++},
     runDetailsButton:element,sourceRecordView:()=>null,answerCitationLinks:element,
     publishedCitations:()=>[],setTimeout:fn=>fn(),toast:message=>{throw Error(message);}};
@@ -58,6 +59,7 @@ test('Agent questions keep model, subscription, evidence and cancellation plumbi
   assert.equal(calls[0].payload.allow_fallback,false);
   assert.equal(calls[0].payload.source_read_batching,false);
   assert.equal(updates,1);
+  assert.equal(nodes[0].textContent,'只核对外墙材料原文');
   assert.equal(state.parentRun,'run');
   assert.equal(state.chatBusy,false);
   assert.equal($('cancel-chat-button').hidden,true);

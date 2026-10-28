@@ -1,5 +1,7 @@
 # 可替换 AgentRuntime 与 Harness 对照
 
+> 本页记录历史外部 CLI 桥接与对照能力。当前自定义运行时的共享内核、事件恢复和修改问题接口见 [CAD 自定义 Harness](cad-harness.md)；本次改造不要求启动两个外部 CLI。
+
 本里程碑仅修改 cad_opt_agent，保留原生运行时为默认实现。DeepSeek Harness 和 Codex Harness 都启动实际官方运行时进程，初次对照统一调用 DeepSeek `deepseek-flash`；现已支持按请求选择 Qwen 配置，见 [多模型说明](qwen-models.md)。同一对照组不替换模型。
 
 ## 模块边界

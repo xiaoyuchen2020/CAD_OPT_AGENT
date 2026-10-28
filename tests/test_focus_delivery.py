@@ -90,15 +90,18 @@ def test_pruned_context_keeps_complete_scope_quotes_and_call_pair(workspace):
     s.invoke_tool('read_source_context',{'region_id':rid,'neighbors':1,'task_ids':['q4']})
     call={'type':'function_call','name':'read_source_context','call_id':'last','arguments':'{}'}
     output={'type':'function_call_output','call_id':'last','output':'last result'}
-    messages=[{'role':'user','content':'old miss '*10000},call,output,{'role':'developer','content':'citation correction'}]
+    question={'role':'user','content':'保留全部材料原文和适用范围。'}
+    messages=[question,dict(call,call_id='old'),dict(output,call_id='old',output='old miss '*10000),call,output,{'role':'developer','content':'citation correction'}]
     pruned=s.focus.messages(messages)
     assert len(json.dumps(pruned))<len(json.dumps(messages))/2
     assert pruned[-3:]==messages[-3:]
-    context=json.loads(pruned[0]['content'])
+    assert question in pruned
+    context=next(json.loads(m['content']) for m in pruned if 'context_projection' in str(m.get('content','')))
     assert context['reads'] and all(e['quote'] in json.dumps(context,ensure_ascii=False) for e in s.evidence.values())
     assert any(i.get('relation_basis') for r in context['reads'] for i in r['items'])
     s.focus.has_history=True
-    assert s.focus.messages(messages)==messages
+    historical=s.focus.messages(messages)
+    assert question in historical and historical[-3:]==messages[-3:]
     s.focus.has_history=False;s.visual_images={'image':{}}
     # Image payloads are attached from the session registry, outside text history.
     pending=s.focus.messages(messages)
@@ -187,9 +190,11 @@ def test_compaction_preserves_multiple_calls_in_one_response(workspace):
       {'type':'function_call','call_id':'b','name':'read_source_context','arguments':'{}'},
       {'type':'function_call_output','call_id':'a','output':'candidates'},
       {'type':'function_call_output','call_id':'b','output':'source'}]
-    messages=[{'role':'user','content':'old '*10000}]+exchange
+    question={'role':'user','content':'保留地下室除外的条件。'}
+    messages=[question,dict(exchange[1],call_id='old'),dict(exchange[-1],call_id='old',output='old '*10000)]+exchange
     compacted=s.focus.messages(messages)
-    assert len(compacted)<len(messages)+1 and compacted[1:]==exchange
+    assert len(json.dumps(compacted))<len(json.dumps(messages))/2
+    assert question in compacted and compacted[-len(exchange):]==exchange
 
 
 def test_legacy_scope_blocker_is_rechecked_locally_before_delivery(workspace):

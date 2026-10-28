@@ -117,3 +117,15 @@ def test_cross_view_reuse_is_advisory_and_superseded_hypothesis_not_active():
     legacy=dict(hypothesis_id='h',semantic_identity='model_asserted_not_confirmed')
     assert is_spatial_fact(legacy)
     assert spatial_claim_issues(SimpleNamespace(text='已确认房间净宽',state='observed'),legacy)
+
+
+def test_dimension_and_shared_diagnostics_roundtrip_preserves_all_fields():
+    from cad_agent.analysis.geometry_context import restore_geometry_messages
+    def msg(call,data):return dict(role='tool',tool_call_id=call,content=json.dumps(data))
+    data=dict(kind='dimensions',record_id='r',source_sha256='a',items=[dict(id='one',value=7,unit='unknown'),dict(id='two',value=None,unit='unknown')],
+        diagnostics=[dict(code='unlocated',entity_id='e'+str(i)) for i in range(60)],coverage={'complete':False},has_more=True,next_offset=2)
+    messages=[msg('one',data|{'observation_id':'o1'}),msg('two',data|{'record_id':'r2','observation_id':'o2'}),msg('three',data|{'observation_id':'o3'})]
+    projected,stats=project_geometry_messages(messages)
+    assert stats['shared_fields']==1 and stats['duplicate_pages']==1
+    assert [json.loads(m['content']) for m in restore_geometry_messages(projected)]==[json.loads(m['content']) for m in messages]
+    assert stats['characters_saved']>0

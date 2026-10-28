@@ -105,7 +105,7 @@ def test_subscription_final_request_uses_only_bounded_sources(
     from test_siwc import make_session, connected_lease
     from test_siwc_stopping import answer
     from cad_agent.runtimes import responses_subscription as runtime
-    from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
+    from cad_agent.harness.controls import BudgetController
     from cad_agent.runtimes.budget_policy import STANDARD
     from cad_agent.runtimes.siwc_bridge import SiwcBridge
 
@@ -116,7 +116,7 @@ def test_subscription_final_request_uses_only_bounded_sources(
     packet = bounded_packet(populate(session), 12000, include_templates=False)
     before = deepcopy((session.evidence, session.observations))
     monkeypatch.setattr(session, 'final_context', lambda *args: packet)
-    monkeypatch.setattr(CodexSubscriptionRuntime, 'stop_reason', lambda *args: 'tool_call_budget')
+    monkeypatch.setattr(BudgetController, 'stop_reason', lambda *args: 'tool_call_budget')
     monkeypatch.setattr(runtime, 'for_session', lambda *args: replace(STANDARD, final_context_chars=12000))
     sent = []
 

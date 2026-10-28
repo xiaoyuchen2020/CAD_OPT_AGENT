@@ -27,14 +27,20 @@ def build(session, advanced):
     if selected != 'assembly_lookup' and task_ops & geometry_ops:
         from cad_agent.geometry.workbench import PROMPT as GEOMETRY_PROMPT
         text += '\n' + GEOMETRY_PROMPT
+        sections.append(('geometry_workbench', GEOMETRY_PROMPT))
     text += '\n编号与数值以来源 numeric_readings 为准：ordinal 是顺序，identifier 是编号/等级，ambiguous 须补读；不能用于计算。计算优先传 number_id 为 quantity_id。做法正文用“第3项：5厚…”避免编号紧连厚度；不擅自补单位。'
+    sections.append(('numeric_semantics', ''))
     if session.request.source_read_batching:
         text += '\n多个已知且独立的来源可 batch_read_sources；依赖前项结果的读取必须等待结果。'
+        sections.append(('explicit_source_batching', ''))
     if (selected == 'assembly_lookup' and getattr(session.w.settings, 'read_context_optimization', True)
             and getattr(session.w.settings, 'model_context_codec', True)):
         from cad_agent.analysis.read_context import GUIDANCE
         text += '\n' + GUIDANCE
+        sections.append(('read_workset', GUIDANCE))
+    from cad_agent.harness.tool_contract import VERSION as CONTRACT_VERSION
     metadata = dict(version=VERSION, profile=selected, sections=[name for name, _ in sections],
+                    tool_contract_version=CONTRACT_VERSION,
                     sha256=hashlib.sha256(text.encode()).hexdigest())
     session.task.data['prompt_release'] = metadata
     return text

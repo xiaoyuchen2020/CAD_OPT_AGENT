@@ -18,7 +18,10 @@ def main():
     parser.add_argument('--serve',action='store_true')
     parser.add_argument('--port',type=int,default=8768)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-    app=create_app(Settings(data_dir=args.output/'data',model='local-scripted-fixture'))
+    # This fixture scripts the simple source-read loop, not query-intent planning
+    # or deterministic source/table shortcuts.
+    app=create_app(Settings(data_dir=args.output/'data',model='local-scripted-fixture',
+                            llm_query_intent=False,source_record_workflow=False))
     w=app.state.workspace
     drawing_file=args.output/'synthetic-demo.dxf';create_demo(drawing_file)
     drawing=w.ingest('本地验证 · 合成示例.dxf',drawing_file.read_bytes())
@@ -33,7 +36,13 @@ def main():
             packet=json.loads(messages[-1]['content'])
             return tool('read_source_context',{'region_id':packet['items'][0]['region_id']}),{'total_tokens':10}
         if state['n']==3:
-            packet=json.loads(messages[-1]['content']);state['evidence']=packet['items'][0]['evidence']
+            packet=json.loads(messages[-1]['content']);state['evidence']=dict(packet['items'][0]['evidence'])
+            # The model projection may group exact quotes separately from IDs.
+            if 'quote' not in state['evidence']:
+                eid=state['evidence']['evidence_id']
+                state['evidence']['quote']=next(json.loads(line.split('] ',1)[1])
+                    for group in packet.get('source_groups',[]) for line in group['text'].splitlines()
+                    if line.startswith('['+eid+' '))
             evidence_id='unread-fixture-evidence'
         else:evidence_id=state['evidence']['evidence_id']
         return {'role':'assistant','content':json.dumps({'claims':[{

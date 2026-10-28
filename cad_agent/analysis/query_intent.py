@@ -49,7 +49,7 @@ def parent_question(session):
     if not session.request.parent_run_id:
         return ''
     prior = session.w.store.get('chat_run', session.request.parent_run_id)
-    request = prior.get('request', {})
+    request = prior.get('effective_request', prior.get('request', {}))
     selected = {request.get('snapshot_id')} | {d['snapshot_id'] for d in request.get('related_drawings', [])}
     if selected != session.allowed_snapshots:
         raise ValueError('QUERY_INTENT_HISTORY_SCOPE: parent drawing selection differs')

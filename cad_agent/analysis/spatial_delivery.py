@@ -5,7 +5,7 @@ import json
 
 def geometry_extent_issues(claim, data):
     """Narrow scope checks; qualifiers are evaluated in the same sentence only."""
-    if not (data.get('bundle_id') and (data.get('measurement_id') or data.get('route_id'))):return []
+    if not data.get('bundle_id'):return []
     issues=[]
     for sentence in re.split(r'[。；;\n]',claim.text):
         def asserted(pattern):

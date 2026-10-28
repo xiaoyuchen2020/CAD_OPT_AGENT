@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from cad_agent.config import Settings, ROOT
 from cad_agent.runtimes.budget_policy import policy_for
-from cad_agent.contracts import ExtractionRequest, ChatRequest
+from cad_agent.contracts import ExtractionRequest, ChatRequest, ChatSteerRequest
 from cad_agent.service import Workspace
 from cad_agent.demo import create_demo
 from cad_agent.adapters.model import ModelError
@@ -476,6 +476,24 @@ def create_app(settings=None):
     def cancel_job(job_id: str):
         return workspace.execution.cancel(job_id, kind='job')
 
+    @app.post('/api/chat-runs/{run_id}/steer')
+    def steer_chat(run_id: str, request: ChatSteerRequest):
+        return workspace.steer_chat(run_id, request)
+
+    @app.get('/api/chat-runs/{run_id}/harness-events')
+    def harness_events(run_id: str, after: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=200)):
+        workspace.store.get('chat_run', run_id)
+        return workspace.execution.events.read(run_id, after, limit)
+
+    @app.get('/api/chat-runs/{run_id}/harness-events/{event_id}/payload')
+    def harness_event_payload(run_id: str, event_id: str, start: int = Query(0, ge=0), length: int = Query(6000, ge=1, le=12000)):
+        workspace.store.get('chat_run', run_id)
+        payload=workspace.execution.events.read_payload(run_id,event_id)
+        text=json.dumps(payload,ensure_ascii=False,sort_keys=True)
+        if start>len(text): raise ValueError('事件附件分页起点无效。')
+        end=min(len(text),start+length)
+        return dict(content=text[start:end],start=start,end=end,total_chars=len(text),has_more=end<len(text),next_start=end if end<len(text) else None)
+
     @app.post('/api/chat-runs/{run_id}/cancel')
     def cancel_chat(run_id: str):
         return workspace.cancel_chat(run_id)
@@ -492,7 +510,7 @@ def create_app(settings=None):
     def drawing_chat_runs(snapshot_id: str, offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=50)):
         workspace.store.get('drawing', snapshot_id)
         runs = workspace.store.list('chat_run', filters={'snapshot_id': snapshot_id}, limit=limit, offset=offset)
-        return {'items': [dict(id=r['id'], question=r['request']['question'], status=r['status'],
+        return {'items': [dict(id=r['id'], question=r.get('effective_question',r['request']['question']), status=r['status'],
                               created_at=r['created_at']) for r in runs],
                 'has_more': offset+len(runs) < workspace.store.count('chat_run', filters={'snapshot_id': snapshot_id})}
 

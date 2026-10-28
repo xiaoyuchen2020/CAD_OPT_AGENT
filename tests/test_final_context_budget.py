@@ -52,7 +52,7 @@ def test_impossible_immutable_question_preserves_diagnostic_without_silent_trunc
 def test_runtime_sends_fitted_final_once_without_paid_fallback(workspace,demo_bytes,monkeypatch):
     from dataclasses import replace
     from cad_agent.runtimes import responses_subscription as runtime
-    from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
+    from cad_agent.harness.controls import BudgetController
     from cad_agent.runtimes.budget_policy import STANDARD
     from test_siwc import connected_lease
     from test_siwc_stopping import answer
@@ -60,7 +60,7 @@ def test_runtime_sends_fitted_final_once_without_paid_fallback(workspace,demo_by
     s.invoke_tool('read_source_context',{'region_id':s.index.regions[0].region_id})
     packet=large_packet(s)
     monkeypatch.setattr(s,'final_context',lambda *args:packet)
-    monkeypatch.setattr(CodexSubscriptionRuntime,'stop_reason',lambda *args:'tool_call_budget')
+    monkeypatch.setattr(BudgetController,'stop_reason',lambda *args:'tool_call_budget')
     monkeypatch.setattr(runtime,'for_session',lambda *args:replace(STANDARD,final_context_chars=12000))
     sent=[]
     def request(self,session,payload):

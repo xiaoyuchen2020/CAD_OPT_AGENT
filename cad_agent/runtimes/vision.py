@@ -26,12 +26,19 @@ def attach_images(session, payload, entry):
                 k:image[k] for k in ('image_id','image_sha256','layout_id','bbox','width','height','cells','coordinate_space','note') if k in image})},
             {'type': 'input_image', 'image_url': 'data:image/png;base64,'+base64.b64encode(raw).decode(), 'detail':'high'},
         ])
-        manifests.append({k:image[k] for k in ('image_id','image_sha256','byte_count','width','height')})
+        manifests.append({k:image[k] for k in ('image_id','image_sha256','byte_count','width','height',
+            'snapshot_id','source_sha256','layout_id','bbox','coordinate_space') if k in image})
     entry['image_inputs'] = manifests
     entry['image_count'] = len(manifests)
+    entry['image_lifecycle'] = dict(
+        attached_ids=[item['image_id'] for item in manifests],
+        reviewed_reference_ids=sorted(getattr(session, 'reviewed_image_ids', set())),
+        current_request_seen=False)
     entry['text_request_chars'] = len(dumps(payload))
     return payload | {'input': payload['input'] + ([{'role':'user','content':parts}] if parts else [])}
 
 
 def mark_images_sent(session, entry):
     session.sent_image_ids.update(i['image_id'] for i in entry.get('image_inputs', []))
+    if 'image_lifecycle' in entry:
+        entry['image_lifecycle']['current_request_seen'] = bool(entry.get('image_inputs'))

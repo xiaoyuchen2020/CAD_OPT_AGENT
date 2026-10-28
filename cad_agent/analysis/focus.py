@@ -344,30 +344,17 @@ class TaskFocus:
             project_sources = project_sources_context(self.s)
             if project_sources and not any('"project_sources"' in str(m.get('content', '')) for m in messages):
                 messages = [*messages, {'role':'user','content':dumps({'project_sources':project_sources})}]
-        # Preserve full history for multi-turn/visual work; those paths need
-        # referents and image bindings beyond this text-only compression MVP.
-        # Images are reattached from the source-checked session registry on every
-        # request until binding. Keep their candidate IDs in context; preserving
-        # the entire text history here previously disabled geometry compaction.
-        if self.has_history and not self.s.task.data.get('inherited_from'):return messages
         if not self.s.task.complex:return messages
         if len(self.results)<1 and not self.s.request.resume_task_id:return messages
         indices=[i for i,m in enumerate(messages) if m.get('type')=='function_call' or (m.get('role')=='assistant' and m.get('tool_calls'))]
         if not indices and not self.s.request.resume_task_id:return messages
-        start=indices[-1] if indices else len(messages)
-        while start>0 and messages[start-1].get('type') in ('reasoning','function_call','message'):start-=1
-        # Whole final exchange (reasoning + calls + outputs) stays paired.
-        tail=messages[start:]
-        if sum(len(dumps(m)) for m in tail)>14000:
-            from copy import deepcopy
-            tail=deepcopy(tail)
-            for m in tail:
-                if m.get('type')=='function_call_output' and len(m.get('output',''))>12000:
-                    import json
-                    value=json.loads(m['output'])
-                    m['output']=dumps({k:v for k,v in value.items() if k in ('observation_id','task','next_action','evidence_coverage','error')}|{'full_result_in_context_or_saved_record':True})
-        rebuilt=([{'role':'system','content':self.s.system_prompt}] if any(m.get('role')=='system' for m in messages) else [])+[{'role':'user','content':dumps(self.context())}]+tail
-        before=len(dumps(messages));after=len(dumps(rebuilt))
-        if after>=before:return messages
-        self.metrics.append({'before_chars':before,'after_chars':after,'preserved_tool_pair':True})
+        # Native and non-stable subscription use the same atomic projection as
+        # the stable path. In particular, a steering message before the last
+        # call remains current, and follow-up referents are never summarized.
+        # Keep this path's existing trigger and any-positive-savings threshold.
+        from cad_agent.analysis.context_projection import checkpoint
+        rebuilt=checkpoint(self.s,messages,None,minimum_savings=0)
+        if rebuilt is not messages:
+            self.metrics.append({'before_chars':len(dumps(messages)),
+                'after_chars':len(dumps(rebuilt)),'preserved_tool_pair':True})
         return rebuilt

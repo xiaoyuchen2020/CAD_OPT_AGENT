@@ -1,9 +1,10 @@
 """Original bounded tool loop, retained as the default runtime."""
 
-import json
 from pydantic import ValidationError
 from cad_agent.adapters.model import ModelError
 from cad_agent.analysis.session import tool_definitions, validation_feedback
+from cad_agent.harness.driver import HarnessDriver
+from cad_agent.harness.model_adapter import ChatAdapter
 
 
 class NativeRuntime:
@@ -12,20 +13,20 @@ class NativeRuntime:
     def run(self, session, history=None):
         messages = session.build_messages(history)
         final_errors = 0
+        repairing = False
+        driver = HarnessDriver(session, ChatAdapter())
 
         # Reserve the last normal round for synthesis, plus one citation repair.
         # Reaching the exploration budget must not discard already-read sources.
         for round_no in range(max(20,session.round_limit) + 1):
             if round_no>session.round_limit:break
-            correction_only = round_no == session.round_limit
-            final_only = (
-                round_no >= session.round_limit - 1
-                or session.calls >= session.w.settings.agent_max_tool_calls
-                or bool(session.policy.stop_reason)
-                or (session.policy.enabled and final_errors > 0)
-            )
+            messages = driver.inputs(messages)
+            if driver.input_changed:
+                repairing = False
+            decision = driver.decision(round_no, repairing=repairing)
+            correction_only, final_only = decision.correction_only, decision.final_only
             if final_only and session.policy.enabled and not session.policy.stop_reason:
-                session.policy.stop_reason = "answer_repair" if final_errors else "exploration_budget"
+                session.policy.stop_reason = "answer_repair" if repairing else "exploration_budget"
             if correction_only:
                 if final_errors != 1:
                     break
@@ -54,48 +55,42 @@ class NativeRuntime:
             with session.metrics.measure("model_wait"):
                 model_messages = session.model_messages(messages, final_only)
                 offered = [] if final_only else session.offered_tools(planning_only=True)
-                msg, usage = session.journal.model_call(
+                eligible = {t['function']['name'] for t in tool_definitions(session.policy.enabled, session)} if not final_only else set()
+                driver.begin_step(round_no, offered, final_only, admission_names=eligible)
+                msg, usage = driver.model_call(
                     {'messages': model_messages, 'tools': offered},
                     lambda: session.w.gateway.chat_turn(model_messages, offered, timeout=session._remaining()),
                     title=f'模型请求 · 第 {round_no+1} 轮')
             session.usage.append(usage)
             session._remaining()
             messages.append(msg)
-            calls = msg.get("tool_calls") or []
+            calls = driver.adapter.calls(msg)
+            if driver.discard_for_steering(calls, messages):
+                repairing = False
+                continue
             if calls:
                 if final_only:
                     break
-                for call in calls:
-                    session._remaining()
-                    if session.calls >= session.w.settings.agent_max_tool_calls:
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": call["id"],
-                                "content": json.dumps(
-                                    {
-                                        "error": {
-                                            "code": "AGENT_TOOL_LIMIT",
-                                            "message": "探索额度已用完，请根据已读取证据回答。",
-                                        }
-                                    },
-                                    ensure_ascii=False,
-                                ),
-                            }
-                        )
-                        continue
-                    encoded = session.invoke_tool(
-                        call["function"]["name"], call["function"]["arguments"]
-                    )
-                    messages.append(
-                        {"role": "tool", "tool_call_id": call["id"], "content": encoded}
-                    )
-                    if session.prepared_answer is not None:return session.prepared_answer
+                names = {t['function']['name'] for t in offered}
+                prepared = driver.execute_calls(calls, messages, allowed=eligible, advertised=names, eligible=eligible)
+                if prepared is not None:
+                    return prepared
                 continue
             try:
-                return session.finish(msg.get("content") or "")
+                result = session.finish(msg.get("content") or "")
+                if not driver.ready_for_delivery():
+                    continue
+                return result
             except (ValueError, ValidationError) as error:
+                if driver.pending():
+                    continue
                 final_errors += 1
+                repairing = True
+                category, needs_tools = driver.recovery_kind(session, msg.get("content") or "")
+                session.runtime_diagnostics.setdefault("answer_validation", []).append({
+                    "category": category, "needs_tools": needs_tools,
+                    "action": "repair_answer" if final_errors < 2 else "stop",
+                    "policy": "native_bounded_repair"})
                 issue = validation_feedback(error)
                 session.progress(
                     stage="答案引用校验未通过，正在纠正", validation_issue=issue
