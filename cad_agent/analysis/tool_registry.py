@@ -342,6 +342,9 @@ TOOL_SPECS.update({
     'review_table_region': (ReviewTableRegion, '仅对实际看过的局部图像提出单元格和文字对应关系；视觉转录保留候选。'),
 })
 
+from cad_agent.geometry.workbench import SPECS as GEOMETRY_WORKBENCH_SPECS
+TOOL_SPECS.update(GEOMETRY_WORKBENCH_SPECS)
+
 VISUAL_TOOLS = frozenset({
     'review_table_region', 'render_region', 'bind_visual_objects', 'prepare_room_boundaries',
     'select_room_boundaries', 'prepare_space_connections', 'review_space_connections',
@@ -361,7 +364,7 @@ MUTATING_TOOLS = frozenset({
     'prepare_discovery_review', 'review_discovered_spaces', 'analyze_measurements',
     'get_analysis_results',
 }) | CONTROL
-MUTATING_TOOLS = MUTATING_TOOLS | program_contracts.TOOLS
+MUTATING_TOOLS = MUTATING_TOOLS | program_contracts.TOOLS | set(GEOMETRY_WORKBENCH_SPECS)
 
 RUNTIMES = frozenset({'native', 'responses_subscription', 'codex_subscription', 'codex', 'deepseek_harness'})
 

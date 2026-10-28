@@ -7,7 +7,7 @@ from cad_agent.geometry.contracts import RoomDiscover
 from cad_agent.geometry.service import GeometryService
 from cad_agent.geometry.source import GEOMETRY_VERSION
 from cad_agent.geometry.discovery import DISCOVERY_VERSION
-from .context import build_context
+from .context import cached_context as build_context
 from .dimensions import read_dimensions, DIMENSION_VERSION
 from .relations import refine_discovery, enrich_openings
 

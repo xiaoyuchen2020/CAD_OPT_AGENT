@@ -35,6 +35,8 @@ class Settings:
     stable_subscription_prefix: bool = True
     model_context_codec: bool = True
     read_context_optimization: bool = True
+    geometry_validation_mode: str = 'shadow'
+    geometry_context_projection: bool = True
     llm_query_intent: bool = True
     source_record_workflow: bool = True
     source_record_max_records: int = 64
@@ -109,6 +111,8 @@ class Settings:
             subscription_budget_policy=e.get("CAD_SUBSCRIPTION_BUDGET_POLICY", "adaptive_v1"),
             stable_subscription_prefix=e.get("CAD_STABLE_SUBSCRIPTION_PREFIX", "1") == "1",
             model_context_codec=e.get("CAD_MODEL_CONTEXT_CODEC", "1") == "1",
+            geometry_validation_mode='enforce' if e.get('CAD_GEOMETRY_VALIDATION_MODE') == 'enforce' else 'shadow',
+            geometry_context_projection=e.get('CAD_GEOMETRY_CONTEXT_PROJECTION', '1') == '1',
             read_context_optimization=e.get("CAD_READ_CONTEXT_OPTIMIZATION", "1") == "1",
             source_record_workflow=e.get("CAD_SOURCE_RECORD_WORKFLOW", "1") == "1",
             siwc_max_concurrency=int(e.get("CAD_SIWC_MAX_CONCURRENCY", "1")),

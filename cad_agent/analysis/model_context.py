@@ -370,6 +370,10 @@ def enabled(session):
 
 
 def encode_messages(session, messages, *, restore_read_context=True):
+    if getattr(session.w.settings, 'geometry_context_projection', True):
+        from cad_agent.analysis.geometry_context import project_geometry_messages
+        messages,geometry_stats=project_geometry_messages(messages)
+        if hasattr(session,'runtime_diagnostics'):session.runtime_diagnostics['geometry_context']=geometry_stats
     if not enabled(session):
         return messages
     c = codec(session)

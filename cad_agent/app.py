@@ -670,6 +670,16 @@ def create_app(settings=None):
         from cad_agent.geometry.room_boundary import RoomBoundaryService
         return RoomBoundaryService(workspace,snapshot_id).get(review_id)
 
+    @app.get('/api/drawings/{snapshot_id}/geometry-results/{result_id}')
+    def geometry_result_download(snapshot_id: str, result_id: str):
+        from cad_agent.geometry.workbench import GeometryWorkbench
+        result=workspace.store.get('geometry_resultset',result_id)
+        if result['snapshot_id']!=snapshot_id:raise HTTPException(status_code=404,detail='Result is not in this drawing.')
+        service=GeometryWorkbench(workspace,snapshot_id);service.check()
+        if result['source_sha256']!=service.drawing['sha256']:raise HTTPException(status_code=409,detail='Source changed.')
+        return Response(json.dumps(result,ensure_ascii=False),media_type='application/json',
+            headers={'Content-Disposition':f'attachment; filename="{result_id}.json"'})
+
     @app.get('/api/drawings/{snapshot_id}/images/{image_id}')
     def visual_image_evidence(snapshot_id: str, image_id: str):
         from cad_agent.geometry.vision import VisionService

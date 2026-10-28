@@ -53,6 +53,8 @@ def planned_operations(text, proposed):
 def receipts(name, result):
     """Tool-owned successful results only; planning prose cannot grant receipts."""
     if result.get('error'): return []
+    if name in ('measure_local_geometry','measure_geometry_route'):
+        return result.get('operation_receipts', [])
     declared=result.get('operation_receipts',[])
     from cad_agent.extensions.programs.contracts import RESULT_TOOLS
     if name in RESULT_TOOLS:

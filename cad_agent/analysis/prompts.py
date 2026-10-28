@@ -22,6 +22,11 @@ def build(session, advanced):
     selected = profile(session)
     sections = [('core', CORE), ('source_lookup', SOURCES), ('assembly', ASSEMBLY)] if selected == 'assembly_lookup' else [('advanced', advanced)]
     text = '\n\n'.join(value.strip() for _, value in sections)
+    geometry_ops={'geometry','area','perimeter','contours','vision','relations','exclusions'}
+    task_ops={op for step in session.task.data.get('subtasks',[]) for op in step.get('operations',[])}
+    if selected != 'assembly_lookup' and task_ops & geometry_ops:
+        from cad_agent.geometry.workbench import PROMPT as GEOMETRY_PROMPT
+        text += '\n' + GEOMETRY_PROMPT
     text += '\n编号与数值以来源 numeric_readings 为准：ordinal 是顺序，identifier 是编号/等级，ambiguous 须补读；不能用于计算。计算优先传 number_id 为 quantity_id。做法正文用“第3项：5厚…”避免编号紧连厚度；不擅自补单位。'
     if session.request.source_read_batching:
         text += '\n多个已知且独立的来源可 batch_read_sources；依赖前项结果的读取必须等待结果。'

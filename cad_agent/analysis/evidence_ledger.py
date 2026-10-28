@@ -9,6 +9,9 @@ from cad_agent.cad.regions import is_heading, clause_level
 
 def register_observation(self, name, result):
     data = None
+    from cad_agent.geometry.workbench import SPECS as WORKBENCH_TOOLS
+    if name in WORKBENCH_TOOLS:
+        data = {k:v for k,v in result.items() if k != "observation_id"}
     from cad_agent.extensions.programs.contracts import RESULT_TOOLS
     if name in {"develop_method", "run_task_method"} | RESULT_TOOLS:
         data = {k:v for k,v in result.items() if k != "observation_id"}

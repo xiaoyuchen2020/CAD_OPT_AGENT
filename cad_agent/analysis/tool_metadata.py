@@ -63,3 +63,7 @@ for _family in ('sources', 'semantics'):
     GROUPS[_family].update({'search_tables','inspect_table','read_table_content','recover_table_region'})
 GROUPS['vision'].update({'recover_table_region','review_table_region'})
 READS.add('read_table_content')
+
+from cad_agent.geometry.workbench import SPECS as GEOMETRY_WORKBENCH_SPECS
+GROUPS["geometry"].update(GEOMETRY_WORKBENCH_SPECS)
+OPERATION_TOOLS["geometry"].update(GEOMETRY_WORKBENCH_SPECS)

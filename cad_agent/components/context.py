@@ -13,6 +13,32 @@ SCALE = re.compile(r"(?:比例\s*[:：]?\s*)?1\s*[:：]\s*(\d+(?:\.\d+)?)")
 FIELDS = {"drawing_number": "图号", "drawing_name": "图名", "project_name": "工程名称", "discipline": "专业", "building": "楼栋", "subproject_name": "子项名称", "scale": "比例", "date": "日期", "revision": "版本号"}
 
 
+def cached_context(reading,layout_id,frames):
+    """Reuse layout analysis, then reproduce the caller's exact frame projection.
+
+    Region/scene file stamps invalidate the cache. Caller-specific ownership and
+    frame ordering are reconstructed; no title inherits another request's scope.
+    """
+    from copy import deepcopy
+    import json
+    from cad_agent.cache import workspace_cache
+    cache=workspace_cache(reading.w,'_component_context_base_cache',max_entries=4)
+    key=('context-base-v1',reading.signature,reading.drawing['sha256'],layout_id)
+    base=cache.get_or_build(key,lambda:build_context(reading,layout_id,[]),lambda value:len(json.dumps(value,ensure_ascii=False))*3)
+    result=deepcopy(base)
+    insert_at=next((i for i,f in enumerate(result['frames']) if f['kind']=='border_candidate'),len(result['frames']))
+    additions=[dict(object_id=f['frame_id'],kind='frame',layout_id=layout_id,frame_id=f['frame_id'],name=f['name'],bbox=f['bbox'],
+        status='candidate',boundary_basis=f['method'],metadata={},diagnostics=['frame_identity_unconfirmed']) for f in frames]
+    result['frames'][insert_at:insert_at]=additions
+    origins={t['entity_id']:t['origin'] for t in reading.scene['texts']}
+    for subframe in result['subframes']:
+        entity_id=subframe['title_source']['entity_id']
+        # The title origin, not its glyph bbox, is the existing ownership rule.
+        origin=origins[entity_id]
+        subframe['frame_ids']=[f['frame_id'] for f in frames if f['bbox'][0]<=origin[0]<=f['bbox'][2] and f['bbox'][1]<=origin[1]<=f['bbox'][3]]
+    return result
+
+
 def build_context(reading, layout_id, frames):
     texts = [t for t in reading.scene["texts"] if t["layout_id"] == layout_id]
     points = [Point(t["origin"]) for t in texts]

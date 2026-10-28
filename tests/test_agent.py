@@ -121,6 +121,9 @@ def test_cross_snapshot_and_unknown_tool_rejected(workspace, demo_bytes):
         "measure_door_sweep_relation", "measure_spatial_sections", "measure_elevation_relation",
         "read_evidence_record", "query_property_evidence",
         "read_door_schedule_table", "trace_door_schedule", "search_similar_objects",
+        "prepare_geometry_bundle", "read_geometry_bundle", "measure_local_geometry", "render_geometry_workbench",
+        "discover_geometry_pairs", "inspect_geometry_views", "register_geometry_hypothesis", "measure_geometry_route",
+        "export_geometry_results", "validate_geometry_claims", "read_geometry_workset",
     }
 
 

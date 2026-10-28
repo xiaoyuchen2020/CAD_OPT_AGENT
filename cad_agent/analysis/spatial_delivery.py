@@ -3,6 +3,32 @@ import re
 import json
 
 
+def geometry_extent_issues(claim, data):
+    """Narrow scope checks; qualifiers are evaluated in the same sentence only."""
+    if not (data.get('bundle_id') and (data.get('measurement_id') or data.get('route_id'))):return []
+    issues=[]
+    for sentence in re.split(r'[。；;\n]',claim.text):
+        def asserted(pattern):
+            for match in re.finditer(pattern,sentence):
+                prefix=sentence[max(0,match.start()-10):match.start()]
+                suffix=sentence[match.end():match.end()+10]
+                if re.search(r'(?:不能|无法|尚未|未证明|未确认|不代表|不等于)[^，,]{0,4}$',prefix):continue
+                if re.match(r'(?:尚未|未确认|待核|未知|不能|无法)',suffix):continue
+                return True
+            return False
+        if asserted(r'全程.{0,8}?(?:最小|净宽)|(?:所有|全部).{0,8}(?:坡道|路线).{0,8}(?:已覆盖|已测完)|无(?:任何)?(?:障碍|凸出物)'):
+            issues.append('局部或采样结果没有全程覆盖及障碍清查证明；仅该项全局声明不成立。')
+        if asserted(r'(?:完成面|实测净宽).{0,12}(?:为|是|等于|=|：|:)\s*\d'):
+            issues.append('所选源面的间距不能自动作为已确认完成面净宽；保留局部候选口径。')
+    return issues
+
+
+def sampled_route_values(data):
+    if not data.get('route_id'):return {}
+    return {str(i):{'sample_minimum_drawing_units':s['sample_minimum_drawing_units']}
+            for i,s in enumerate(data.get('segments',[])) if s.get('sample_minimum_drawing_units') is not None}
+
+
 def spatial_measurement_issues(claim, observations):
     """A matching raw number cannot authorize inventing its physical unit."""
     from cad_agent.analysis.grounding import contains_number
@@ -28,6 +54,7 @@ def spatial_measurement_issues(claim, observations):
         unit = data.get('unit', {})
         source_unit = unit.get('unit', unit.get('value', ''))
         visit(data.get('measurements', {}), source_unit)
+        visit(sampled_route_values(data), source_unit)
         for record in data.get('measurement_evidence', []):
             inner_unit = record.get('unit', {})
             visit(record.get('measurements', {}), inner_unit.get('unit', inner_unit.get('value', '')))
@@ -53,7 +80,8 @@ def spatial_numeric_claim_text(text):
 
 
 def is_spatial_fact(data):
-    return data.get('kind') == 'spatial_object' or bool(data.get('spatial_fact_scope'))
+    return (data.get('kind') == 'spatial_object' or bool(data.get('spatial_fact_scope'))
+            or bool(data.get('hypothesis_id') and data.get('semantic_identity')=='model_asserted_not_confirmed'))
 
 
 def spatial_claim_issues(claim, data):
@@ -101,5 +129,5 @@ def spatial_numeric_evidence(data):
         if isinstance(value, str) and re.fullmatch(r'-?\d+(?:\.\d+)?', value):
             return [value]
         return []
-    return [number for key in ('measurements','result','measurement_evidence')
-            if key in data for number in values(data[key])]
+    return ([number for key in ('measurements','result','measurement_evidence')
+            if key in data for number in values(data[key])] + values(sampled_route_values(data)))

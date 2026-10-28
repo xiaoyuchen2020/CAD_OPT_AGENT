@@ -122,6 +122,14 @@ def validate_answer(self, content):
             obs = [self.observations[oid] for oid in claim.observation_ids]
             for observation in obs:
                 issues.extend(f"第 {index} 条{message}" for message in spatial_claim_issues(claim, observation['data']))
+                from cad_agent.analysis.spatial_delivery import geometry_extent_issues
+                checks=geometry_extent_issues(claim,observation['data'])
+                if checks:
+                    self.task.data.setdefault('geometry_delivery_checks',[]).append(dict(claim_index=index,
+                        observation_id=observation.get('observation_id'),issues=checks,
+                        mode=self.w.settings.geometry_validation_mode))
+                    if self.w.settings.geometry_validation_mode=='enforce':
+                        issues.extend(f'第 {index} 条{message}' for message in checks)
             spatial_data = [o['data'] for o in obs if is_spatial_fact(o['data'])]
             if spatial_data:
                 issues.extend(f"第 {index} 条{message}" for message in spatial_measurement_issues(claim, spatial_data))

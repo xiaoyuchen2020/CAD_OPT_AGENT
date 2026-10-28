@@ -42,6 +42,9 @@ def execute(self, name, raw_args, *, bounded=False):
     from cad_agent.analysis.tool_registry import require_supported
     require_supported(name, self.request.runtime, self.w.settings.provider)
     args = TOOL_SPECS[name][0].model_validate(raw_args, strict=True)
+    from cad_agent.geometry.workbench import SPECS as WORKBENCH_TOOLS, execute as execute_workbench
+    if name in WORKBENCH_TOOLS:
+        return execute_workbench(self,name,args)
     from cad_agent.extensions.programs.contracts import TOOLS as PROGRAM_TOOLS
     if name in PROGRAM_TOOLS:
         from cad_agent.analysis.task_programs import HANDLERS
@@ -550,6 +553,8 @@ def invoke_tool(self, name, raw_args):
         }
         from cad_agent.extensions.programs.contracts import TOOLS as PROGRAM_TOOLS
         revalidates_source.update(PROGRAM_TOOLS)
+        from cad_agent.geometry.workbench import SPECS as WORKBENCH_TOOLS
+        revalidates_source.update(WORKBENCH_TOOLS)
         if name not in CONTROL and name not in revalidates_source and cache_key in self.policy.cache:
             duplicate = True
             full_result = self.policy.cache[cache_key]
