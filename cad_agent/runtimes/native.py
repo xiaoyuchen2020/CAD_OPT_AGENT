@@ -12,21 +12,22 @@ class NativeRuntime:
 
     def run(self, session, history=None):
         messages = session.build_messages(history)
+        from cad_agent.analysis.final_contract import contract_message
         final_errors = 0
         repairing = False
         driver = HarnessDriver(session, ChatAdapter())
 
         # Reserve the last normal round for synthesis, plus one citation repair.
         # Reaching the exploration budget must not discard already-read sources.
-        for round_no in range(max(20,session.round_limit) + 1):
-            if round_no>session.round_limit:break
+        for round_no in range(129):
             messages = driver.inputs(messages)
+            if round_no>session.round_limit:break
             if driver.input_changed:
                 repairing = False
             decision = driver.decision(round_no, repairing=repairing)
             correction_only, final_only = decision.correction_only, decision.final_only
             if final_only and session.policy.enabled and not session.policy.stop_reason:
-                session.policy.stop_reason = "answer_repair" if repairing else "exploration_budget"
+                session.policy.stop_reason = decision.stop_reason or ("answer_repair" if repairing else "exploration_budget")
             if correction_only:
                 if final_errors != 1:
                     break
@@ -54,6 +55,10 @@ class NativeRuntime:
             )
             with session.metrics.measure("model_wait"):
                 model_messages = session.model_messages(messages, final_only)
+                # Context projection/compaction can drop earlier auxiliary
+                # system messages. Reattach the authoritative schema once to
+                # each outbound request without growing persisted history.
+                model_messages.insert(1, contract_message())
                 offered = [] if final_only else session.offered_tools(planning_only=True)
                 eligible = {t['function']['name'] for t in tool_definitions(session.policy.enabled, session)} if not final_only else set()
                 driver.begin_step(round_no, offered, final_only, admission_names=eligible)

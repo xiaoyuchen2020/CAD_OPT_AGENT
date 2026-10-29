@@ -93,6 +93,12 @@ def validate_answer(self, content):
             proposals = re.finditer(r'(?:建议|拟|可考虑|应当|可以)(?:将[^。；\n]{0,30})?(?:取消|减薄|替换|缩小|拉直|拆除)', claim.text)
             if any(not re.search(r'(?:不|不能|不得|无法|未|不应)$', claim.text[max(0,m.start()-4):m.start()]) for m in proposals):
                 issues.append(f'第 {index} 条超出图纸事实分析定位：删除拟取消、替换、减薄等设计方案；只保留原构造、可核验算术及资料缺口。供人工复核不构成例外。')
+        from cad_agent.analysis.reference_prose import check_reference_prose
+        numeric_prose, internal_refs = check_reference_prose(
+            claim.text, getattr(getattr(self, '_model_context_codec', None), 'reverse', {}), literal_source)
+        if internal_refs:
+            issues.append(f'第 {index} 条正文包含内部定位代号：' + ','.join(internal_refs)
+                          + '；请通过 evidence_ids 的原图引用定位交付，工具位置另用 tool_observation 和 observation_ids。内部代号不能作为图纸数值或原文。')
         try:
             calculated_values = verify_calculations(claim, self.evidence, self.observations) | user_values(claim.user_inputs,self.request.question,claim.state,claim.text)
         except ValueError as error:
@@ -170,7 +176,7 @@ def validate_answer(self, content):
                  if diagnostic else spatial_numeric_evidence(o['data']) if is_spatial_fact(o['data'])
                  else numeric_evidence(o['data']) for o in obs], ensure_ascii=False
             )
-            numeric_claim_text = spatial_numeric_claim_text(claim.text) if spatial_data else claim.text
+            numeric_claim_text = spatial_numeric_claim_text(numeric_prose) if spatial_data else numeric_prose
             numeric_claim_text = without_claim_list_markers(numeric_claim_text)
             if diagnostic:
                 numeric_claim_text = re.sub(r'\]\([^)]*\)', ']', numeric_claim_text)
@@ -202,7 +208,7 @@ def validate_answer(self, content):
         if claim.state != "unknown":
             from cad_agent.analysis.business_table_delivery import cited_ordinals
             bound_ordinals=cited_ordinals(self.observations,self.evidence,ids)
-            missing = [] if compiled_literal else unsupported_values(claim.text, [self.evidence[eid] for eid in ids], calculated_values,
+            missing = [] if compiled_literal else unsupported_values(numeric_prose, [self.evidence[eid] for eid in ids], calculated_values,
                                                                      bound_ordinals=bound_ordinals)
             if missing:
                 candidates = {
@@ -215,8 +221,12 @@ def validate_answer(self, content):
                     ][:3]
                     for v in missing
                 }
+                from cad_agent.analysis.numeric_feedback import ordinal_failure_hint
+                ordinal_hint = ordinal_failure_hint(
+                    numeric_prose, [self.evidence[eid] for eid in ids], missing)
                 issues.append(
-                    f"第 {index} 条数值 {', '.join(missing)} 未出现在该条引用原文；补充正确来源，或保留原文数值，或用 derived + calculations 声明可复算的来源操作数；不得虚构数值。已读取的可核对来源：{json.dumps(candidates)}。工具位置/图层/数量应单独作为 evidence_basis=tool_observation 的结论并引用 observation_ids。"
+                    f"第 {index} 条数值 {', '.join(missing)} 未通过该条引用原文的数值及语义类型核对；补充正确来源，或保留原文数值，或用 derived + calculations 声明可复算的来源操作数；不得虚构数值。已读取的可核对来源：{json.dumps(candidates)}。工具位置/图层/数量应单独作为 evidence_basis=tool_observation 的结论并引用 observation_ids。"
+                    + ordinal_hint
                 )
         for eid in ids:
             if eid not in positions:

@@ -126,12 +126,14 @@ def test_completed_receipt_persisted_even_if_run_cancelled(tmp_path):
 
 
 def test_legacy_native_refreshes_prompt_after_permission_revocation(workspace, demo_bytes):
+    from dataclasses import replace
     from cad_agent.analysis.agent import AgentRunner
     from cad_agent.contracts import ChatRequest
     from cad_agent.analysis.task_methods import PROMPT as METHOD_PROMPT
     drawing = workspace.ingest('demo.dxf', demo_bytes)
     session = AgentRunner(workspace, ChatRequest(snapshot_id=drawing['id'], question='读取内墙材料', mode='agent',
         agent_policy='legacy', dynamic_methods='task_verified'))
+    session.w.settings = replace(session.w.settings, provider='custom', protocol='openai', model='test-api-model')
     messages = [{'role': 'system', 'content': session.system_prompt}, {'role': 'user', 'content': '读取内墙材料'}]
     assert METHOD_PROMPT in messages[0]['content']
     session.request = session.request.model_copy(update={'dynamic_methods': 'off'})

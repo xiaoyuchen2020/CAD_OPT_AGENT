@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CAD Atlas · 规则库与探索</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/rules.css"><script src="/rules.js" defer></script></head>
+<body>
+<header class="topbar"><a class="brand" href="/"><span class="brand-mark">A</span><span>CAD Atlas<small>规则库与探索</small></span></a><div class="topbar-actions"><a href="/operations.html">运行看板</a><a href="/">事实任务中心</a><button id="logout" class="quiet" hidden>退出登录</button></div></header>
+<main>
+  <section id="login-panel" class="login-panel" hidden><h1>登录规则工作台</h1><form id="login-form"><label for="password">访问密码</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">登录</button><p id="login-error" class="error" role="alert"></p></form></section>
+  <div id="workspace" hidden>
+    <section class="intro"><div><div class="eyebrow">规则 · 事实 · 方法</div><h1>从规则开始，保留每一步依据。</h1><p class="muted">选择内置建筑库或临时导入规则，冻结本次范围，再逐条探索图纸事实与方法。</p></div><span class="tag">E0 探索底座</span></section>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <section class="panel"><form id="project-form" class="project-row"><label for="project">项目标识</label><input id="project" value="building-pilot" maxlength="200" required><button type="submit">切换项目</button><span class="muted">临时库和探索记录按项目保存。</span></form></section>
+    <div class="rule-grid">
+      <section class="panel"><h2>1. 规则库</h2><p class="muted">内置库保留原始来源。导入完成后，规则条件仍需解释与验证。</p><div id="libraries"></div><form id="import-form"><label for="rule-file">临时导入 Excel</label><input id="rule-file" type="file" accept=".xlsx" required><button type="submit">导入当前项目</button></form></section>
+      <section class="panel"><div class="section-title"><h2>本次规则范围</h2><button id="freeze" class="primary">冻结规则集</button></div><p id="selection-summary" class="muted">勾选规则库，然后选择需要探索的规则。</p><div id="selected-rules" class="selected-rules"></div>
+        <details><summary>明确停用或替换规则</summary><label for="override-target">目标规则</label><select id="override-target"></select><label for="override-replacement">替换为</label><select id="override-replacement"></select><div class="detail-actions"><button id="disable-rule">停用目标</button><button id="replace-rule">添加替换</button><button id="clear-overrides" class="quiet">清除调整</button></div><ul id="overrides"></ul></details>
+        <p id="effective-summary" class="muted"></p>
+      </section>
+    </div>
+    <section id="rule-detail" class="panel detail" hidden></section>
+    <div class="rule-grid">
+      <section class="panel"><h2>2. 新建探索运行</h2><p class="muted">当前阶段采集规则相关事实、方法与缺口。运行结束不代表规则已完成优化判断。</p><form id="run-form">
+        <label for="drawing-files">测试图纸（可稍后提供）</label><input id="drawing-files" type="file" accept=".dwg,.dxf" multiple><ul id="drawings" class="upload-list"></ul>
+        <label for="instruction">本次探索要求</label><textarea id="instruction" rows="3" maxlength="1500" placeholder="例如：完整读取相关做法，保留层次、条件、例外和来源。"></textarea>
+        <label class="check-row"><input id="allow-code" type="checkbox">允许本次运行生成并执行受控动态代码</label>
+        <label for="model">执行模型</label><select id="model"><option value="api_sol">API Sol</option><option value="api_astra">API Astra</option></select>
+        <label for="max-cases">本次最多启动规则数</label><input id="max-cases" type="number" min="1" max="1000" value="5">
+        <button type="submit" class="primary">保存探索运行</button><p class="muted small">没有图纸时保存为等待资料。有图纸后仍需在下方逐条启动；动态代码默认关闭。</p>
+      </form></section>
+      <section class="panel"><div class="section-title"><h2>3. 探索记录</h2><button id="refresh" class="quiet">刷新</button></div><div id="runs"></div></section>
+    </div>
+    <section id="run-detail" class="panel detail" hidden></section>
+  </div>
+</main></body></html>

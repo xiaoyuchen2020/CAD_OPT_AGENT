@@ -1,9 +1,11 @@
 from contextlib import nullcontext
 import ast
 import json
+import math
 import time
 from types import SimpleNamespace
-from cad_agent.adapters.model import ModelGateway
+from cad_agent.adapters.model import ModelGateway, ModelError
+from cad_agent.analysis.method_runtime import generation_config, reported_usage, runtime_supported
 from ..table_recovery.bundle import digest, encoded
 from .contracts import Proposal, SPECS
 
@@ -45,24 +47,95 @@ def subscription_turn(settings, messages, timeout, account, *, lease_acquired=Fa
         if value <= 0: raise fail('TIME_LIMIT', '动态方法订阅请求超时。')
         return value
     session = SimpleNamespace(w=SimpleNamespace(settings=settings), usage=[], trace=[],
+        request=SimpleNamespace(runtime='responses_subscription', agent_policy='legacy'),
+        task=SimpleNamespace(data={'subtasks': []}, complex=False), system_prompt=messages[0]['content'],
         runtime_diagnostics={'model_requests': [{}]}, _remaining=remaining, progress=lambda **kw: None)
     payload = dict(model=settings.model, instructions=messages[0]['content'], input=messages[1:],
-        tools=[], tool_choice='none', store=False, stream=True, reasoning={'effort': 'low'})
-    with nullcontext() if lease_acquired else account.lease():
-        response = ResponsesTransport(account).request(session, payload)
-    parts = []
-    for item in response['output']:
-        if item.get('type') == 'reasoning': continue
-        if item.get('type') != 'message' or item.get('role') != 'assistant':
-            raise fail('UNEXPECTED_OUTPUT', '动态方法只接受文本提案。')
-        for part in item.get('content', []):
-            if part.get('type') != 'output_text': raise fail('UNEXPECTED_OUTPUT', '动态方法未返回文本提案。')
-            parts.append(part['text'])
+        tools=[], tool_choice='none', store=False, stream=True, reasoning={'effort': settings.reasoning_effort})
+    try:
+        remaining()
+        with nullcontext() if lease_acquired else account.lease():
+            response = ResponsesTransport(account).request(session, payload)
+        remaining()
+        parts = []
+        for item in response['output']:
+            if item.get('type') == 'reasoning': continue
+            if item.get('type') != 'message' or item.get('role') != 'assistant':
+                raise fail('UNEXPECTED_OUTPUT', '动态方法只接受文本提案。')
+            for part in item.get('content', []):
+                if part.get('type') != 'output_text': raise fail('UNEXPECTED_OUTPUT', '动态方法未返回文本提案。')
+                parts.append(part['text'])
+    except Exception as error:
+        usage = _subscription_usage(session)
+        error.generation_metadata = dict(generation_config(settings), usage=usage,
+                                        transport_diagnostics=session.runtime_diagnostics)
+        raise
+    usage = _subscription_usage(session)
+    return {'content': ''.join(parts)}, usage, session.runtime_diagnostics
+
+
+def _subscription_usage(session):
     usage = {}
     for entry in session.usage:
-        for k, v in entry.items():
-            if type(v) in (int, float): usage[k] = usage.get(k, 0) + v
-    return {'content': ''.join(parts)}, usage, session.runtime_diagnostics
+        for key, count in reported_usage(entry).items():
+            usage[key] = usage.get(key, 0) + count
+    return usage
+
+
+def generation_turn(settings, messages, timeout, account=None, *, lease_acquired=False, check_cancelled=None):
+    """One current-channel request, with no fallback and cooperative cancellation.
+
+    API socket reads retain ModelGateway's timeout. The deadline/cancellation is
+    checked before and after that blocking call; a late answer is never executed.
+    """
+    if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('GENERATION_TIMEOUT_INVALID')
+    subscription = settings.provider == 'responses_subscription'
+    runtime = 'responses_subscription' if subscription else 'native'
+    if not runtime_supported(runtime, settings.provider, protocol=settings.protocol, model=settings.model):
+        raise ValueError('TASK_METHODS_RUNTIME_UNSUPPORTED')
+    started = time.monotonic()
+    deadline = started + timeout
+    diagnostics = dict(generation=generation_config(settings), request_started=False)
+    usage = {}
+
+    def remaining():
+        parent_remaining = check_cancelled() if check_cancelled is not None else None
+        left = deadline - time.monotonic()
+        if type(parent_remaining) in (int, float):
+            left = min(left, parent_remaining)
+        if left <= 0:
+            raise ModelError('TASK_GENERATION_TIME_LIMIT', '动态代码生成达到本次请求时限；未采用迟到响应。')
+        return left
+
+    try:
+        seconds = remaining()
+        diagnostics['request_started'] = True
+        if subscription:
+            message, usage, inner = subscription_turn(settings, messages, seconds, account,
+                lease_acquired=lease_acquired, check_cancelled=remaining)
+            diagnostics.update(inner)
+        else:
+            message, usage = ModelGateway(settings).chat_turn(messages, [], timeout=seconds)
+        usage = reported_usage(usage)
+        diagnostics['usage_status'] = 'reported' if 'total_tokens' in usage else 'unknown'
+        remaining()
+        if message.get('tool_calls') or not isinstance(message.get('content'), str):
+            raise ModelError('TASK_GENERATION_INVALID_RESPONSE', '动态代码生成只接受文本提案。')
+        diagnostics['status'] = 'completed'
+        return message, usage, diagnostics
+    except Exception as error:
+        inner = getattr(error, 'generation_metadata', {})
+        if inner:
+            usage = reported_usage(inner.get('usage'))
+            diagnostics.update(inner.get('transport_diagnostics', {}))
+        diagnostics.update(status='failed', usage_status='reported' if 'total_tokens' in usage else
+                           'unknown' if diagnostics['request_started'] else 'not_requested')
+        error.generation_metadata = dict(generation_config(settings), usage=reported_usage(usage),
+                                        transport_diagnostics=diagnostics)
+        raise
+    finally:
+        diagnostics['elapsed_seconds'] = round(time.monotonic() - started, 3)
 
 
 def propose(settings, method, instruction, bundle, feedback, timeout, remaining_tokens=96000, account=None, *, lease_acquired=False, check_cancelled=None):
@@ -83,17 +156,17 @@ def propose(settings, method, instruction, bundle, feedback, timeout, remaining_
     reservation = len(encoded(messages)) + 8000
     if reservation > remaining_tokens:
         raise ValueError('TOKEN_BUDGET_EXHAUSTED')
-    diagnostics = {}
-    if settings.provider == 'responses_subscription':
-        message, usage, diagnostics = subscription_turn(settings, messages, timeout, account, lease_acquired=lease_acquired, check_cancelled=check_cancelled)
-    else:
-        message, usage = ModelGateway(settings).chat_turn(messages, [], timeout=timeout)
+    message, usage, diagnostics = generation_turn(settings, messages, timeout, account,
+        lease_acquired=lease_acquired, check_cancelled=check_cancelled)
     content = (message['content'] or '').strip()
-    if content.startswith('```'):
+    if content.startswith('```') and '\n' in content:
         content = content.split('\n', 1)[1].rsplit('```', 1)[0]
-    proposal = Proposal.model_validate_json(content, strict=True)
-    return proposal, dict(prompt_version=PROMPT_VERSION, prompt_sha256=digest(messages),
+    meta = dict(generation_config(settings), prompt_version=PROMPT_VERSION, prompt_sha256=digest(messages),
         prompt_messages=messages,
-        model=settings.model, profile=settings.model_profile, provider=settings.provider,
-        transport_diagnostics=diagnostics, usage=usage, reserved_tokens=reservation,
-        proposal_sha256=digest(proposal.model_dump()))
+        transport_diagnostics=diagnostics, usage=usage, reserved_tokens=reservation)
+    try:
+        proposal = Proposal.model_validate_json(content, strict=True)
+    except ValueError as error:
+        error.generation_metadata = meta
+        raise
+    return proposal, meta | dict(proposal_sha256=digest(proposal.model_dump()))

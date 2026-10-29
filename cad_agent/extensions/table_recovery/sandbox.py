@@ -52,6 +52,11 @@ def runtime(data_dir):
 
 
 def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
+    from cad_agent.harness.live_controls import sandbox_limits
+    limits = sandbox_limits()
+    timeout = min(timeout, limits.get('timeout_seconds', timeout))
+    memory_mb = limits.get('memory_mb', 512)
+    max_output = limits.get('max_output_bytes', MAX_OUTPUT)
     config=_runtime(data_dir)
     payload=encoded(request)
     if len(payload)>MAX_INPUT+1024:
@@ -59,7 +64,7 @@ def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
     name='cad-table-'+uuid4().hex
     command=['docker','run','--name',name,'--pull=never','--network=none','--read-only',
              '--cap-drop=ALL','--security-opt=no-new-privileges:true','--pids-limit=32',
-             '--memory=512m','--memory-swap=512m','--cpus=1','--user=65534:65534',
+             f'--memory={memory_mb}m',f'--memory-swap={memory_mb}m','--cpus=1','--user=65534:65534',
              '--ipc=none','--log-driver=none','--ulimit=cpu=20:20',
              '--ulimit=fsize=2097152:2097152','--ulimit=nofile=64:64',
              '--tmpfs=/work:rw,noexec,nosuid,size=64m,mode=1777','-i',config['image_id']]
@@ -75,7 +80,7 @@ def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
                     if cancel is not None and cancel.is_set():
                         process.kill()
                         return
-                    if os.fstat(output.fileno()).st_size>MAX_OUTPUT or os.fstat(errors.fileno()).st_size>65536:
+                    if os.fstat(output.fileno()).st_size>max_output or os.fstat(errors.fileno()).st_size>65536:
                         overflow.set()
                         process.kill()
                         return
@@ -85,11 +90,11 @@ def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
             except subprocess.TimeoutExpired as exc:
                 process.kill();process.wait()
                 raise SandboxError('SANDBOX_TIMEOUT') from exc
-            output.seek(0);raw=output.read(MAX_OUTPUT+1)
+            output.seek(0);raw=output.read(max_output+1)
             errors.seek(0);err=errors.read(65537)
             if cancel is not None and cancel.is_set():
                 raise SandboxError('SANDBOX_CANCELLED')
-            if overflow.is_set() or len(raw)>MAX_OUTPUT or len(err)>65536:
+            if overflow.is_set() or len(raw)>max_output or len(err)>65536:
                 raise SandboxError('SANDBOX_OUTPUT_LIMIT')
             if process.returncode:
                 raise SandboxError('SANDBOX_EXECUTION_FAILED')
@@ -99,7 +104,8 @@ def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
                            cap_drop=host['CapDrop'],security_options=host['SecurityOpt'],
                            memory_bytes=host['Memory'],pids_limit=host['PidsLimit'],
                            mounts=info['Mounts'],user=info['Config']['User'],image_id=info['Image'])
-            if isolation['network']!='none' or not isolation['read_only'] or isolation['mounts']:
+            if (isolation['network']!='none' or not isolation['read_only'] or isolation['mounts']
+                    or isolation['memory_bytes'] != memory_mb * 1024 * 1024):
                 raise SandboxError('SANDBOX_ISOLATION_MISMATCH')
             try:
                 result=json.loads(raw,parse_constant=lambda v: (_ for _ in ()).throw(ValueError(v)))
@@ -107,6 +113,8 @@ def execute(data_dir, request, *, timeout=30, cancel=None, _runtime=runtime):
                 raise SandboxError('SANDBOX_INVALID_JSON') from exc
             return dict(output=result,output_sha256=hashlib.sha256(raw).hexdigest(),
                         worker_sha256=config['worker_sha256'],isolation=isolation,
+                        effective_limits={'timeout_seconds': timeout, 'memory_mb': memory_mb,
+                                          'max_output_bytes': max_output},
                         elapsed_seconds=round(time.monotonic()-started,3))
         except OSError as exc:
             raise SandboxError('SANDBOX_UNAVAILABLE') from exc

@@ -147,6 +147,9 @@ def prepare_delivery(session):
             raise ExecutionCancelled('任务取消或执行租约已失效。')
         if run.get('input_revision', 0) != getattr(session, 'input_revision', 0):
             return False
+        control = run.get('live_control', {})
+        if control.get('paused') or any(item.get('status') == 'pending' for item in control.get('commands', [])):
+            return False
         if not run.get('input_closed'):
             run['input_closed'] = True
             manager.write(c, execution.kind, execution.key, run)

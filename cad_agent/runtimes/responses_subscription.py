@@ -346,10 +346,10 @@ class ResponsesSubscriptionRuntime:
             # The model's first plan can add capabilities after this loop starts.
             # Iterate the bounded maximum, checking the CURRENT plan each turn;
             # capturing its pre-plan limit could end without final synthesis.
-            for round_no in range(max(20,session.round_limit) + (0 if budget else 1)):
+            for round_no in range(129):
+                messages = driver.inputs(messages)
                 if round_no >= session.round_limit and (budget or recovery != "repair_answer"):
                     break
-                messages = driver.inputs(messages)
                 if driver.input_changed:
                     issue, recovery = None, None
                     # A new question starts a new prompt/catalog series. Revoked

@@ -33,6 +33,15 @@ class HarnessDriver:
 
     def inputs(self, messages):
         from cad_agent.harness.inbox import apply_pending
+        from cad_agent.harness.live_controls import checkpoint, budget_limits, reopen_relaxed_budget
+        previous_limits = budget_limits(self.session)
+        messages = checkpoint(self.session, messages, boundary='model_step')
+        reopened = reopen_relaxed_budget(self.session, previous_limits)
+        if reopened:
+            self.emit('control.budget_reopened', **reopened)
+            messages = messages + [{'role': 'developer', 'content':
+                '运行预算已由外部控制调整，之前由旧预算触发的收束要求已失效。'
+                '按本步骤的新预算继续补充关键来源；既有调用与用量不重置，来源、权限和校验要求不变。'}]
         before = getattr(self.session, 'input_revision', 0)
         updated = apply_pending(self.session, messages)
         self.input_changed = getattr(self.session, 'input_revision', 0) != before
@@ -46,10 +55,13 @@ class HarnessDriver:
 
     def pending(self):
         from cad_agent.harness.inbox import has_pending
-        return has_pending(self.session)
+        from cad_agent.harness.live_controls import has_pending as control_pending
+        return has_pending(self.session) or control_pending(self.session)
 
     def ready_for_delivery(self):
         from cad_agent.harness.inbox import prepare_delivery
+        if self.pending():
+            return False
         return prepare_delivery(self.session)
 
     def failure(self, code, message):
@@ -106,6 +118,9 @@ class HarnessDriver:
         return self.step
 
     def model_call(self, payload, call, **kwargs):
+        from cad_agent.harness.live_controls import before_model, checkpoint
+        checkpoint(self.session, boundary='before_model')
+        before_model(self.session)
         self.phase = 'requesting'
         # The execution event store applies the same public-data redaction as
         # RunJournal. Model-private reasoning and image bytes never reach UI.
@@ -172,6 +187,8 @@ class HarnessDriver:
         for position, call in enumerate(calls):
             invoked = False
             try:
+                from cad_agent.harness.live_controls import checkpoint
+                checkpoint(s, boundary='before_tool')
                 s._remaining()
                 if self.pending():
                     value = error_output('STEERING_SUPERSEDED', '用户已补充要求；此调用未执行。')

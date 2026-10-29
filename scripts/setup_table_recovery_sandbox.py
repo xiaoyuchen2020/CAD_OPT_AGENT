@@ -18,14 +18,17 @@ def main():
     parser.add_argument('--data-dir',type=Path,required=True)
     args=parser.parse_args()
     base=json.loads(docker(['image','inspect','python:3.11-slim']))[0]
-    reference=next(d for d in base['RepoDigests'] if d.startswith('python@sha256:'))
+    # docker save/load may omit repository digests; pin the actual local image ID.
+    reference='python@'+base['Id']
+    local_base='cad-sandbox-base:'+base['Id'].split(':')[1][:16]
+    docker(['tag',base['Id'],local_base])
     sha=hashlib.sha256((ROOT/'worker.py').read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory() as tmp:
         folder=Path(tmp)
         for name in ('Dockerfile','worker.py'):shutil.copy2(ROOT/name,folder/name)
         tag='cad-table-recovery:'+sha[:16]
         subprocess.run(['docker','build','--pull=false','--network=none',
-                        '--build-arg','BASE_IMAGE='+reference,'--build-arg','WORKER_SHA256='+sha,
+                        '--build-arg','BASE_IMAGE='+local_base,'--build-arg','WORKER_SHA256='+sha,
                         '-t',tag,str(folder)],check=True,timeout=120)
     image=json.loads(docker(['image','inspect',tag]))[0]
     config=dict(image_id=image['Id'],base_image=reference,worker_sha256=sha,

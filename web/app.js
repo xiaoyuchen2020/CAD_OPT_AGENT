@@ -2449,6 +2449,22 @@ canvas.onpointercancel = canvas.onlostpointercapture = () => { drag = null; $("d
 new ResizeObserver(() => {
   if (S.view && !viewFrame) viewFrame = requestAnimationFrame(commitView);
 }).observe($("canvas-wrap"));
+async function openLinkedDrawing(params) {
+  if (params.has('loadPerf')) return;
+  const linkedSnapshot = params.get('snapshot_id');
+  const linkedRun = params.get('run_id');
+  const run = linkedRun ? await api(`/api/chat-runs/${encodeURIComponent(linkedRun)}`) : null;
+  if (run && linkedSnapshot && run.snapshot_id !== linkedSnapshot) {
+    throw new Error('该运行记录与链接中的图纸不一致，请从任务中心重新打开。');
+  }
+  const snapshotId = linkedSnapshot || run?.snapshot_id || S.drawings[0]?.id;
+  if (!snapshotId) return;
+  if (!S.drawings.some(drawing => drawing.id === snapshotId)) {
+    throw new Error('此执行节点中没有链接指定的图纸，请从任务中心确认所属节点。');
+  }
+  await selectDrawing(snapshotId);
+  if (run && S.drawing?.id === snapshotId) runInspector.onOpen(run);
+}
 await attempt(async () => {
   const health = await api("/api/health");
   $("codex-account-panel").hidden = !health.codex_subscription?.supported;
@@ -2486,7 +2502,7 @@ await attempt(async () => {
     ? `问答使用所选模型；模型辅助提取使用 ${health.model.model}。按需发送当前图纸来源文字。`
     : "问答使用所选模型及其连接。当前未配置模型辅助提取，可使用本地提取；订阅连接请在“账户与授权”中查看。";
   await refreshDrawings();
-  if (S.drawings.length && !new URLSearchParams(location.search).has('loadPerf')) await selectDrawing(S.drawings[0].id);
+  await openLinkedDrawing(new URLSearchParams(location.search));
 })();
 
 if (new URLSearchParams(location.search).get('renderPerf') === '1') {

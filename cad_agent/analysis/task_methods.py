@@ -21,6 +21,8 @@ from cad_agent.extensions.adaptation.sandbox import execute, runtime
 from cad_agent.extensions.adaptation.validation import validate
 from cad_agent.extensions.table_recovery.bundle import prepare, prepare_region, digest
 from cad_agent.extensions.table_recovery.sandbox import SandboxError
+from cad_agent.analysis.method_runtime import (session_supported, generation_slot,
+    generation_config, usage_record, additional_charge)
 
 TOOLS = {'develop_method', 'run_task_method'}
 VERSION = 'task-verified-method@1'
@@ -68,14 +70,15 @@ def borrowed_subscription(session):
 
 def enabled(session):
     from cad_agent.analysis.method_authorization import authorization
-    return authorization(session.request)['mode'] == 'task_verified'
+    return authorization(session.request)['mode'] == 'task_verified' and session_supported(session)
 
 
 def require_enabled(session):
-    if not enabled(session):
+    from cad_agent.analysis.method_authorization import authorization
+    if authorization(session.request)['mode'] != 'task_verified':
         raise ValueError('TASK_METHODS_DISABLED')
-    if session.request.runtime != 'responses_subscription' or session.w.settings.provider != 'responses_subscription' or session.w.settings.model != 'gpt-6.1-sol':
-        raise ValueError('TASK_METHODS_REQUIRE_SOL_SUBSCRIPTION')
+    if not session_supported(session):
+        raise ValueError('TASK_METHODS_RUNTIME_UNSUPPORTED')
 
 
 def capture_scope(session, name, result):
@@ -191,16 +194,10 @@ def develop(session, args):
             seconds = min(deadline-time.monotonic(), session._remaining()-30)
             if seconds < 5:
                 raise ValueError('TASK_METHOD_TIME_BUDGET')
-            from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
-            from cad_agent.runtimes.token_budget import charged_tokens
-            from cad_agent.runtimes.budget_policy import for_session
-            policy = for_session(session)
-            final_reserve = policy.reserved_finalization_tokens if policy else 24000
-            slot = min(32000, CodexSubscriptionRuntime().total_budget(session)-charged_tokens(session)-final_reserve)
-            if slot < 8000:
-                raise ValueError('TASK_METHOD_TOKEN_BUDGET')
+            slot = generation_slot(session, 'TASK_METHOD_TOKEN_BUDGET')
             service.source_check(bundle)
-            attempt = dict(status='generating', reserved_tokens=slot)
+            attempt = dict(status='generating', reserved_tokens=slot,
+                           generation=generation_config(session.w.settings))
             entry['attempts'].append(attempt)
             entry['reserved_tokens'] += slot
             session.task.save()  # Unknown/failed model requests retain reservation across resume.
@@ -216,10 +213,10 @@ def develop(session, args):
                 check_cancelled=session._remaining)
             attempt['metadata_artifact_id'] = service.immutable('model', meta)
             actual = meta.get('usage', {})
-            usage = dict(actual, source='task_method', billing='subscription', method_id=mid)
+            usage = usage_record(session.w.settings, actual, source='task_method', method_id=mid)
             entry['usage'].append(usage); session.usage.append(usage)
             # Reservation is a conservative charge, never reported as actual usage.
-            entry['reserved_tokens'] += max(0, actual.get('total_tokens', 0)-slot)
+            entry['reserved_tokens'] += additional_charge(meta, slot)
             if proposal.strategy == 'abstain':
                 attempt.update(status='abstained'); entry['status'] = 'unresolved'; break
             code = proposal.code
@@ -253,11 +250,20 @@ def develop(session, args):
     except (ValueError, ModelError, SandboxError, ExecutionCancelled) as exc:
         entry.update(status='cancelled' if isinstance(exc, ExecutionCancelled) else 'refused',
                      error=getattr(exc, 'code', str(exc).split(':')[0])[:100])
+        metadata = getattr(exc, 'generation_metadata', None)
+        if metadata and entry['attempts']:
+            attempt = entry['attempts'][-1]
+            attempt['metadata_artifact_id'] = service.immutable('model', metadata)
+            usage = usage_record(session.w.settings, metadata.get('usage'), source='task_method', method_id=mid)
+            entry['usage'].append(usage); session.usage.append(usage)
+            entry['reserved_tokens'] += additional_charge(metadata, attempt['reserved_tokens'])
         if isinstance(exc, ExecutionCancelled):
             raise
     finally:
         if entry['status'] == 'running':
             entry.update(status='interrupted', error='INTERRUPTED_NO_AUTOMATIC_REGENERATION')
+        if entry['attempts'] and entry['attempts'][-1]['status'] == 'generating':
+            entry['attempts'][-1].update(status=entry['status'], error=entry.get('error'))
         session.task.save()
     return read(session, RunTaskMethod(method_id=mid))
 

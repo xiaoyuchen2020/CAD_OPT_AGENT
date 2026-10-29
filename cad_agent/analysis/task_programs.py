@@ -19,6 +19,7 @@ from cad_agent.extensions.table_recovery.sandbox import SandboxError
 from cad_agent.analysis.task_methods import require_enabled, _Cancellation, _text_evidence
 from cad_agent.execution import ExecutionCancelled
 from cad_agent.adapters.model import ModelError
+from cad_agent.analysis.method_runtime import generation_slot, generation_config, usage_record, additional_charge
 
 PROMPT='''
 已授权动态代码时，还可 inspect_tool_implementation 获取 read_assembly 的真实可修改片段分组/排序源码；
@@ -108,13 +109,7 @@ def inspect(s,args):
 
 
 def _budget(s):
-    from cad_agent.runtimes.subscription import CodexSubscriptionRuntime
-    from cad_agent.runtimes.token_budget import charged_tokens
-    from cad_agent.runtimes.budget_policy import for_session
-    policy=for_session(s)
-    slot=min(32000,CodexSubscriptionRuntime().total_budget(s)-charged_tokens(s)-(policy.reserved_finalization_tokens if policy else 24000))
-    if slot<8000:raise ValueError('PROGRAM_TOKEN_BUDGET')
-    return slot
+    return generation_slot(s, 'PROGRAM_TOKEN_BUDGET')
 
 
 def _run(s,pkg,bundle,deadline):
@@ -151,13 +146,13 @@ def _generate(s,kind,instruction,bundle,refs,contract=None,base_sha=None):
             seconds=min(55,deadline-time.monotonic(),s._remaining()-30)
             if seconds<5:raise ValueError('PROGRAM_TIME_BUDGET')
             slot=_budget(s);_check_sources(s,refs)
-            attempt=dict(status='generating',reserved_tokens=slot);entry['attempts'].append(attempt)
+            attempt=dict(status='generating',reserved_tokens=slot,generation=generation_config(s.w.settings));entry['attempts'].append(attempt)
             entry['reserved_tokens']+=slot;s.task.save()
             s.progress(stage='工具修订/新程序 · 生成与独立验证',trace=s.trace,usage=s.usage)
             proposal,meta=propose(s,kind,instruction,bundle,feedback,slot,seconds,base=kernels.source() if kind=='revision' else None)
             attempt['model_artifact_id']=service.immutable('program_model',meta)
-            usage=dict(meta.get('usage',{}),source='task_program',program_id=key,billing='subscription')
-            s.usage.append(usage);entry['reserved_tokens']+=max(0,usage.get('total_tokens',0)-slot)
+            usage=usage_record(s.w.settings,meta.get('usage',{}),source='task_program',program_id=key)
+            s.usage.append(usage);entry['reserved_tokens']+=additional_charge(meta,slot)
             if proposal.strategy=='abstain':entry['status']='unresolved';break
             try:
                 if proposal.package is None:raise ValueError('PACKAGE_REQUIRED')
@@ -195,9 +190,17 @@ def _generate(s,kind,instruction,bundle,refs,contract=None,base_sha=None):
         if entry['status']=='running':entry['status']='unresolved'
     except (ValueError,ModelError,SandboxError,ExecutionCancelled) as exc:
         entry.update(status='cancelled' if isinstance(exc,ExecutionCancelled) else 'refused',error=getattr(exc,'code','PROGRAM_REFUSED'))
+        metadata=getattr(exc,'generation_metadata',None)
+        if metadata and entry['attempts']:
+            attempt=entry['attempts'][-1]
+            attempt['model_artifact_id']=service.immutable('program_model',metadata)
+            s.usage.append(usage_record(s.w.settings,metadata.get('usage'),source='task_program',program_id=key))
+            entry['reserved_tokens']+=additional_charge(metadata,attempt['reserved_tokens'])
         if isinstance(exc,ExecutionCancelled):raise
     finally:
         if entry['status']=='running':entry.update(status='interrupted',error='NO_AUTOMATIC_REGENERATION')
+        if entry['attempts'] and entry['attempts'][-1]['status']=='generating':
+            entry['attempts'][-1].update(status=entry['status'],error=entry.get('error'))
         s.task.save()
     return key,entry
 

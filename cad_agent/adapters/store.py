@@ -32,7 +32,7 @@ class Store:
 
     # JSON remains the source of truth. Expression indexes migrate existing rows
     # without rewriting evidence or resetting tasks owned by another process.
-    FILTERS = ("status", "snapshot_id", "cache_key", "session_id", "sha256", "owner_id", "lease_owner", "cache_id", "original_sha256", "parser_version", "execution_owner", "execution_token", "execution_lease_until")
+    FILTERS = ("status", "snapshot_id", "cache_key", "session_id", "sha256", "owner_id", "lease_owner", "cache_id", "original_sha256", "parser_version", "execution_owner", "execution_token", "execution_lease_until", "fleet_execution_key")
 
     def connect(self):
         return sqlite3.connect(self.root / "index.sqlite3", timeout=20)

@@ -19,7 +19,7 @@ class QuestionBinding(Record):
 
 class QueryCondition(QuestionBinding):
     operator: Literal['include', 'exclude'] = 'include'
-    kind: Literal['scope', 'content'] = 'scope'
+    kind: Literal['scope', 'content'] = Field(default='scope', description='只表示原文须满足的工程范围或内容筛选条件；不含当前资料选择、询问措辞、引用完整原文或定位等交付动作。')
 
 
 class QueryTarget(Record):
@@ -119,8 +119,10 @@ def tool_schema(schema):
 
 
 PROMPT = '''
-自然语言先由你理解并选择工具。首次用search_source_records或plan_task同时提交query_intent：action及targets；每项含target_id、requirement_id、subject={value,question_quote}、可选identifier及conditions。conditions含kind=scope/content、operator=include/exclude、value、question_quote；quote必须来自用户问题。不要遗漏否定或多个对象；无法解释的原句放unresolved_requirements。历史限定可source=parent引用父问题，不能引用助手推断。
+自然语言先由你理解并选择工具。首次用search_source_records或plan_task同时提交query_intent：action及targets；每项含target_id、requirement_id、subject={value,question_quote}、可选identifier及conditions。conditions含kind=scope/content、operator=include/exclude、value、question_quote；quote必须是用户原句的连续子串，value也必须是该quote中的连续子串。不要为了概括而删除中间词或改写；例如用户写“读取门窗尺寸并定位”，可引用value=“门窗尺寸”、question_quote=“读取门窗尺寸并定位”，不能自行改成“门窗规格”。requirement_id使用服务端原始分项ID，不使用自行命名ID。不要遗漏否定或多个对象；无法解释的原句放unresolved_requirements。历史限定可source=parent引用父问题，不能引用助手推断。
 查询意图只是用户要求，不是图纸事实。具体做法编号优先search_source_records(target_id)，它只返回候选标题和真实读取参数；按next_action选择read_assembly，分页沿next_offset。范围和对象是独立约束，不把“地下室内墙4”扩展为所有地下室构造，也不把范围词和对象词强制要求出现在同一文本块。scope状态unresolved应补读来源，不能当成不存在；同号不同图框分列。确需替代词时在search_source_records显式提交alternatives、expansion_reason，不改变原始目标。已有query_intent后后续调用可省略以复用。
+“图纸中”“当前图纸”“上传的图纸”仅指用户已选资料，已由服务端snapshot_id限制，不是要求原文出现这些字样的工程scope条件。conditions用于实际的楼栋、楼层、部位、适用条件等限制；无此类限定时使用空数组。不要把引用原文和定位的交付动作设为工程范围。定位优先交付自动生成的原图引用；正文若写条文序号，须引用包含该序号的原生证据。
+kind=content只用于“含保温层”等对原文内容的筛选，不能填“如何表述”“完整原文”“引用”“定位”；这些交付动作放requested_content和计划actions。普通属性查找的conditions通常为空；用户明确“地下室”的scope及“不含保温”的排除条件仍必须完整保留。
 原文归属、编号、范围、单位与完整性必须分别检查。最终答案保持来源引用；按query_target_ids标明对应target_id，多对象必须各自回答或unknown。编号目标须引用标题证据；范围判断用evidence_roles.scope引用同图框原文，用户条件不能充当scope证据。候选、scope未核实或未读分页不能标作已完成。用户要求不授予工程身份、适用性或全图穷尽。工具不足可request_toolset；本地方法只执行你的明确调用及其必要校验。
 '''
 

@@ -221,6 +221,9 @@ class CadAgentSession:
 
     @property
     def round_limit(self):
+        live_limit = getattr(self, 'live_control_overrides', {}).get('budget', {}).get('max_rounds')
+        if live_limit is not None:
+            return live_limit
         limit = self.w.settings.agent_max_rounds
         from cad_agent.runtimes.budget_policy import for_session
         if for_session(self):
@@ -324,7 +327,10 @@ class CadAgentSession:
     def validate_answer(self, content):
         from cad_agent.analysis.delivery import validate_answer
         with self.metrics.measure("answer_validation"):
-            return validate_answer(self, content)
+            result = validate_answer(self, content)
+            from cad_agent.harness.live_controls import additional_validation
+            additional_validation(self, result)
+            return result
 
     def build_messages(self, history=None):
         # Source-vocabulary routing only: ambiguous or unrelated requests retain

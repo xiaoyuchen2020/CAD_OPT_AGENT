@@ -105,12 +105,12 @@ class CoverageTarget(Record):
 
 class PlanStep(Record):
     requirement_id: str
-    operations: list[Operation] = Field(default_factory=list, max_length=16, description="仅列用户要求的操作：discovery专指不依赖名称的几何空间发现；contours轮廓核查；selection筛选集合；units单位检查；dimensions专指读取原图尺寸标注/尺寸链，测几何长度宽度间距用geometry。area/perimeter/arithmetic/ranking/relations/vision/highlight/exclusions按需。勿给命名房间枚举添加discovery。")
+    operations: list[Operation] = Field(default_factory=list, max_length=16, description="仅列用户要求的操作：普通原文查找、引用和来源定位用空数组[]，不是selection；selection仅指按条件筛选集合。discovery专指不依赖名称的几何空间发现；contours轮廓核查；units单位检查；dimensions专指读取原图尺寸标注/尺寸链，测几何长度宽度间距用geometry。area/perimeter/arithmetic/ranking/relations/vision/highlight/exclusions按需。勿给命名房间枚举添加discovery。")
     kind: Literal['scope', 'enumerate', 'measure', 'lookup', 'compare', 'highlight', 'constraint']
     depends_on: list[str] = Field(default_factory=list, max_length=8)
     acceptance: str = Field(min_length=1, max_length=300)
     actions: list[str] = Field(default_factory=list, max_length=8, description='为满足目标执行的步骤，可包括范围、空间识别、单位检查、测量及复核；不是新增用户要求。')
-    coverage: list[CoverageTarget] = Field(default_factory=list,max_length=24,description='显式对象×字段检查项，尤其同一要求含多个对象时逐项列出。仅规划，不能授予完成状态。')
+    coverage: list[CoverageTarget] = Field(default_factory=list,max_length=24,description='仅为显式对象×字段清单列检查项。单一属性查找或引用定位可用空数组[]，仍逐个requirement_id核查交付；不要把“如何表述”“完整原文”“定位”等问法或交付动作发明成原图属性字段。显式多对象多字段必须逐项保留。仅规划，不能授予完成状态。')
 
 
 class TaskPlan(Record):
@@ -340,6 +340,9 @@ class TaskLedger:
         self.data['observations'].update(deepcopy(observations))
         eid=set(evidence); oid=result.get('observation_id')
         self.record_coverage(ids,name,result,evidence)
+        if name == 'search_sources' and not result.get('error'):
+            from cad_agent.analysis.task_progress import register_search_terms
+            register_search_terms(self.data['subtasks'], ids, result)
         from cad_agent.analysis.calculation_workflow import record_calculation
         record_calculation(self.data,ids,name,result)
         for s in self.data['subtasks']:

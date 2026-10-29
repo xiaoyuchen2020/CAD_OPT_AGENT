@@ -84,7 +84,7 @@ class ModelGateway:
             from cad_agent.analysis.run_journal import record_wire_request
             record_wire_request(payload)
             with httpx.Client(
-                timeout=httpx.Timeout(min(60, timeout), connect=min(15, timeout)),
+                timeout=httpx.Timeout(min(s.model_read_timeout_seconds, timeout), connect=min(15, timeout)),
                 follow_redirects=False,
             ) as client:
                 response = client.post(
@@ -173,6 +173,10 @@ class ModelGateway:
             return result, usage
         except ModelError:
             raise
+        except httpx.ReadTimeout:
+            raise ModelError(
+                "MODEL_READ_TIMEOUT", "等待模型响应超时；本次请求未完成，已保留运行记录。"
+            ) from None
         except (httpx.HTTPError, OSError):
             raise ModelError(
                 "MODEL_UNREACHABLE", "模型服务连接失败或超时；可切换本地事实查询。"

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>CAD Atlas · 图纸事实任务中心</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="CAD Atlas 首页"><span class="brand-mark" aria-hidden="true">A</span><span>CAD Atlas<small>图纸事实任务中心</small></span></a>
+    <div class="topbar-actions"><a href="/operations.html">运行看板</a><a href="/rules.html">规则库与探索</a><span id="connection" class="connection">连接中</span><button id="logout" class="quiet" hidden>退出登录</button></div>
+  </header>
+  <main>
+    <section id="login-panel" class="login-panel" hidden>
+      <div class="eyebrow">公司内网工作台</div><h1>让每个回答，都能回到图纸。</h1>
+      <p class="muted">上传图纸，提交事实查阅任务，查看回答、来源与待确认条件。</p>
+      <form id="login-form"><label for="password">访问密码</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit" class="primary">进入任务中心</button><p id="login-error" class="error" role="alert"></p></form>
+    </section>
+    <div id="workspace" hidden>
+      <section class="intro"><div><div class="eyebrow">图纸 · 来源 · 事实</div><h1>把问题交给图纸。</h1><p class="muted">读取、提取、计算与比较。回答保留来源、范围、单位和未知项。</p></div><div id="nodes" class="nodes" aria-label="执行节点状态"></div></section>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div class="workspace-grid">
+        <section class="panel composer">
+          <div class="section-title"><h2>新建分析任务</h2><span class="tag">两组独立执行节点</span></div>
+          <form id="task-form">
+            <label for="files">图纸文件</label>
+            <div id="dropzone" class="dropzone"><strong>选择或拖放 DWG / DXF</strong><span>每个文件不超过 32 MB；第一张作为主图，其余作为关联图纸</span><input id="files" type="file" accept=".dwg,.dxf" multiple aria-label="选择图纸文件"></div>
+            <ul id="upload-list" class="upload-list" aria-live="polite"></ul>
+            <label for="template">事实任务模板</label><select id="template"><option value="">自定义问题</option></select>
+            <label for="question">希望从图纸中确认什么？</label><textarea id="question" rows="5" maxlength="3000" required placeholder="例如：列出外墙做法，保留编号、完整层次、备注及图纸来源。"></textarea>
+            <label style="display:flex;gap:8px;align-items:center"><input id="allow-code" type="checkbox" style="width:auto">允许本次任务生成并执行受控动态代码</label>
+            <div class="form-bottom"><span class="muted">任务提交后，关闭网页也会继续执行。</span><button id="submit-task" type="submit" class="primary">提交分析</button></div>
+          </form>
+        </section>
+        <section class="panel jobs-panel"><div class="section-title"><h2>分析任务 <span id="job-count" class="count"></span></h2><button id="refresh" class="quiet">刷新</button></div><div id="jobs" class="jobs" aria-live="polite"><p class="empty">正在读取任务…</p></div></section>
+      </div>
+      <section id="detail" class="panel detail" hidden aria-labelledby="detail-title"></section>
+      <footer>CAD Atlas · 回答以图纸证据为依据。缺失资料、未知单位和候选对象会保留待确认状态。</footer>
+    </div>
+  </main>
+</body>
+</html>

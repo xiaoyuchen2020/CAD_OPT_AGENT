@@ -48,7 +48,7 @@ def policy_for(settings, runtime="responses_subscription"):
     return DEEP if settings.reasoning_effort == "high" else STANDARD
 
 
-def for_session(session):
+def _base_for_session(session):
     policy = policy_for(session.w.settings, getattr(getattr(session, "request", None), "runtime", "responses_subscription"))
     if policy and hasattr(session, 'task'):
         from cad_agent.analysis.capabilities import profile
@@ -65,6 +65,18 @@ def for_session(session):
                 total_ceiling_tokens=350000, reserved_finalization_tokens=150000,
                 input_soft_tokens_per_request=24000, rounds_soft=10, rounds_ceiling=20,
                 tool_calls_ceiling=24)
+    return policy
+
+
+def for_session(session):
+    policy = _base_for_session(session)
+    if policy:
+        overrides = getattr(session, 'live_control_overrides', {}).get('budget', {})
+        fields = {'max_rounds': 'rounds_ceiling', 'max_tool_calls': 'tool_calls_ceiling',
+                  'timeout_seconds': 'elapsed_ceiling_seconds'}
+        changes = {fields[key]: value for key, value in overrides.items() if key in fields}
+        if changes:
+            policy = replace(policy, **changes)
     return policy
 
 

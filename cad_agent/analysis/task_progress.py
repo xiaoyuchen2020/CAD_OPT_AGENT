@@ -18,12 +18,32 @@ def terms(step):
     return sorted(result)
 
 
+def register_search_terms(steps, ids, result):
+    """Literal query fragments are exploration hints, never acceptance credit."""
+    words = {w for group in result.get('query_variants', []) for w in group
+             if isinstance(w, str) and len(w.strip()) >= 2}
+    for step in steps:
+        if step['id'] in ids:
+            allowed = {w for w in words if any(w in t for t in terms(step))}
+            step['progress_search_terms'] = sorted(set(step.get('progress_search_terms', [])) | allowed)[:32]
+    by_id = {s['id']: s for s in steps}
+    for step in steps:
+        # An explicitly dependent requirement can investigate its producer's
+        # source too. This inherits exploration terms only, not verified facts,
+        # coverage states, operation receipts or completion.
+        if step['id'] in ids:
+            inherited = {w for dep in step.get('depends_on', []) if dep in ids
+                         for w in by_id.get(dep, {}).get('progress_search_terms', [])}
+            step['progress_search_terms'] = sorted(set(step.get('progress_search_terms', [])) | inherited)[:32]
+
+
 def record(step, name, result, evidence, duplicate, receipts=(), defer_stall=False):
     state = step.setdefault('quality_progress', dict(version=VERSION, verified=[], candidates=[], diagnostics=[], stalled=0))
     old = {k: set(state[k]) for k in ('verified', 'candidates', 'diagnostics')}
     new = {k: set() for k in old}
     targets = terms(step)
     relevant = lambda text: not targets or any(t in text for t in targets)
+    candidate_relevant = lambda text: relevant(text) or any(t in text for t in step.get('progress_search_terms', []))
     binding = result.get('source_binding') or {}
     identity = json.dumps([binding.get('title_evidence'), binding.get('fields'), result.get('title_evidence')], ensure_ascii=False)
     bound_relevant = relevant(identity)
@@ -32,12 +52,14 @@ def record(step, name, result, evidence, duplicate, receipts=(), defer_stall=Fal
             for item in result.get('items', []):
                 ref = item.get('evidence') or {}
                 text = ref.get('quote') or item.get('snippet') or item.get('text', '')
-                if relevant(text) or bound_relevant:
-                    fp = digest([ref.get('snapshot_id'), item.get('frame_id'), ref.get('bbox'), ref.get('text_span'), text])
+                if candidate_relevant(text) or bound_relevant:
+                    # Search snippets and actual reads are different stages;
+                    # reading a known candidate must not look like repetition.
+                    fp = digest(['read' if ref else 'candidate', ref.get('snapshot_id'), item.get('frame_id'), ref.get('bbox'), ref.get('text_span'), text])
                     key = 'verified' if binding.get('state') == 'source_bound' and bound_relevant else 'candidates'
                     new[key].add(fp)
             for ref in evidence.values():
-                if relevant(ref.get('quote', '')):
+                if candidate_relevant(ref.get('quote', '')):
                     new['candidates'].add(digest([ref.get('snapshot_id'), ref.get('bbox'), ref.get('text_span'), ref.get('quote')]))
             for cell in step.get('coverage', []):
                 if cell.get('source_binding_basis') or cell.get('state') in ('addressed', 'conflict'):

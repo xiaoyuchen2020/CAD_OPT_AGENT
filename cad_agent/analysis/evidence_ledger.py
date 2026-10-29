@@ -270,6 +270,20 @@ def source_context(workspace, snapshot_id, region_id, neighbors=1, start=0, boun
                 "evidence": evidence,
             }
         )
+        if len(r.parts) > 1:
+            # Preserve native CAD text boundaries inside legacy merged regions.
+            # These are exact source spans, not inferred sentence boundaries.
+            parts = [p for p in r.parts if p.text_span[0] < end and p.text_span[1] > begin]
+            fragments = []
+            for part in parts[:24]:
+                lo, hi = max(begin, part.text_span[0]), min(end, part.text_span[1])
+                fragments.append(dict(
+                    entity_id=part.entity_id,
+                    native_part_complete=[lo, hi] == list(part.text_span),
+                    evidence=bind_evidence(snapshot_id, r, lo, hi, drawing['unit']).model_dump()))
+            items[-1]['native_fragments'] = fragments
+            items[-1]['native_fragments_omitted'] = max(0, len(parts)-len(fragments))
+            items[-1]['boundary_note'] = '以下为原生图元文字边界；合并区域可能跨栏。逐项核对原文与位置后选择证据；原生片段完整不等于条文或适用范围完整。'
     next_actions = [
         {"tool": "read_source_context", "arguments": {
             "region_id": item["region_id"], "neighbors": 0, "start": item["next_start"]}}

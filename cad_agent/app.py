@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 from typing import Literal
 import json
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
@@ -57,6 +57,8 @@ def create_app(settings=None):
     app.include_router(adaptation_router(workspace))
     from cad_agent.analysis.review_api import router as review_router
     app.include_router(review_router(workspace))
+    from cad_agent.analysis.generated_artifacts import router as generated_artifact_router
+    app.include_router(generated_artifact_router(workspace))
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=3)
     app.add_middleware(
         TrustedHostMiddleware,
@@ -254,6 +256,29 @@ def create_app(settings=None):
             workspace.ingest, file.filename or "drawing.dxf", bytes(data)
         )
 
+    @app.post("/api/fleet-import", status_code=201)
+    async def fleet_import(request: Request, original: UploadFile = File(...),
+                           dxf: UploadFile = File(...), oda_json: UploadFile = File(...),
+                           job_id: str = Form(...)):
+        import hmac
+        import os
+        secret = os.environ.get('CAD_FLEET_TOKEN', '')
+        supplied = request.headers.get('authorization', '')
+        if not secret or not hmac.compare_digest(supplied, 'Bearer ' + secret):
+            raise HTTPException(403, '仅接受已授权的本机 Worker。')
+        async def bounded(file, limit):
+            body = bytearray()
+            while chunk := await file.read(1024 * 1024):
+                body.extend(chunk)
+                if len(body) > limit:
+                    raise HTTPException(413, '转换产物超过大小限制。')
+            return bytes(body)
+        source = await bounded(original, settings.max_upload_bytes)
+        converted = await bounded(dxf, settings.oda_max_result_bytes)
+        metadata = await bounded(oda_json, settings.oda_max_result_bytes)
+        return await run_in_threadpool(workspace.ingest_preconverted,
+            original.filename or 'drawing.dwg', source, converted, metadata, job_id)
+
     @app.post("/api/demo")
     def demo():
         path = settings.data_dir / "demo.dxf"
@@ -422,6 +447,20 @@ def create_app(settings=None):
     def chat(request: ChatRequest):
         return workspace.answer(request)
 
+    @app.post("/api/fleet-runs", status_code=202)
+    def fleet_run(request: Request, payload: ChatRequest):
+        import hmac
+        import os
+        import re
+        secret = os.environ.get('CAD_FLEET_TOKEN', '')
+        if not secret or not hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + secret):
+            raise HTTPException(403, '仅接受已授权的本机 Worker。')
+        key = request.headers.get('x-fleet-execution', '')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,160}', key):
+            raise HTTPException(400, '执行编号格式无效。')
+        with workspace.lock:
+            return workspace.start_chat(payload, fleet_execution_key=key)
+
     @app.post("/api/chat-runs", status_code=202)
     def start_chat(request: ChatRequest):
         return workspace.start_chat(request)
@@ -479,6 +518,11 @@ def create_app(settings=None):
     @app.post('/api/chat-runs/{run_id}/steer')
     def steer_chat(run_id: str, request: ChatSteerRequest):
         return workspace.steer_chat(run_id, request)
+
+    from cad_agent.harness.live_controls import register as register_live_controls
+    register_live_controls(app, workspace)
+    from cad_agent.fleet.supervisor import register_agent_supervisor
+    register_agent_supervisor(app, workspace)
 
     @app.get('/api/chat-runs/{run_id}/harness-events')
     def harness_events(run_id: str, after: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=200)):

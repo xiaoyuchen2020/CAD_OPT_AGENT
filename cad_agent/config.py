@@ -1,6 +1,7 @@
 from dataclasses import dataclass, replace
 from pathlib import Path
 import os
+import math
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,6 +52,16 @@ class Settings:
     oda_poll_seconds: float = 1
     oda_max_result_bytes: int = 256 * 1024 * 1024
     embedding_model_dir: Path = ROOT / ".data/models/bge-small-zh-v1.5"
+
+    model_read_timeout_seconds: float = 60
+
+    def __post_init__(self):
+        try:
+            valid = math.isfinite(self.model_read_timeout_seconds) and self.model_read_timeout_seconds > 0
+        except TypeError:
+            valid = False
+        if not valid:
+            raise ValueError('CAD_MODEL_READ_TIMEOUT_SECONDS must be finite and greater than zero')
 
     def model_catalog(self):
         """Server-owned endpoints only; credentials never go to the browser."""
@@ -118,6 +129,7 @@ class Settings:
             siwc_max_concurrency=int(e.get("CAD_SIWC_MAX_CONCURRENCY", "1")),
             siwc_queue_timeout_seconds=float(e.get("CAD_SIWC_QUEUE_TIMEOUT_SECONDS", "600")),
             agent_timeout_seconds=int(e.get("CAD_AGENT_TIMEOUT_SECONDS","180")),
+            model_read_timeout_seconds=float(e.get("CAD_MODEL_READ_TIMEOUT_SECONDS", "60")),
             agent_max_tool_calls=int(e.get("CAD_AGENT_MAX_TOOL_CALLS","16")),
             agent_max_rounds=int(e.get("CAD_AGENT_MAX_ROUNDS","8")),
             oda_base_url=e.get("CAD_ODA_BASE_URL", "http://192.168.1.146:18080").rstrip("/"),

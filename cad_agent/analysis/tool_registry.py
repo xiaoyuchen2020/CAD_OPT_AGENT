@@ -161,7 +161,6 @@ from cad_agent.analysis.source_candidates import SearchSourceRecords
 
 from cad_agent.analysis.task_methods import DevelopMethod, RunTaskMethod
 from cad_agent.extensions.programs import contracts as program_contracts
-from cad_agent.analysis.method_authorization import authorization as method_authorization
 
 TOOL_SPECS = {
     "inspect_tool_implementation": (program_contracts.InspectTool, "读取可修订工具的真实内核源码、哈希和受保护契约。当前开放read_assembly片段分组排序。"),
@@ -278,6 +277,7 @@ TOOL_SPECS = {
 
 
 def tool_definitions(efficient=False, session=None):
+    from cad_agent.analysis.task_methods import enabled as methods_enabled
     result = [
         {
             "type": "function",
@@ -288,7 +288,7 @@ def tool_definitions(efficient=False, session=None):
             },
         }
         for name, (schema, desc) in TOOL_SPECS.items()
-        if name not in ({'develop_method', 'run_task_method'} | program_contracts.TOOLS) or (session is not None and method_authorization(session.request)['mode'] == 'task_verified' and session.request.runtime == 'responses_subscription' and session.w.settings.model == 'gpt-6.1-sol')
+        if name not in ({'develop_method', 'run_task_method'} | program_contracts.TOOLS) or (session is not None and methods_enabled(session))
         if name != 'batch_read_sources' or (session is not None and session.request.source_read_batching)
         if session is None or runtime_supports(name, session.request.runtime, session.w.settings.provider)
         if name not in ('finish_analysis','request_toolset') or (session is not None and session.focused_enabled)
@@ -373,7 +373,8 @@ def runtime_supports(name, runtime, provider):
     if name not in TOOL_SPECS or runtime not in RUNTIMES:
         return False
     if name in {'develop_method', 'run_task_method'} | program_contracts.TOOLS:
-        return provider == 'responses_subscription' and runtime == 'responses_subscription'
+        from cad_agent.analysis.method_runtime import runtime_supported
+        return runtime_supported(runtime, provider)
     if name in {'finish_analysis', 'request_toolset'}:
         return runtime in {'native', 'responses_subscription'}
     if name in VISUAL_TOOLS:

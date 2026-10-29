@@ -84,12 +84,20 @@ class Workspace:
         with self.import_lock:
             return self._ingest(filename, content, synthetic)
 
+    def ingest_preconverted(self, filename, original, dxf, oda_json, job_id):
+        from cad_agent.fleet.conversion import validate_bundle
+        if Path(filename).suffix.lower() != '.dwg':
+            raise ValueError('预转换产物必须绑定原始 DWG。')
+        converted = validate_bundle(self.settings, filename, original, dxf, oda_json, job_id)
+        with self.import_lock:
+            return self._ingest(filename, original, converted_bundle=converted)
+
     def reindex(self, snapshot_id):
         """Use the shared immutable reindexer; never reconvert or rewrite history."""
         from cad_agent.cad.reindex import reindex_drawing
         return reindex_drawing(self, snapshot_id)
 
-    def _ingest(self, filename, content, synthetic=False):
+    def _ingest(self, filename, content, synthetic=False, converted_bundle=None):
         filename = Path(filename.replace("\\", "/")).name
         suffix = Path(filename).suffix.lower()
         if suffix not in (".dxf", ".dwg"):
@@ -113,7 +121,7 @@ class Workspace:
                             and all((folder / name).is_file() for name in ("scene.json", "entities.json", "regions.json"))):
                         return previous
                     raise ConversionError("ODA_LOCAL_RESULT_DAMAGED", "此前导入的本地转换文件缺失或校验失败，请恢复该快照文件后重试。")
-            converted = self.converter.convert(filename, content)
+            converted = converted_bundle or self.converter.convert(filename, content)
         parsed_content = converted.dxf if converted else content
         digest = sha256(parsed_content).hexdigest()
         identity = ("oda-dwg-v1", original_digest) if converted else ()
@@ -475,12 +483,19 @@ class Workspace:
             )
         return messages
 
-    def start_chat(self, request):
+    def start_chat(self, request, fleet_execution_key=None):
         from cad_agent.analysis.agent import AgentRunner, AGENT_VERSION
         from cad_agent.analysis.method_authorization import authorization
 
         if request.mode != "agent":
             raise ValueError("后台问答只接受 agent 模式；本地查询使用 /api/chat。")
+        if fleet_execution_key:
+            with self.lock:
+                previous = self.store.list('chat_run', filters={'fleet_execution_key': fleet_execution_key})
+                if previous:
+                    if previous[0]['request'] != request.model_dump():
+                        raise ValueError('执行编号已绑定其他请求。')
+                    return previous[0]
         runner = AgentRunner(self, request)
         method_permission = authorization(request)
         history = self.chat_history(request)
@@ -497,6 +512,7 @@ class Workspace:
                 raise ValueError("已有两个模型问答正在执行，请等待完成后重试。")
             record = {
                 "id": "chat_" + uuid4().hex,
+                "fleet_execution_key": fleet_execution_key,
                 "snapshot_id": request.snapshot_id,
                 "created_at": now(),
                 "request": request.model_dump(),
@@ -559,6 +575,8 @@ class Workspace:
                     saved_task=self.execution.read(c,'agent_task',runner.task.data['task_id'])
                     from cad_agent.harness.inbox import require_current
                     require_current(runner,current)
+                    from cad_agent.harness.live_controls import require_current as require_control_current
+                    require_control_current(runner,current)
                     if current.get('execution_token')!=token or saved_task.get('execution_token')!=token or current.get('execution_lease_until',0)<time.time() or current.get('cancel_requested'):
                         raise ExecutionCancelled('任务取消或执行租约已失效。')
                     runner.task.data.update(execution_lease_until=0,execution_token=None,revision=saved_task.get('revision',0)+1,updated_at=now())
@@ -642,6 +660,8 @@ class Workspace:
                 if latest.get('execution_token') == token and latest.get('execution_lease_until',0) >= time.time():
                     from cad_agent.harness.recovery import close_unsettled
                     close_unsettled(c,record['id'],self.execution.events.append_in)
+                    from cad_agent.harness.live_controls import settle_unapplied
+                    settle_unapplied(self.execution, c, record['id'], latest)
                     self.execution.events.append_in(c,record['id'],'run.ended',{'status':latest['status']})
             latest=self.store.get('chat_run',record['id'])
             if latest.get('cancel_requested') and latest['status'] in ('queued','running'):
