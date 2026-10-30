@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>数据来源总览 · CAD Atlas</title><link rel="stylesheet" href="/source-overview/assets/source-overview.css"></head>
+<body>
+<header><a class="brand" href="/">CAD Atlas</a><strong>数据来源总览</strong><nav><a href="/results.html" id="results-link">任务成果</a><a href="/">返回任务中心</a></nav></header>
+<div id="notice" role="alert" hidden></div>
+<section class="toolbar" aria-label="数据范围">
+<label class="job-picker">任务<select id="job"><option>正在读取…</option></select></label>
+<label>范围<select id="scope"><option value="task">当前任务</option><option value="project">同项目来源</option></select></label>
+<label>执行批次<select id="attempt"></select></label>
+<label class="check"><input type="checkbox" id="history">包含历史采集批次</label>
+<button id="refresh" type="button">刷新</button><label class="check"><input type="checkbox" id="auto" checked>自动同步</label>
+</section>
+<div class="task-info"><span id="task-status"></span><span id="sync-status" aria-live="polite"></span></div>
+<main class="workspace">
+<aside class="drawings"><h2>来源图纸</h2><div id="drawing-list"></div><button id="missing" type="button">待定位来源</button><p class="muted">不同图纸版本分别显示。同一位置合并高亮，保留各任务与规则关联。</p></aside>
+<section class="viewer" aria-label="图纸来源高亮">
+<div class="filters"><label>布局<select id="layout"></select></label><label>显示<select id="stage"><option value="">全部已提取来源</option><option value="analysis_input">已选入分析</option><option value="read">已读取记录</option><option value="delivered">已交付</option><option value="packaged">已发布事实包</option><option value="pending">待核对</option></select></label><label class="check"><input type="checkbox" checked id="overlay">来源高亮</label></div>
+<div class="canvas"><iframe id="drawing" title="原图矢量查看器" hidden></iframe><div id="empty">选择任务后，在这里查看全部来源高亮。</div></div>
+<div class="legend"><span><i class="read"></i>已提取</span><span><i class="selected"></i>已选入分析</span><span><i class="pending"></i>待核对</span><span><i class="focus"></i>当前选中</span></div>
+<div id="location-status" class="muted" aria-live="polite"></div><div id="counts" class="muted"></div>
+</section>
+<aside class="details"><h2>来源与分析输入</h2>
+<label>规则<select id="rule"><option value="">全部规则</option></select></label><label>分析轮次<select id="workflow"><option value="">全部轮次（含历史）</option></select></label>
+<label>搜索原文 / 数据<input id="search" type="search" placeholder="例如：防水、厚度、材料"></label>
+<div id="selected" aria-live="polite"></div>
+<details id="gaps"><summary>缺口与待确认条件 <span id="gap-count"></span></summary><div id="gap-list"></div></details>
+<details id="warnings"><summary>同步与定位说明 <span id="warning-count"></span></summary><div id="warning-list"></div></details>
+<h3 id="list-heading">来源清单</h3><div id="sources"></div><button id="more" type="button" hidden>继续显示 50 项</button>
+</aside>
+</main><footer>高亮表示证据位置；选入分析不代表规则适用性、工程完整性或合规结论已经确认。未提供整图提取百分比。</footer>
+<script type="module" src="/source-overview/assets/source-overview.js"></script></body></html>
